@@ -30,7 +30,7 @@ export const balanceOf = (c: Customer) =>
   c.txns.reduce((sum, t) => sum + (t.type === "sale" ? t.amount : -t.amount), 0);
 
 export const lastActivity = (c: Customer) =>
-  c.txns.length ? c.txns[c.txns.length - 1].date : c.createdAt;
+  c.txns.length ? c.txns[c.txns.length - 1]!.date : c.createdAt;
 
 export const waPhone = (raw: string) => {
   const digits = raw.replace(/\D/g, "");
