@@ -1,6 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowLeft, Plus, MessageCircle, Search, X, Pencil, Check } from "lucide-react";
+import {
+  ArrowLeft,
+  Plus,
+  MessageCircle,
+  Search,
+  X,
+  Pencil,
+  Check,
+  Trash2,
+} from "lucide-react";
 import {
   OVERDUE_DAYS,
   balanceOf,
@@ -8,12 +17,11 @@ import {
   fmtDate,
   lastActivity,
   naira,
-  seed,
   todayISO,
   waLink,
-  type Customer,
   type Txn,
 } from "@/lib/ledger";
+import { usePersistentBusinessName, usePersistentCustomers } from "@/lib/use-ledger-storage";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -35,17 +43,19 @@ export const Route = createFileRoute("/")({
   component: DebtTracker,
 });
 
-type Screen = "list" | "detail" | "addCustomer" | "addTxn";
+type Screen = "list" | "detail" | "addCustomer" | "addTxn" | "editTxn" | "editCustomer";
 
 function DebtTracker() {
-  const [businessName, setBusinessName] = useState("Amaka Provisions");
+  const [businessName, setBusinessName] = usePersistentBusinessName("Amaka Provisions");
   const [editingName, setEditingName] = useState(false);
-  const [customers, setCustomers] = useState<Customer[]>(seed);
+  const [customers, setCustomers] = usePersistentCustomers();
   const [screen, setScreen] = useState<Screen>("list");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editingTxnId, setEditingTxnId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [txnType, setTxnType] = useState<Txn["type"]>("sale");
   const [form, setForm] = useState({ name: "", phone: "", amount: "", note: "" });
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const selected = customers.find((c) => c.id === selectedId);
   const totalOwed = customers.reduce((s, c) => s + Math.max(balanceOf(c), 0), 0);
@@ -72,6 +82,26 @@ function DebtTracker() {
     setScreen("list");
   };
 
+  const saveCustomerEdit = () => {
+    if (!selectedId || !form.name.trim() || !form.phone.trim()) return;
+    setCustomers((cs) =>
+      cs.map((c) =>
+        c.id === selectedId ? { ...c, name: form.name.trim(), phone: form.phone.trim() } : c,
+      ),
+    );
+    resetForm();
+    setScreen("detail");
+  };
+
+  const deleteCustomer = () => {
+    if (!selectedId) return;
+    setCustomers((cs) => cs.filter((c) => c.id !== selectedId));
+    setSelectedId(null);
+    setConfirmDelete(null);
+    resetForm();
+    setScreen("list");
+  };
+
   const addTxn = () => {
     const amt = parseFloat(form.amount);
     if (!amt || amt <= 0 || !selectedId) return;
@@ -87,6 +117,45 @@ function DebtTracker() {
     );
     resetForm();
     setScreen("detail");
+  };
+
+  const saveTxnEdit = () => {
+    const amt = parseFloat(form.amount);
+    if (!amt || amt <= 0 || !selectedId || !editingTxnId) return;
+    setCustomers((cs) =>
+      cs.map((c) =>
+        c.id === selectedId
+          ? {
+              ...c,
+              txns: c.txns.map((t) =>
+                t.id === editingTxnId
+                  ? { ...t, type: txnType, amount: amt, note: form.note.trim() }
+                  : t,
+              ),
+            }
+          : c,
+      ),
+    );
+    setEditingTxnId(null);
+    resetForm();
+    setScreen("detail");
+  };
+
+  const deleteTxn = (txnId: string) => {
+    if (!selectedId) return;
+    setCustomers((cs) =>
+      cs.map((c) =>
+        c.id === selectedId ? { ...c, txns: c.txns.filter((t) => t.id !== txnId) } : c,
+      ),
+    );
+    setConfirmDelete(null);
+  };
+
+  const openEditTxn = (t: Txn) => {
+    setEditingTxnId(t.id);
+    setTxnType(t.type);
+    setForm({ name: "", phone: "", amount: String(t.amount), note: t.note });
+    setScreen("editTxn");
   };
 
   return (
@@ -238,20 +307,98 @@ function DebtTracker() {
           </div>
         )}
 
-        {/* ===== ADD TRANSACTION ===== */}
-        {screen === "addTxn" && selected && (
+        {/* ===== EDIT CUSTOMER ===== */}
+        {screen === "editCustomer" && selected && (
           <div className="p-4">
             <div className="flex items-center gap-3 pt-4 pb-6">
               <button
                 onClick={() => {
                   resetForm();
+                  setConfirmDelete(null);
                   setScreen("detail");
                 }}
                 aria-label="Close"
               >
                 <X size={20} />
               </button>
-              <h2 className="font-semibold text-lg">{selected.name}</h2>
+              <h2 className="font-semibold text-lg">Edit customer</h2>
+            </div>
+
+            <label className="mono text-[11px] tracking-widest text-ink-soft">NAME</label>
+            <input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="input-field w-full rounded px-3 py-2.5 mt-1 mb-4 text-sm"
+            />
+
+            <label className="mono text-[11px] tracking-widest text-ink-soft">
+              WHATSAPP NUMBER
+            </label>
+            <input
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              inputMode="tel"
+              className="input-field w-full rounded px-3 py-2.5 mt-1 mb-6 text-sm"
+            />
+
+            <button
+              onClick={saveCustomerEdit}
+              className="btn-primary w-full rounded py-3 text-sm font-semibold"
+            >
+              Save changes
+            </button>
+
+            <div className="perforated rounded mt-8 p-4">
+              {confirmDelete === "customer" ? (
+                <>
+                  <p className="text-sm text-ink">
+                    Delete {selected.name} and all {selected.txns.length} transactions?
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 mt-3">
+                    <button
+                      onClick={() => setConfirmDelete(null)}
+                      className="rounded py-2 text-sm font-semibold border border-line bg-paper-raised"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={deleteCustomer}
+                      className="rounded py-2 text-sm font-semibold bg-destructive text-destructive-foreground"
+                    >
+                      Yes, delete
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <button
+                  onClick={() => setConfirmDelete("customer")}
+                  className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-debt py-1"
+                >
+                  <Trash2 size={15} /> Delete customer
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ===== ADD / EDIT TRANSACTION ===== */}
+        {(screen === "addTxn" || screen === "editTxn") && selected && (
+          <div className="p-4">
+            <div className="flex items-center gap-3 pt-4 pb-6">
+              <button
+                onClick={() => {
+                  resetForm();
+                  setEditingTxnId(null);
+                  setScreen("detail");
+                }}
+                aria-label="Close"
+              >
+                <X size={20} />
+              </button>
+              <h2 className="font-semibold text-lg">
+                {screen === "editTxn" ? "Edit entry · " : ""}
+                {selected.name}
+              </h2>
             </div>
 
             <div className="flex rounded overflow-hidden border border-line mb-5">
@@ -292,11 +439,27 @@ function DebtTracker() {
             />
 
             <button
-              onClick={addTxn}
+              onClick={screen === "editTxn" ? saveTxnEdit : addTxn}
               className="btn-primary w-full rounded py-3 text-sm font-semibold"
             >
-              Save {txnType === "sale" ? "sale" : "payment"}
+              {screen === "editTxn"
+                ? "Save changes"
+                : `Save ${txnType === "sale" ? "sale" : "payment"}`}
             </button>
+
+            {screen === "editTxn" && editingTxnId && (
+              <button
+                onClick={() => {
+                  deleteTxn(editingTxnId);
+                  setEditingTxnId(null);
+                  resetForm();
+                  setScreen("detail");
+                }}
+                className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-debt py-3 mt-3 perforated rounded"
+              >
+                <Trash2 size={15} /> Delete entry
+              </button>
+            )}
           </div>
         )}
 
@@ -308,10 +471,28 @@ function DebtTracker() {
                 <button onClick={() => setScreen("list")} aria-label="Back">
                   <ArrowLeft size={20} />
                 </button>
-                <div>
-                  <h2 className="font-semibold text-lg leading-tight">{selected.name}</h2>
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-semibold text-lg leading-tight truncate">
+                    {selected.name}
+                  </h2>
                   <p className="mono text-[11px] text-ink-soft">{selected.phone}</p>
                 </div>
+                <button
+                  onClick={() => {
+                    setForm({
+                      name: selected.name,
+                      phone: selected.phone,
+                      amount: "",
+                      note: "",
+                    });
+                    setConfirmDelete(null);
+                    setScreen("editCustomer");
+                  }}
+                  aria-label="Edit customer"
+                  className="text-ink-soft"
+                >
+                  <Pencil size={16} />
+                </button>
               </div>
 
               <div className="perforated rounded mt-5 p-4 text-center">
@@ -386,15 +567,47 @@ function DebtTracker() {
                       {fmtDate(t.date)}
                       {t.note ? ` · ${t.note}` : ""}
                     </p>
+                    {confirmDelete === t.id && (
+                      <span className="flex items-center gap-2 mt-2">
+                        <button
+                          onClick={() => deleteTxn(t.id)}
+                          className="rounded px-2 py-1 text-[11px] font-semibold bg-destructive text-destructive-foreground"
+                        >
+                          Delete
+                        </button>
+                        <button
+                          onClick={() => setConfirmDelete(null)}
+                          className="rounded px-2 py-1 text-[11px] font-semibold border border-line"
+                        >
+                          Cancel
+                        </button>
+                      </span>
+                    )}
                   </div>
-                  <p
-                    className={`mono text-sm font-bold shrink-0 ${
-                      t.type === "sale" ? "text-debt" : "text-paid"
-                    }`}
-                  >
-                    {t.type === "sale" ? "+" : "−"}
-                    {naira(t.amount)}
-                  </p>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <p
+                      className={`mono text-sm font-bold ${
+                        t.type === "sale" ? "text-debt" : "text-paid"
+                      }`}
+                    >
+                      {t.type === "sale" ? "+" : "−"}
+                      {naira(t.amount)}
+                    </p>
+                    <button
+                      onClick={() => openEditTxn(t)}
+                      aria-label="Edit entry"
+                      className="text-ink-soft"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete(t.id)}
+                      aria-label="Delete entry"
+                      className="text-ink-soft"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </section>
