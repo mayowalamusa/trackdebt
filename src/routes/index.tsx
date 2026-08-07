@@ -1005,7 +1005,7 @@ function Stat({
   icon: React.ReactNode;
   label: string;
   value: string;
-  tone?: "debt" | "paid";
+  tone?: "debt" | "paid" | undefined;
 }) {
   return (
     <div className="rounded border border-line bg-paper px-3 py-2.5">
