@@ -1,50 +1,42 @@
 import { useEffect, useState } from "react";
-import type { Customer } from "./ledger";
-import { seed } from "./ledger";
+import type { BusinessProfile, Customer } from "./ledger";
+import { emptyProfile } from "./ledger";
 
-const KEY = "debtbook.v1";
-
-export function usePersistentCustomers() {
-  const [customers, setCustomers] = useState<Customer[]>(seed);
+function usePersisted<T>(key: string, initial: T) {
+  const [value, setValue] = useState<T>(initial);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem(KEY);
-      if (raw) setCustomers(JSON.parse(raw) as Customer[]);
+      const raw = window.localStorage.getItem(key);
+      if (raw) setValue(JSON.parse(raw) as T);
     } catch {
       /* ignore corrupt storage */
     }
     setLoaded(true);
-  }, []);
+  }, [key]);
 
   useEffect(() => {
     if (!loaded) return;
     try {
-      window.localStorage.setItem(KEY, JSON.stringify(customers));
+      window.localStorage.setItem(key, JSON.stringify(value));
     } catch {
       /* ignore quota errors */
     }
-  }, [customers, loaded]);
+  }, [key, value, loaded]);
 
-  return [customers, setCustomers] as const;
+  return [value, setValue, loaded] as const;
 }
 
-const NAME_KEY = "debtbook.business";
+export function usePersistentCustomers() {
+  const [customers, setCustomers, loaded] = usePersisted<Customer[]>("debtbook.v2.customers", []);
+  return [customers, setCustomers, loaded] as const;
+}
 
-export function usePersistentBusinessName(initial: string) {
-  const [name, setName] = useState(initial);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    const stored = window.localStorage.getItem(NAME_KEY);
-    if (stored) setName(stored);
-    setLoaded(true);
-  }, []);
-
-  useEffect(() => {
-    if (loaded) window.localStorage.setItem(NAME_KEY, name);
-  }, [name, loaded]);
-
-  return [name, setName] as const;
+export function usePersistentProfile() {
+  const [profile, setProfile, loaded] = usePersisted<BusinessProfile>(
+    "debtbook.v2.profile",
+    emptyProfile,
+  );
+  return [profile, setProfile, loaded] as const;
 }
