@@ -215,19 +215,19 @@ function DebtTracker() {
           .reduce((s, t) => s + (t.type === "sale" ? t.amount : -t.amount), 0);
         return {
           ...c,
-          txns: c.txns.map((t) =>
-            t.id === editingTxnId
-              ? {
-                  ...t,
-                  type: txnType,
-                  amount: amt,
-                  note: form.note.trim(),
-                  ...(txnType === "payment"
-                    ? { kind: (amt >= others ? "full" : "partial") as "full" | "partial" }
-                    : { kind: undefined }),
-                }
-              : t,
-          ),
+          txns: c.txns.map((t): Txn => {
+            if (t.id !== editingTxnId) return t;
+            const base: Txn = {
+              id: t.id,
+              date: t.date,
+              type: txnType,
+              amount: amt,
+              note: form.note.trim(),
+            };
+            if (txnType === "payment") base.kind = amt >= others ? "full" : "partial";
+            return base;
+          }),
+
         };
       }),
     );
