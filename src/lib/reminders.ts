@@ -34,7 +34,7 @@ export type ReminderContext = {
   businessPhone: string;
   outstanding: string;
   originalAmount: string;
-  dueDateLong?: string;
+  dueDateLong?: string | undefined;
   daysOverdue: number;
   status: "no-due-date" | "not-due" | "due-today" | "overdue";
 };
