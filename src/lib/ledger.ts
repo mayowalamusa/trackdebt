@@ -1,3 +1,19 @@
+export const APP_NAME = "Track Debt";
+export const APP_VERSION = "3.0.0";
+
+/** Payment terms attached to a credit sale. Stored per-transaction so that
+ *  future features (multiple invoices, credit terms, forecasting, analytics)
+ *  can build on the same record without a data migration. */
+export type TermKey = "none" | "today" | "d7" | "d14" | "d30" | "custom";
+
+export type PaymentTerm = {
+  key: TermKey;
+  /** ISO date (yyyy-mm-dd). Absent when key === "none". */
+  dueDate?: string;
+  /** ISO timestamp for when the term was set. */
+  setAt?: string;
+};
+
 export type Txn = {
   id: string;
   type: "sale" | "payment";
@@ -6,6 +22,10 @@ export type Txn = {
   amount: number;
   date: string;
   note: string;
+  /** sales only: payment terms for this credit sale */
+  term?: PaymentTerm;
+  /** receipt / invoice reference, e.g. TD-2026-000001 */
+  reference?: string;
 };
 
 export type Customer = {
@@ -48,14 +68,25 @@ export const BUSINESS_CATEGORIES = [
   "Other",
 ];
 
-export const OVERDUE_DAYS = 14;
-
 export const naira = (n: number) => "₦" + Math.round(n).toLocaleString("en-NG");
 
 export const todayISO = () => new Date().toISOString().slice(0, 10);
 
+export const addDaysISO = (days: number, from = todayISO()) => {
+  const d = new Date(from + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+};
+
+/** Whole days from `iso` until today. Positive = in the past. */
 export const daysSince = (iso: string) =>
-  Math.floor((Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24));
+  Math.round(
+    (new Date(todayISO() + "T00:00:00").getTime() - new Date(iso + "T00:00:00").getTime()) /
+      86400000,
+  );
+
+/** Whole days from today until `iso`. Negative = overdue. */
+export const daysUntil = (iso: string) => -daysSince(iso);
 
 export const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-NG", { day: "numeric", month: "short" });
@@ -63,7 +94,7 @@ export const fmtDate = (iso: string) =>
 export const fmtDateLong = (iso: string) =>
   new Date(iso).toLocaleDateString("en-NG", {
     day: "numeric",
-    month: "short",
+    month: "long",
     year: "numeric",
   });
 
@@ -72,9 +103,6 @@ export const balanceOf = (c: Customer) =>
 
 export const lastActivity = (c: Customer) =>
   c.txns.length ? c.txns[c.txns.length - 1]!.date : c.createdAt;
-
-export const isOverdue = (c: Customer) =>
-  balanceOf(c) > 0 && daysSince(lastActivity(c)) > OVERDUE_DAYS;
 
 export const thisMonth = (iso: string) => iso.slice(0, 7) === todayISO().slice(0, 7);
 
@@ -88,35 +116,24 @@ export const waPhone = (raw: string) => {
 export const waLink = (phone: string, text: string) =>
   `https://wa.me/${waPhone(phone)}?text=${encodeURIComponent(text)}`;
 
-const profileFooter = (p: BusinessProfile) =>
+export const profileFooter = (p: BusinessProfile) =>
   [p.phone, p.email, p.address].filter(Boolean).join(" · ");
 
-export const reminderMessage = (c: Customer, p: BusinessProfile) => {
-  const biz = p.name || "us";
-  const lines = [
-    `Hello ${c.name},`,
-    ``,
-    `This is a friendly reminder that your outstanding balance with ${biz} is ${naira(
-      balanceOf(c),
-    )} as at ${fmtDateLong(todayISO())}.`,
-    ``,
-    `Kindly settle when you can. Thank you!`,
-  ];
-  const footer = profileFooter(p);
-  if (footer) lines.push(``, footer);
-  return lines.join("\n");
-};
+export const txnLabel = (t: Txn) =>
+  t.type === "sale" ? "Credit sale" : t.kind === "partial" ? "Part payment" : "Full payment";
 
 export const receiptMessage = (c: Customer, t: Txn, p: BusinessProfile) => {
-  const biz = p.name || "Receipt";
+  const biz = p.name || APP_NAME;
   const lines = [
     `*${biz.toUpperCase()}*`,
     p.category,
     ``,
-    `RECEIPT · ${fmtDateLong(t.date)}`,
+    `RECEIPT ${t.reference ?? ""}`.trim(),
+    fmtDateLong(t.date),
     `Customer: ${c.name}`,
-    `${t.type === "sale" ? "Credit sale" : t.kind === "partial" ? "Part payment" : "Payment"}: ${naira(t.amount)}`,
+    `${txnLabel(t)}: ${naira(t.amount)}`,
     t.note ? `Note: ${t.note}` : "",
+    t.term?.dueDate ? `Payment due: ${fmtDateLong(t.term.dueDate)}` : "",
     `Balance after: ${naira(balanceOf(c))}`,
   ].filter(Boolean);
   const footer = profileFooter(p);
@@ -125,7 +142,7 @@ export const receiptMessage = (c: Customer, t: Txn, p: BusinessProfile) => {
 };
 
 export const statementMessage = (c: Customer, p: BusinessProfile) => {
-  const biz = p.name || "Statement";
+  const biz = p.name || APP_NAME;
   const rows = c.txns.map(
     (t) =>
       `${fmtDate(t.date)}  ${t.type === "sale" ? "+" : "−"}${naira(t.amount)}${
