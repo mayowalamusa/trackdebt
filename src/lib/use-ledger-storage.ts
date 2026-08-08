@@ -67,24 +67,24 @@ export function useSubscription() {
   return [sub, setSub, loaded] as const;
 }
 
+const COUNTER_KEY = "trackdebt.v3.receiptCounter";
+
 /** Monotonic receipt counter. Numbers are never reused, even after a
- *  transaction is deleted. */
-export function useReceiptCounter() {
-  const [counter, setCounter, loaded] = usePersisted<{ year: number; next: number }>(
-    "trackdebt.v3.receiptCounter",
-    { year: new Date().getFullYear(), next: 1 },
-  );
-
-  const issueReference = useCallback(() => {
-    const year = new Date().getFullYear();
-    let n = 1;
-    setCounter((c) => {
-      const base = c.year === year ? c.next : 1;
-      n = base;
-      return { year, next: base + 1 };
-    });
-    return `TD-${year}-${String(n).padStart(6, "0")}`;
-  }, [setCounter]);
-
-  return { counter, issueReference, loaded };
+ *  transaction is deleted. Written synchronously so two quick calls can
+ *  never collide. */
+export function issueReceiptReference(): string {
+  const year = new Date().getFullYear();
+  let next = 1;
+  try {
+    const raw = window.localStorage.getItem(COUNTER_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as { year: number; next: number };
+      if (parsed.year === year && Number.isFinite(parsed.next)) next = parsed.next;
+    }
+    window.localStorage.setItem(COUNTER_KEY, JSON.stringify({ year, next: next + 1 }));
+  } catch {
+    /* fall back to the computed value */
+  }
+  return `TD-${year}-${String(next).padStart(6, "0")}`;
 }
+
