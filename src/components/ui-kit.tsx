@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import { ArrowLeft, Crown, WifiOff, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -146,13 +145,13 @@ export function ScreenHeader({ title, onClose }: { title: string; onClose: () =>
 export function PageHeader({ title, backTo }: { title: string; backTo: string }) {
   return (
     <header className="flex items-center gap-2 px-3 pt-6 pb-5 border-b border-line bg-paper-raised">
-      <Link
-        to={backTo}
+      <a
+        href={backTo}
         aria-label="Go back"
         className="h-11 w-11 grid place-items-center rounded text-ink"
       >
         <ArrowLeft size={20} aria-hidden="true" />
-      </Link>
+      </a>
       <h1 className="font-semibold text-lg truncate">{title}</h1>
     </header>
   );
@@ -221,12 +220,12 @@ export function PremiumGate({
           >
             Maybe later
           </button>
-          <Link
-            to="/upgrade"
+          <a
+            href="/upgrade"
             className="btn-primary min-h-11 rounded grid place-items-center text-sm font-semibold"
           >
             Upgrade to Pro
-          </Link>
+          </a>
         </div>
       </div>
     </div>

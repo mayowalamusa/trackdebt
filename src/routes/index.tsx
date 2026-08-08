@@ -21,11 +21,9 @@ import {
   BUSINESS_CATEGORIES,
   balanceOf,
   fmtDate,
-  isOverdue,
   lastActivity,
   naira,
   receiptMessage,
-  reminderMessage,
   statementMessage,
   thisMonth,
   todayISO,
@@ -34,6 +32,8 @@ import {
   type Customer,
   type Txn,
 } from "@/lib/ledger";
+import { isOverdue } from "@/lib/due-dates";
+import { buildReminder } from "@/lib/reminders";
 import { usePersistentCustomers, usePersistentProfile } from "@/lib/use-ledger-storage";
 
 export const Route = createFileRoute("/")({
@@ -885,7 +885,7 @@ function DebtTracker() {
 
               {balanceOf(selected) > 0 && (
                 <a
-                  href={waLink(selected.phone, reminderMessage(selected, profile))}
+                  href={waLink(selected.phone, buildReminder(selected, profile))}
                   target="_blank"
                   rel="noreferrer"
                   className="btn-wa mt-2 rounded py-2.5 text-sm font-semibold flex items-center justify-center gap-2"
