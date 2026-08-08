@@ -44,6 +44,7 @@ import {
   fmtDate,
   lastActivity,
   naira,
+  paymentDetailsLine,
   receiptMessage,
   statementMessage,
   termDueDate,
@@ -417,7 +418,8 @@ function DebtTracker() {
         },
       });
       if (res.ok) {
-        setReminderMessage(res.message);
+        const payment = paymentDetailsLine(profile);
+        setReminderMessage(payment ? `${res.message}\n\n${payment}` : res.message);
         setReminderSource("ai");
         track("ai_reminder_generated", { tone: reminderTone });
       } else {
@@ -846,6 +848,38 @@ function DebtTracker() {
                 ))}
               </select>
             </Field>
+
+            <p className="mono text-[11px] tracking-widest text-ink-soft mt-6 mb-3">
+              PAYMENT DETAILS (OPTIONAL)
+            </p>
+            <Field label="BANK NAME">
+              <input
+                value={profile.bankName}
+                onChange={(e) => setP({ bankName: e.target.value })}
+                placeholder="e.g. GTBank"
+                className="input-field w-full rounded px-3 py-2.5 text-sm"
+              />
+            </Field>
+            <Field label="ACCOUNT NUMBER">
+              <input
+                value={profile.accountNumber}
+                onChange={(e) => setP({ accountNumber: e.target.value })}
+                inputMode="numeric"
+                placeholder="0123456789"
+                className="input-field w-full rounded px-3 py-2.5 text-sm mono"
+              />
+            </Field>
+            <Field label="ACCOUNT NAME">
+              <input
+                value={profile.accountName}
+                onChange={(e) => setP({ accountName: e.target.value })}
+                placeholder="e.g. Chidi Provisions Store"
+                className="input-field w-full rounded px-3 py-2.5 text-sm"
+              />
+            </Field>
+            <p className="text-[11px] text-ink-soft leading-relaxed -mt-1 mb-2">
+              Included automatically in every reminder so customers know where to pay.
+            </p>
 
             <p className="text-[11px] text-ink-soft leading-relaxed mt-2 mb-6">
               These details appear on your receipts, statements and WhatsApp reminders. Everything

@@ -44,6 +44,10 @@ export type BusinessProfile = {
   address: string;
   email: string;
   category: string;
+  /** Optional — shown on reminders and receipts so customers know where to pay. */
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
 };
 
 export const emptyProfile: BusinessProfile = {
@@ -53,6 +57,9 @@ export const emptyProfile: BusinessProfile = {
   address: "",
   email: "",
   category: "",
+  bankName: "",
+  accountNumber: "",
+  accountName: "",
 };
 
 export const BUSINESS_CATEGORIES = [
@@ -135,6 +142,14 @@ export const waLink = (phone: string, text: string) =>
 
 export const profileFooter = (p: BusinessProfile) =>
   [p.phone, p.email, p.address].filter(Boolean).join(" · ");
+
+/** Formatted for WhatsApp: bold label + bank / account number / account name,
+ *  omitting whichever parts are blank. Empty string if nothing is set. */
+export const paymentDetailsLine = (p: BusinessProfile) => {
+  const parts = [p.bankName, p.accountNumber, p.accountName].filter(Boolean);
+  if (!parts.length) return "";
+  return `*Payment details:* ${parts.join(" · ")}`;
+};
 
 export const txnLabel = (t: Txn) =>
   t.type === "sale" ? "Credit sale" : t.kind === "partial" ? "Part payment" : "Full payment";

@@ -4,6 +4,7 @@ import {
   balanceOf,
   fmtDateLong,
   naira,
+  paymentDetailsLine,
   type BusinessProfile,
   type Customer,
 } from "./ledger";
@@ -226,8 +227,11 @@ export const REMINDER_TEMPLATES: ReminderTemplate[] = [
 export const templateById = (id: TemplateId) =>
   REMINDER_TEMPLATES.find((t) => t.id === id) ?? REMINDER_TEMPLATES[0]!;
 
-export const buildReminder = (c: Customer, p: BusinessProfile, id: TemplateId = "friendly") =>
-  templateById(id).build(buildContext(c, p));
+export const buildReminder = (c: Customer, p: BusinessProfile, id: TemplateId = "friendly") => {
+  const base = templateById(id).build(buildContext(c, p));
+  const payment = paymentDetailsLine(p);
+  return payment ? `${base}\n\n${payment}` : base;
+};
 
 /* ---------------- reminder history ---------------- */
 
