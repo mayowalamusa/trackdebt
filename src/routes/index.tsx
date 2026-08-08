@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -23,8 +23,20 @@ import {
   FileText,
   CalendarClock,
   CalendarDays,
+  Settings as SettingsIcon,
+  ChevronRight,
+  ShieldCheck,
+  ScrollText,
+  Mail,
+  Globe,
+  Instagram,
+  Crown,
+  RotateCcw,
+  Info,
 } from "lucide-react";
 import {
+  APP_NAME,
+  APP_VERSION,
   BUSINESS_CATEGORIES,
   TERM_OPTIONS,
   addDaysISO,
@@ -63,9 +75,11 @@ import {
 } from "@/lib/reminders";
 import { generateReminder } from "@/lib/reminders.functions";
 import { generateReceiptPdf, receiptSummary } from "@/lib/receipts";
-import { isPro } from "@/lib/subscription";
+import { isPro, paymentService, stateLabel } from "@/lib/subscription";
+import { DEVELOPER, SUPPORT_EMAIL, WEBSITE_URL } from "@/lib/app-config";
 import { track } from "@/lib/analytics";
 import {
+  defaultOnboarding,
   issueReceiptReference,
   useOnboardingState,
   useReminderHistory,
@@ -82,6 +96,7 @@ import {
   PremiumGate,
   ProBadge,
   ScreenHeader,
+  SettingsRow,
   Stat,
   TipCallout,
 } from "@/components/ui-kit";
@@ -114,7 +129,11 @@ type Screen =
   | "addTxn"
   | "editTxn"
   | "profile"
-  | "reminder";
+  | "reminder"
+  | "settings"
+  | "about"
+  | "privacy"
+  | "terms";
 
 type Filter = "all" | "outstanding" | "settled" | "overdue" | "dueToday" | "dueWeek";
 type Sort = "newest" | "highest";
@@ -141,7 +160,7 @@ function DebtTracker() {
   const [termKey, setTermKey] = useState<TermKey>("none");
   const [customDueDate, setCustomDueDate] = useState("");
 
-  const [sub] = useSubscription();
+  const [sub, setSub] = useSubscription();
   const [onboarding, setOnboarding, onboardingLoaded] = useOnboardingState();
   const [, setReminderHistory] = useReminderHistory();
   const [reminderTemplate, setReminderTemplate] = useState<TemplateId>("friendly");
@@ -455,6 +474,29 @@ function DebtTracker() {
     }
   };
 
+  /* ---------- settings ---------- */
+  const [restoring, setRestoring] = useState(false);
+  const restorePurchase = async () => {
+    setRestoring(true);
+    try {
+      const restored = await paymentService.restore();
+      setSub(restored);
+      if (restored.state === "pro_active") {
+        toast.success("Track Debt Pro restored.");
+      } else {
+        toast("No active purchase found on this device.");
+      }
+    } catch {
+      toast.error("Could not restore purchase. Please try again.");
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  const restartOnboarding = () => {
+    setOnboarding(() => ({ ...defaultOnboarding }));
+  };
+
   /* ---------- render ---------- */
   if (!onboardingLoaded) {
     return <main className="min-h-dvh bg-background" />;
@@ -494,11 +536,11 @@ function DebtTracker() {
                   </h1>
                 </div>
                 <button
-                  onClick={() => go("profile")}
-                  aria-label="Business profile"
+                  onClick={() => go("settings")}
+                  aria-label="Settings"
                   className="text-ink-soft transition-opacity active:opacity-60"
                 >
-                  <Pencil size={15} />
+                  <SettingsIcon size={18} />
                 </button>
               </div>
 
@@ -716,7 +758,7 @@ function DebtTracker() {
         {/* ===== BUSINESS PROFILE ===== */}
         {screen === "profile" && (
           <div className="p-5 animate-in fade-in slide-in-from-right-2 duration-200">
-            <ScreenHeader title="Business profile" onClose={() => go("list")} />
+            <ScreenHeader title="Business profile" onClose={() => go("settings")} />
 
             <div className="flex items-center gap-4 mb-7">
               {profile.logo ? (
@@ -811,11 +853,217 @@ function DebtTracker() {
             </p>
 
             <button
-              onClick={() => go("list")}
+              onClick={() => go("settings")}
               className="btn-primary w-full rounded py-3 text-sm font-semibold transition-transform active:scale-[0.99]"
             >
               Done
             </button>
+          </div>
+        )}
+
+        {/* ===== SETTINGS ===== */}
+        {screen === "settings" && (
+          <div className="animate-in fade-in slide-in-from-right-2 duration-200">
+            <div className="px-5">
+              <ScreenHeader title="Settings" onClose={() => go("list")} />
+            </div>
+
+            <p className="mono text-[10px] tracking-widest text-ink-soft px-5 pb-2">ACCOUNT</p>
+            <SettingsRow
+              icon={<Store size={17} />}
+              label="Business Profile"
+              onClick={() => go("profile")}
+            />
+
+            <p className="mono text-[10px] tracking-widest text-ink-soft px-5 pb-2 pt-5">
+              SUBSCRIPTION
+            </p>
+            <SettingsRow
+              icon={<Crown size={17} />}
+              label="Current Plan"
+              value={stateLabel(sub)}
+              tone={isPro(sub) ? "paid" : undefined}
+              onClick={() => {}}
+            />
+            {!isPro(sub) && (
+              <Link
+                to="/upgrade"
+                className="ledger-row w-full flex items-center justify-between px-5 py-3.5 text-left transition-colors active:bg-muted"
+              >
+                <span className="flex min-w-0 items-center gap-3">
+                  <span className="shrink-0 text-ink-soft" aria-hidden="true">
+                    <Sparkles size={17} />
+                  </span>
+                  <span className="truncate text-sm font-medium">Upgrade to Pro</span>
+                </span>
+                <ChevronRight size={16} className="text-ink-soft" aria-hidden="true" />
+              </Link>
+            )}
+            <SettingsRow
+              icon={<RotateCcw size={17} />}
+              label={restoring ? "Restoring…" : "Restore Purchase"}
+              onClick={restorePurchase}
+            />
+
+            <p className="mono text-[10px] tracking-widest text-ink-soft px-5 pb-2 pt-5">SUPPORT</p>
+            <SettingsRow
+              icon={<Info size={17} />}
+              label={`About ${APP_NAME}`}
+              onClick={() => go("about")}
+            />
+            <SettingsRow
+              icon={<ShieldCheck size={17} />}
+              label="Privacy Policy"
+              onClick={() => go("privacy")}
+            />
+            <SettingsRow
+              icon={<ScrollText size={17} />}
+              label="Terms of Use"
+              onClick={() => go("terms")}
+            />
+            <SettingsRow
+              icon={<Mail size={17} />}
+              label="Contact Support"
+              href={`mailto:${SUPPORT_EMAIL}`}
+            />
+
+            <p className="mono text-[10px] tracking-widest text-ink-soft px-5 pb-2 pt-5">
+              ADVANCED
+            </p>
+            <SettingsRow
+              icon={<RotateCcw size={17} />}
+              label="Restart Onboarding"
+              onClick={restartOnboarding}
+            />
+
+            <p className="px-5 pt-6 pb-8 text-center text-[11px] text-ink-soft">
+              {APP_NAME} · Version {APP_VERSION}
+            </p>
+          </div>
+        )}
+
+        {/* ===== ABOUT ===== */}
+        {screen === "about" && (
+          <div className="p-5 animate-in fade-in slide-in-from-right-2 duration-200">
+            <ScreenHeader title={`About ${APP_NAME}`} onClose={() => go("settings")} />
+
+            <div className="flex flex-col items-center text-center mb-7">
+              <div className="h-16 w-16 rounded-[16px] bg-debt grid place-items-center shadow-sm">
+                <svg viewBox="0 0 512 512" className="h-9 w-9" aria-hidden="true">
+                  <path
+                    d="M 110,300 A 146,146 0 0 1 402,300"
+                    fill="none"
+                    stroke="#ffffff"
+                    strokeWidth="30"
+                    strokeLinecap="round"
+                  />
+                  <path d="M 241,304 L 256,176 L 271,304 Z" fill="#ffffff" />
+                  <circle cx="256" cy="304" r="20" fill="#ffffff" />
+                  <rect x="196" y="330" width="120" height="32" rx="16" fill="#ffffff" />
+                  <rect x="166" y="370" width="180" height="32" rx="16" fill="#ffffff" />
+                  <rect x="136" y="410" width="240" height="32" rx="16" fill="#ffffff" />
+                </svg>
+              </div>
+              <p className="mt-3 text-lg font-bold">{APP_NAME}</p>
+              <p className="mono text-[11px] text-ink-soft mt-0.5">Version {APP_VERSION}</p>
+              <p className="mt-4 text-sm text-ink-soft leading-relaxed max-w-[300px]">
+                Track Debt helps Nigerian business owners track customer credit sales, send WhatsApp
+                payment reminders and manage outstanding balances — right from their phone, fully
+                offline.
+              </p>
+            </div>
+
+            <p className="mono text-[10px] tracking-widest text-ink-soft pb-2">DEVELOPER</p>
+            <div className="rounded border border-line bg-paper-raised px-4 py-3 mb-5">
+              <p className="text-sm font-medium">{DEVELOPER}</p>
+            </div>
+
+            <SettingsRow
+              icon={<Globe size={17} />}
+              label="Website"
+              value={WEBSITE_URL.replace(/^https?:\/\//, "")}
+              href={WEBSITE_URL}
+              external
+            />
+            <SettingsRow icon={<Instagram size={17} />} label="Instagram" value="Coming soon" />
+          </div>
+        )}
+
+        {/* ===== PRIVACY POLICY ===== */}
+        {screen === "privacy" && (
+          <div className="p-5 animate-in fade-in slide-in-from-right-2 duration-200">
+            <ScreenHeader title="Privacy Policy" onClose={() => go("settings")} />
+            <div className="space-y-4 text-[13px] leading-relaxed text-ink-soft pb-8">
+              <p>
+                {APP_NAME} is built around a simple principle: your business data belongs to you.
+              </p>
+              <p>
+                <strong className="text-ink">Local storage.</strong> Your business profile,
+                customers, transactions and reminder history are stored only on this device. None of
+                it is uploaded to a server or shared with third parties by default.
+              </p>
+              <p>
+                <strong className="text-ink">AI reminders.</strong> When you use "Generate with AI,"
+                a limited set of details for that one message — customer name, amounts, due date and
+                payment status — is sent to our AI provider solely to draft the message text. Phone
+                numbers are never included in that request.
+              </p>
+              <p>
+                <strong className="text-ink">WhatsApp.</strong> Sending a reminder or receipt opens
+                WhatsApp with a pre-filled message. {APP_NAME} does not have access to your WhatsApp
+                account and cannot confirm whether a message was actually delivered.
+              </p>
+              <p>
+                <strong className="text-ink">Track Debt Pro.</strong> If you subscribe, payment
+                processing is handled by our billing provider (e.g. Google Play or Paystack) —
+                {" " + APP_NAME} never sees or stores your card details.
+              </p>
+              <p>
+                <strong className="text-ink">Your control.</strong> Uninstalling the app or clearing
+                its storage permanently deletes your local data. We recommend keeping your own
+                backups of anything important.
+              </p>
+              <p>Questions about this policy can be sent to {SUPPORT_EMAIL}.</p>
+            </div>
+          </div>
+        )}
+
+        {/* ===== TERMS OF USE ===== */}
+        {screen === "terms" && (
+          <div className="p-5 animate-in fade-in slide-in-from-right-2 duration-200">
+            <ScreenHeader title="Terms of Use" onClose={() => go("settings")} />
+            <div className="space-y-4 text-[13px] leading-relaxed text-ink-soft pb-8">
+              <p>By using {APP_NAME}, you agree to the following:</p>
+              <p>
+                <strong className="text-ink">The app is a record-keeping tool.</strong> {APP_NAME}{" "}
+                helps you track credit sales, payments and reminders you choose to send. It does not
+                extend credit, collect debts on your behalf, or guarantee that any customer will
+                pay.
+              </p>
+              <p>
+                <strong className="text-ink">You're responsible for your data.</strong> Since
+                records are stored on your device, you're responsible for keeping your phone secure
+                and for backing up information you don't want to lose.
+              </p>
+              <p>
+                <strong className="text-ink">Reminders and receipts.</strong> Messages generated by{" "}
+                {APP_NAME}, including AI-drafted reminders, are provided as a convenience. Review
+                any message before sending — you are responsible for what you send to your
+                customers.
+              </p>
+              <p>
+                <strong className="text-ink">Track Debt Pro.</strong> Subscription pricing, billing
+                cycles and cancellation are handled by the billing provider used at checkout. Pro
+                features remain available for the period you've paid for; if a subscription lapses,
+                your account returns to the Free plan and your local data is left untouched.
+              </p>
+              <p>
+                <strong className="text-ink">No warranty.</strong> {APP_NAME} is provided "as is."
+                We work to keep it reliable, but we're not liable for losses arising from its use,
+                including data loss, missed payments, or reminders that weren't delivered.
+              </p>
+              <p>Questions about these terms can be sent to {SUPPORT_EMAIL}.</p>
+            </div>
           </div>
         )}
 

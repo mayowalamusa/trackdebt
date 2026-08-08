@@ -78,7 +78,7 @@ export type OnboardingState = {
   tips: OnboardingTips;
 };
 
-const defaultOnboarding: OnboardingState = {
+export const defaultOnboarding: OnboardingState = {
   completed: false,
   tips: { addCustomer: false, openCustomer: false, reminder: false },
 };

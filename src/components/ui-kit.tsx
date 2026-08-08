@@ -1,4 +1,5 @@
-import { ArrowLeft, Crown, WifiOff, X } from "lucide-react";
+import { ArrowLeft, ChevronRight, Crown, WifiOff, X } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { showAds, type Subscription } from "@/lib/subscription";
@@ -176,6 +177,66 @@ export function DueBadge({ info, className = "" }: { info: DueInfo; className?: 
   );
 }
 
+export function SettingsRow({
+  icon,
+  label,
+  value,
+  onClick,
+  href,
+  tone,
+  external,
+}: {
+  icon: ReactNode;
+  label: string;
+  value?: string;
+  onClick?: () => void;
+  href?: string;
+  tone?: "debt" | "paid" | undefined;
+  external?: boolean;
+}) {
+  const content = (
+    <>
+      <span className="flex min-w-0 items-center gap-3">
+        <span className="shrink-0 text-ink-soft" aria-hidden="true">
+          {icon}
+        </span>
+        <span className="truncate text-sm font-medium">{label}</span>
+      </span>
+      <span className="flex shrink-0 items-center gap-1.5">
+        {value && (
+          <span
+            className={`text-[12px] font-semibold ${
+              tone === "debt" ? "text-debt" : tone === "paid" ? "text-paid" : "text-ink-soft"
+            }`}
+          >
+            {value}
+          </span>
+        )}
+        <ChevronRight size={16} className="text-ink-soft" aria-hidden="true" />
+      </span>
+    </>
+  );
+  const className =
+    "ledger-row w-full flex items-center justify-between px-5 py-3.5 text-left transition-colors active:bg-muted";
+  if (href) {
+    return (
+      <a
+        href={href}
+        target={external ? "_blank" : undefined}
+        rel={external ? "noreferrer" : undefined}
+        className={className}
+      >
+        {content}
+      </a>
+    );
+  }
+  return (
+    <button type="button" onClick={onClick} className={className}>
+      {content}
+    </button>
+  );
+}
+
 /* ---------------- first-time tips ---------------- */
 
 export function TipCallout({
@@ -249,12 +310,12 @@ export function PremiumGate({
           >
             Maybe later
           </button>
-          <a
-            href="/upgrade"
+          <Link
+            to="/upgrade"
             className="btn-primary min-h-11 rounded grid place-items-center text-sm font-semibold"
           >
             Upgrade to Pro
-          </a>
+          </Link>
         </div>
       </div>
     </div>
