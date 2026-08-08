@@ -11,13 +11,7 @@ import {
 export type Tone = "friendly" | "professional" | "firm";
 
 export type TemplateId =
-  | "friendly"
-  | "professional"
-  | "firm"
-  | "very-firm"
-  | "final"
-  | "end-of-month"
-  | "vip";
+  "friendly" | "professional" | "firm" | "very-firm" | "final" | "end-of-month" | "vip";
 
 export type ReminderTemplate = {
   id: TemplateId;

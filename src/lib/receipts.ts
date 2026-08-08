@@ -1,5 +1,12 @@
 import trackDebtLogo from "@/assets/track-debt-logo.png.asset.json";
-import { balanceOf, fmtDateLong, naira, type BusinessProfile, type Customer, type Txn } from "./ledger";
+import {
+  balanceOf,
+  fmtDateLong,
+  naira,
+  type BusinessProfile,
+  type Customer,
+  type Txn,
+} from "./ledger";
 import { dueInfoOf, dueInfoFromDate, openSales } from "./due-dates";
 import { APP_NAME } from "./ledger";
 
@@ -102,9 +109,15 @@ export async function generateReceiptPdf(
     }
   }
   const textX = bizLogo ? M + 60 : M;
-  doc.setTextColor(...INK).setFont("helvetica", "bold").setFontSize(16);
+  doc
+    .setTextColor(...INK)
+    .setFont("helvetica", "bold")
+    .setFontSize(16);
   doc.text(p.name || APP_NAME, textX, y + 16);
-  doc.setFont("helvetica", "normal").setFontSize(9).setTextColor(...SOFT);
+  doc
+    .setFont("helvetica", "normal")
+    .setFontSize(9)
+    .setTextColor(...SOFT);
   const bizLines = [p.category, p.phone, p.email, p.address].filter(Boolean) as string[];
   bizLines.forEach((line, i) => doc.text(line, textX, y + 30 + i * 11));
 
@@ -119,20 +132,35 @@ export async function generateReceiptPdf(
   doc.text(APP_NAME, W - M - 34, y + 44, { maxWidth: 40 });
 
   y += Math.max(52, 30 + bizLines.length * 11) + 14;
-  doc.setDrawColor(...LINE).setLineWidth(1).line(M, y, W - M, y);
+  doc
+    .setDrawColor(...LINE)
+    .setLineWidth(1)
+    .line(M, y, W - M, y);
   y += 26;
 
   /* ---- title ---- */
-  doc.setFont("helvetica", "bold").setFontSize(13).setTextColor(...INK);
+  doc
+    .setFont("helvetica", "bold")
+    .setFontSize(13)
+    .setTextColor(...INK);
   doc.text(receiptTitle(kind), M, y);
-  doc.setFont("helvetica", "normal").setFontSize(9).setTextColor(...SOFT);
+  doc
+    .setFont("helvetica", "normal")
+    .setFontSize(9)
+    .setTextColor(...SOFT);
   if (t?.reference) doc.text(t.reference, W - M, y, { align: "right" });
   y += 22;
 
   /* ---- parties ---- */
   const row = (label: string, value: string, yy: number) => {
-    doc.setFontSize(8).setTextColor(...SOFT).text(label.toUpperCase(), M, yy);
-    doc.setFontSize(10).setTextColor(...INK).text(value, M + 150, yy);
+    doc
+      .setFontSize(8)
+      .setTextColor(...SOFT)
+      .text(label.toUpperCase(), M, yy);
+    doc
+      .setFontSize(10)
+      .setTextColor(...INK)
+      .text(value, M + 150, yy);
   };
 
   row("Customer", c.name, y);
@@ -192,8 +220,14 @@ export async function generateReceiptPdf(
     y += 6;
     doc.setDrawColor(...LINE).line(M, y, W - M, y);
     y += 20;
-    doc.setFontSize(9).setTextColor(...SOFT).text("Running balance", M, y);
-    doc.setFont("helvetica", "bold").setFontSize(11).setTextColor(...INK);
+    doc
+      .setFontSize(9)
+      .setTextColor(...SOFT)
+      .text("Running balance", M, y);
+    doc
+      .setFont("helvetica", "bold")
+      .setFontSize(11)
+      .setTextColor(...INK);
     doc.text(naira(Math.max(running, 0)), W - M, y, { align: "right" });
     y += 24;
   } else {
@@ -202,7 +236,11 @@ export async function generateReceiptPdf(
     const paid = kind === "payment" ? amount : 0;
 
     const money = (label: string, value: string, bold = false) => {
-      doc.setFont("helvetica", "normal").setFontSize(9).setTextColor(...SOFT).text(label, M, y);
+      doc
+        .setFont("helvetica", "normal")
+        .setFontSize(9)
+        .setTextColor(...SOFT)
+        .text(label, M, y);
       doc
         .setFont("helvetica", bold ? "bold" : "normal")
         .setFontSize(bold ? 13 : 10)
@@ -218,14 +256,22 @@ export async function generateReceiptPdf(
 
   /* ---- status block ---- */
   const info = t?.term?.dueDate ? dueInfoFromDate(t.term.dueDate, bal > 0) : dueInfoOf(c);
-  doc.setDrawColor(...LINE).setLineWidth(1).rect(M, y, W - M * 2, 52);
-  doc.setFontSize(8).setTextColor(...SOFT).text("PAYMENT DUE DATE", M + 14, y + 18);
-  doc.setFontSize(10).setTextColor(...INK).text(
-    info.dueDate ? fmtDateLong(info.dueDate) : "Not set",
-    M + 14,
-    y + 34,
-  );
-  doc.setFontSize(8).setTextColor(...SOFT).text("STATUS", W / 2 + 14, y + 18);
+  doc
+    .setDrawColor(...LINE)
+    .setLineWidth(1)
+    .rect(M, y, W - M * 2, 52);
+  doc
+    .setFontSize(8)
+    .setTextColor(...SOFT)
+    .text("PAYMENT DUE DATE", M + 14, y + 18);
+  doc
+    .setFontSize(10)
+    .setTextColor(...INK)
+    .text(info.dueDate ? fmtDateLong(info.dueDate) : "Not set", M + 14, y + 34);
+  doc
+    .setFontSize(8)
+    .setTextColor(...SOFT)
+    .text("STATUS", W / 2 + 14, y + 18);
   const statusColor: readonly [number, number, number] = info.tone === "debt" ? DEBT : INK;
   doc
     .setFontSize(10)

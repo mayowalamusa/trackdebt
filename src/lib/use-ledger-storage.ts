@@ -87,4 +87,3 @@ export function issueReceiptReference(): string {
   }
   return `TD-${year}-${String(next).padStart(6, "0")}`;
 }
-

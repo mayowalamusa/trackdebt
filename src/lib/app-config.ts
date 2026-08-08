@@ -42,14 +42,14 @@ export const COMPARISON: { feature: string; free: boolean; pro: boolean }[] = [
  *  environment configuration — the Google test ids are used in development. */
 export const ADMOB = {
   testMode: import.meta.env.MODE !== "production",
-  appId: import.meta.env['VITE_ADMOB_APP_ID'] ?? "ca-app-pub-3940256099942544~3347511713",
+  appId: import.meta.env["VITE_ADMOB_APP_ID"] ?? "ca-app-pub-3940256099942544~3347511713",
   banner: {
     test: "ca-app-pub-3940256099942544/6300978111",
-    production: import.meta.env['VITE_ADMOB_BANNER_ID'] ?? "",
+    production: import.meta.env["VITE_ADMOB_BANNER_ID"] ?? "",
   },
   native: {
     test: "ca-app-pub-3940256099942544/2247696110",
-    production: import.meta.env['VITE_ADMOB_NATIVE_ID'] ?? "",
+    production: import.meta.env["VITE_ADMOB_NATIVE_ID"] ?? "",
   },
 } as const;
 

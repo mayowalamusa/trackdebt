@@ -22,9 +22,7 @@ export function openSales(c: Customer): { txn: Txn; outstanding: number }[] {
     .filter((t) => t.type === "sale")
     .slice()
     .sort((a, b) => a.date.localeCompare(b.date));
-  let credit = c.txns
-    .filter((t) => t.type === "payment")
-    .reduce((sum, t) => sum + t.amount, 0);
+  let credit = c.txns.filter((t) => t.type === "payment").reduce((sum, t) => sum + t.amount, 0);
 
   const open: { txn: Txn; outstanding: number }[] = [];
   for (const txn of sales) {

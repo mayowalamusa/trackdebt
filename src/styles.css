@@ -56,7 +56,6 @@
   --warn: oklch(0.55 0.15 62);
   --wa: oklch(0.63 0.16 152);
 
-
   --background: var(--paper);
   --foreground: var(--ink);
   --card: var(--paper-raised);

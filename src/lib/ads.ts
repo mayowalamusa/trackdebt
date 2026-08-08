@@ -12,7 +12,11 @@ export const adUnitId = (slot: AdSlot) => {
  *  render nothing. On device, the native plugin is initialised here. */
 export const isNativePlatform = () =>
   typeof window !== "undefined" &&
-  Boolean((window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.());
+  Boolean(
+    (
+      window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }
+    ).Capacitor?.isNativePlatform?.(),
+  );
 
 export type AdService = {
   initialize(): Promise<void>;

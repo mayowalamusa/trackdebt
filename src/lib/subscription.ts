@@ -1,11 +1,7 @@
 import type { PlanId } from "./app-config";
 
 export type SubscriptionState =
-  | "free"
-  | "pro_active"
-  | "pro_expired"
-  | "payment_pending"
-  | "payment_failed";
+  "free" | "pro_active" | "pro_expired" | "payment_pending" | "payment_failed";
 
 export type Subscription = {
   state: SubscriptionState;
