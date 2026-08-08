@@ -53,7 +53,9 @@
   --line: oklch(0.86 0.018 80);
   --debt: oklch(0.52 0.19 27);
   --paid: oklch(0.5 0.12 155);
+  --warn: oklch(0.55 0.15 62);
   --wa: oklch(0.63 0.16 152);
+
 
   --background: var(--paper);
   --foreground: var(--ink);
