@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { BusinessProfile, Customer, Txn } from "./ledger";
 import { emptyProfile } from "./ledger";
 import type { ReminderRecord } from "./reminders";
