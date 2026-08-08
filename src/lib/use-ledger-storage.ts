@@ -67,6 +67,33 @@ export function useSubscription() {
   return [sub, setSub, loaded] as const;
 }
 
+export type OnboardingTips = {
+  addCustomer: boolean;
+  openCustomer: boolean;
+  reminder: boolean;
+};
+
+export type OnboardingState = {
+  completed: boolean;
+  tips: OnboardingTips;
+};
+
+const defaultOnboarding: OnboardingState = {
+  completed: false,
+  tips: { addCustomer: false, openCustomer: false, reminder: false },
+};
+
+export function useOnboardingState() {
+  return usePersisted<OnboardingState>("trackdebt.v3.onboarding", defaultOnboarding, (o) => ({
+    completed: !!o?.completed,
+    tips: {
+      addCustomer: !!o?.tips?.addCustomer,
+      openCustomer: !!o?.tips?.openCustomer,
+      reminder: !!o?.tips?.reminder,
+    },
+  }));
+}
+
 const COUNTER_KEY = "trackdebt.v3.receiptCounter";
 
 /** Monotonic receipt counter. Numbers are never reused, even after a

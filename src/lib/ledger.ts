@@ -78,6 +78,23 @@ export const addDaysISO = (days: number, from = todayISO()) => {
   return d.toISOString().slice(0, 10);
 };
 
+export const TERM_OPTIONS: { key: TermKey; label: string }[] = [
+  { key: "today", label: "Due today" },
+  { key: "d7", label: "7 days" },
+  { key: "d14", label: "14 days" },
+  { key: "d30", label: "30 days" },
+  { key: "custom", label: "Custom" },
+];
+
+export function termDueDate(key: TermKey, custom: string): string | undefined {
+  if (key === "today") return addDaysISO(0);
+  if (key === "d7") return addDaysISO(7);
+  if (key === "d14") return addDaysISO(14);
+  if (key === "d30") return addDaysISO(30);
+  if (key === "custom") return custom || undefined;
+  return undefined;
+}
+
 /** Whole days from `iso` until today. Positive = in the past. */
 export const daysSince = (iso: string) =>
   Math.round(

@@ -94,9 +94,7 @@ export function Chip({
       onClick={onClick}
       aria-pressed={active}
       className={`shrink-0 rounded-full px-3.5 min-h-11 text-[13px] font-semibold border transition-colors ${
-        active
-          ? "bg-ink text-paper-raised border-ink"
-          : "bg-paper-raised text-ink-soft border-line"
+        active ? "bg-ink text-paper-raised border-ink" : "bg-paper-raised text-ink-soft border-line"
       }`}
     >
       {label}
@@ -175,6 +173,37 @@ export function DueBadge({ info, className = "" }: { info: DueInfo; className?: 
     >
       {info.label}
     </span>
+  );
+}
+
+/* ---------------- first-time tips ---------------- */
+
+export function TipCallout({
+  children,
+  onDismiss,
+  className = "",
+}: {
+  children: ReactNode;
+  onDismiss: () => void;
+  className?: string;
+}) {
+  return (
+    <div
+      role="status"
+      className={`z-40 max-w-[260px] rounded-lg border border-ink bg-ink px-3.5 py-3 text-[12.5px] leading-snug text-paper-raised shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200 ${className}`}
+    >
+      <div className="flex items-start gap-2">
+        <p className="flex-1">{children}</p>
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Dismiss tip"
+          className="-mr-0.5 -mt-0.5 h-6 w-6 shrink-0 grid place-items-center rounded text-paper-raised/70"
+        >
+          <X size={14} aria-hidden="true" />
+        </button>
+      </div>
+    </div>
   );
 }
 

@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import {
   BUSINESS_CATEGORIES,
+  TERM_OPTIONS,
   addDaysISO,
   balanceOf,
   fmtDate,
@@ -33,6 +34,7 @@ import {
   naira,
   receiptMessage,
   statementMessage,
+  termDueDate,
   thisMonth,
   todayISO,
   waLink,
@@ -65,11 +67,13 @@ import { isPro } from "@/lib/subscription";
 import { track } from "@/lib/analytics";
 import {
   issueReceiptReference,
+  useOnboardingState,
   useReminderHistory,
   useSubscription,
   usePersistentCustomers,
   usePersistentProfile,
 } from "@/lib/use-ledger-storage";
+import { Onboarding } from "@/components/onboarding";
 import {
   AppShell,
   Chip,
@@ -79,6 +83,7 @@ import {
   ProBadge,
   ScreenHeader,
   Stat,
+  TipCallout,
 } from "@/components/ui-kit";
 
 export const Route = createFileRoute("/")({
@@ -116,23 +121,6 @@ type Sort = "newest" | "highest";
 
 const emptyForm = { name: "", phone: "", notes: "", amount: "", note: "" };
 
-const TERM_OPTIONS: { key: TermKey; label: string }[] = [
-  { key: "today", label: "Due today" },
-  { key: "d7", label: "7 days" },
-  { key: "d14", label: "14 days" },
-  { key: "d30", label: "30 days" },
-  { key: "custom", label: "Custom" },
-];
-
-function termDueDate(key: TermKey, custom: string): string | undefined {
-  if (key === "today") return addDaysISO(0);
-  if (key === "d7") return addDaysISO(7);
-  if (key === "d14") return addDaysISO(14);
-  if (key === "d30") return addDaysISO(30);
-  if (key === "custom") return custom || undefined;
-  return undefined;
-}
-
 function DebtTracker() {
   const [profile, setProfile, profileLoaded] = usePersistentProfile();
   const [customers, setCustomers, customersLoaded] = usePersistentCustomers();
@@ -154,6 +142,7 @@ function DebtTracker() {
   const [customDueDate, setCustomDueDate] = useState("");
 
   const [sub] = useSubscription();
+  const [onboarding, setOnboarding, onboardingLoaded] = useOnboardingState();
   const [, setReminderHistory] = useReminderHistory();
   const [reminderTemplate, setReminderTemplate] = useState<TemplateId>("friendly");
   const [reminderTone, setReminderTone] = useState<Tone>("friendly");
@@ -180,7 +169,6 @@ function DebtTracker() {
     let dueWeek = 0;
     let collections = 0;
     let creditSales = 0;
-    const activity: { c: Customer; t: Txn }[] = [];
     for (const c of customers) {
       outstanding += Math.max(balanceOf(c), 0);
       if (isOverdue(c)) overdue += 1;
@@ -191,19 +179,9 @@ function DebtTracker() {
           if (t.type === "payment") collections += t.amount;
           else creditSales += t.amount;
         }
-        activity.push({ c, t });
       }
     }
-    activity.sort((a, b) => (a.t.date < b.t.date ? 1 : a.t.date > b.t.date ? -1 : 0));
-    return {
-      outstanding,
-      overdue,
-      dueToday,
-      dueWeek,
-      collections,
-      creditSales,
-      activity: activity.slice(0, 5),
-    };
+    return { outstanding, overdue, dueToday, dueWeek, collections, creditSales };
   }, [customers]);
 
   const filtered = useMemo(() => {
@@ -478,6 +456,19 @@ function DebtTracker() {
   };
 
   /* ---------- render ---------- */
+  if (!onboardingLoaded) {
+    return <main className="min-h-dvh bg-background" />;
+  }
+  if (!onboarding.completed) {
+    return (
+      <Onboarding
+        profile={profile}
+        setProfile={setProfile}
+        setCustomers={setCustomers}
+        onDone={() => setOnboarding((o) => ({ ...o, completed: true }))}
+      />
+    );
+  }
   return (
     <AppShell>
       <>
@@ -565,44 +556,6 @@ function DebtTracker() {
               </div>
             ) : (
               <>
-                {stats.activity.length > 0 && (
-                  <section className="border-b border-line">
-                    <p className="mono text-[10px] tracking-widest text-ink-soft px-5 pt-5 pb-2">
-                      RECENT ACTIVITY
-                    </p>
-                    {stats.activity.map(({ c, t }) => (
-                      <button
-                        key={t.id}
-                        onClick={() => {
-                          setSelectedId(c.id);
-                          go("detail");
-                        }}
-                        className="ledger-row w-full flex items-center justify-between px-5 py-2.5 text-left transition-colors active:bg-muted"
-                      >
-                        <span className="min-w-0">
-                          <span className="block text-[13px] font-medium truncate">{c.name}</span>
-                          <span className="block text-[11px] text-ink-soft">
-                            {t.type === "sale"
-                              ? "Credit sale"
-                              : t.kind === "partial"
-                                ? "Part payment"
-                                : "Full payment"}{" "}
-                            · {fmtDate(t.date)}
-                          </span>
-                        </span>
-                        <span
-                          className={`mono text-[13px] font-bold ${
-                            t.type === "sale" ? "text-debt" : "text-paid"
-                          }`}
-                        >
-                          {t.type === "sale" ? "+" : "−"}
-                          {naira(t.amount)}
-                        </span>
-                      </button>
-                    ))}
-                  </section>
-                )}
-
                 <div className="px-5 pt-5 pb-3 space-y-3">
                   <div className="flex items-center gap-2 input-field rounded px-3 py-2.5">
                     <Search size={15} className="text-ink-soft" />
@@ -652,23 +605,54 @@ function DebtTracker() {
                 </div>
 
                 <section>
-                  {filtered.length === 0 && (
+                  {filtered.length === 0 && customers.length === 0 && (
+                    <div className="px-8 py-14 text-center animate-in fade-in duration-300">
+                      <span className="mx-auto h-14 w-14 rounded-full perforated grid place-items-center text-ink-soft">
+                        <Users size={22} />
+                      </span>
+                      <p className="text-base font-bold mt-4">You&rsquo;re all set!</p>
+                      <p className="text-[13px] text-ink-soft mt-1.5 leading-relaxed max-w-[260px] mx-auto">
+                        Add your first customer to begin tracking credit sales.
+                      </p>
+                      <button
+                        onClick={() => {
+                          resetForm();
+                          setOnboarding((o) => ({ ...o, tips: { ...o.tips, addCustomer: true } }));
+                          go("addCustomer");
+                        }}
+                        className="btn-primary rounded px-5 py-3 text-sm font-semibold mt-5 inline-flex items-center gap-2 transition-transform active:scale-[0.99]"
+                      >
+                        <Plus size={16} /> Add Customer
+                      </button>
+                    </div>
+                  )}
+                  {filtered.length === 0 && customers.length > 0 && (
                     <div className="px-8 py-14 text-center animate-in fade-in duration-300">
                       <span className="mx-auto h-12 w-12 rounded-full perforated grid place-items-center text-ink-soft">
-                        <Users size={20} />
+                        <Search size={20} />
                       </span>
-                      <p className="text-sm font-semibold mt-4">
-                        {customers.length === 0
-                          ? "Your ledger is empty"
-                          : "Nothing matches this view"}
-                      </p>
+                      <p className="text-sm font-semibold mt-4">Nothing matches this view</p>
                       <p className="text-[12px] text-ink-soft mt-1.5 leading-relaxed">
-                        {customers.length === 0
-                          ? "Add your first customer to start recording credit sales and payments."
-                          : "Try a different filter or clear your search."}
+                        Try a different filter or clear your search.
                       </p>
                     </div>
                   )}
+                  {onboarding.tips.addCustomer &&
+                    !onboarding.tips.openCustomer &&
+                    filtered.length > 0 && (
+                      <div className="px-5 pb-2 pt-1">
+                        <TipCallout
+                          onDismiss={() =>
+                            setOnboarding((o) => ({
+                              ...o,
+                              tips: { ...o.tips, openCustomer: true },
+                            }))
+                          }
+                        >
+                          Tap a customer to record sales and payments.
+                        </TipCallout>
+                      </div>
+                    )}
                   {filtered.map((c) => {
                     const bal = balanceOf(c);
                     return (
@@ -676,6 +660,7 @@ function DebtTracker() {
                         key={c.id}
                         onClick={() => {
                           setSelectedId(c.id);
+                          setOnboarding((o) => ({ ...o, tips: { ...o.tips, openCustomer: true } }));
                           go("detail");
                         }}
                         className="ledger-row w-full flex items-center justify-between px-5 py-3.5 text-left gap-3 transition-colors active:bg-muted"
@@ -703,9 +688,21 @@ function DebtTracker() {
               </>
             )}
 
+            {!onboarding.tips.addCustomer && customers.length > 0 && (
+              <TipCallout
+                className="fixed bottom-24 right-[max(1.25rem,calc(50%-215px+1.25rem))]"
+                onDismiss={() =>
+                  setOnboarding((o) => ({ ...o, tips: { ...o.tips, addCustomer: true } }))
+                }
+              >
+                Tap the + button to add new customers.
+              </TipCallout>
+            )}
+
             <button
               onClick={() => {
                 resetForm();
+                setOnboarding((o) => ({ ...o, tips: { ...o.tips, addCustomer: true } }));
                 go("addCustomer");
               }}
               aria-label="Add customer"
