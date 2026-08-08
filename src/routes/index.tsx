@@ -84,13 +84,13 @@ import {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "TrackDebt — Customer Credit Ledger in Naira" },
+      { title: "Track Debt — Customer Credit Ledger in Naira" },
       {
         name: "description",
         content:
           "Record credit sales and payments, track who owes you, filter overdue customers and send WhatsApp reminders and receipts.",
       },
-      { property: "og:title", content: "TrackDebt — Customer Credit Ledger in Naira" },
+      { property: "og:title", content: "Track Debt — Customer Credit Ledger in Naira" },
       {
         property: "og:description",
         content:

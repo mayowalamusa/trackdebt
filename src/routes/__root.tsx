@@ -78,10 +78,28 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Debt Book" },
-      { name: "description", content: "Track customer credit and payments." },
+      { title: "Track Debt" },
+      {
+        name: "description",
+        content:
+          "Track Debt helps Nigerian business owners track customer credit sales, send WhatsApp payment reminders and manage outstanding balances.",
+      },
+      { name: "application-name", content: "Track Debt" },
+      { name: "apple-mobile-web-app-title", content: "Track Debt" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "theme-color", content: "#be2323" },
       { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "Track Debt" },
+      { property: "og:title", content: "Track Debt" },
+      {
+        property: "og:description",
+        content: "Never lose money to customer credit again.",
+      },
+      { property: "og:image", content: "/icons/icon-512.png" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Track Debt" },
     ],
     links: [
       {
@@ -94,7 +112,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap",
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+      { rel: "icon", href: "/favicon-32.png", type: "image/png", sizes: "32x32" },
+      { rel: "icon", href: "/favicon-16.png", type: "image/png", sizes: "16x16" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
     ],
   }),
   shellComponent: RootShell,
