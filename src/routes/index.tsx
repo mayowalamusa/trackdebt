@@ -69,6 +69,7 @@ import {
   REMINDER_TEMPLATES,
   buildContext,
   buildReminder,
+  templateById,
   type ReminderRecord,
   type ReminderTemplate,
   type TemplateId,
@@ -97,7 +98,6 @@ import {
   DueBadge,
   Field,
   PremiumGate,
-  ProBadge,
   ScreenHeader,
   SettingsRow,
   Stat,
@@ -142,6 +142,18 @@ type Filter = "all" | "outstanding" | "settled" | "overdue" | "dueToday" | "dueW
 type Sort = "newest" | "highest";
 
 const emptyForm = { name: "", phone: "", notes: "", amount: "", note: "" };
+
+/** The AI tone follows whichever template is selected, so there's a single
+ *  template picker instead of a separate tone control duplicating it. */
+const TEMPLATE_TONE: Record<TemplateId, Tone> = {
+  friendly: "friendly",
+  professional: "professional",
+  firm: "firm",
+  "very-firm": "firm",
+  final: "firm",
+  "end-of-month": "professional",
+  vip: "friendly",
+};
 
 function DebtTracker() {
   const [profile, setProfile, profileLoaded] = usePersistentProfile();
@@ -408,6 +420,7 @@ function DebtTracker() {
     }
     setReminderTemplate(tpl.id);
     setReminderSource(tpl.id);
+    setReminderTone(TEMPLATE_TONE[tpl.id]);
     setReminderMessage(buildReminder(selected, profile, tpl.id));
   };
 
@@ -1611,39 +1624,19 @@ function DebtTracker() {
             </div>
 
             <p className="mono text-[11px] tracking-widest text-ink-soft mb-2">TEMPLATE</p>
-            <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 mb-5">
+            <select
+              value={reminderTemplate}
+              onChange={(e) => selectTemplate(templateById(e.target.value as TemplateId))}
+              className="input-field w-full rounded px-3 py-2.5 text-sm mb-5"
+            >
               {REMINDER_TEMPLATES.map((tpl) => (
-                <button
-                  key={tpl.id}
-                  onClick={() => selectTemplate(tpl)}
-                  className={`shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold border transition-colors ${
-                    reminderTemplate === tpl.id && reminderSource !== "ai"
-                      ? "bg-ink text-paper-raised border-ink"
-                      : "bg-paper-raised text-ink-soft border-line"
-                  }`}
-                >
+                <option key={tpl.id} value={tpl.id}>
                   {tpl.name}
-                  {tpl.tier === "pro" && <ProBadge />}
-                </button>
+                  {tpl.tier === "pro" ? " (Pro)" : ""}
+                </option>
               ))}
-            </div>
+            </select>
 
-            <p className="mono text-[11px] tracking-widest text-ink-soft mb-2">GENERATE WITH AI</p>
-            <div className="flex gap-1.5 mb-2">
-              {(["friendly", "professional", "firm"] as const).map((tone) => (
-                <button
-                  key={tone}
-                  onClick={() => setReminderTone(tone)}
-                  className={`flex-1 rounded py-2 text-[12px] font-semibold border transition-colors ${
-                    reminderTone === tone
-                      ? "border-ink text-ink bg-paper-raised"
-                      : "border-line text-ink-soft bg-paper-raised"
-                  }`}
-                >
-                  {tone[0]!.toUpperCase() + tone.slice(1)}
-                </button>
-              ))}
-            </div>
             <button
               onClick={generateWithAI}
               disabled={aiLoading}
