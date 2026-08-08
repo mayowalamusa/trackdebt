@@ -226,10 +226,12 @@ export async function generateReceiptPdf(
     y + 34,
   );
   doc.setFontSize(8).setTextColor(...SOFT).text("STATUS", W / 2 + 14, y + 18);
+  const statusColor: readonly [number, number, number] = info.tone === "debt" ? DEBT : INK;
   doc
     .setFontSize(10)
-    .setTextColor(...(info.tone === "debt" ? DEBT : INK))
+    .setTextColor(statusColor[0], statusColor[1], statusColor[2])
     .text(info.label, W / 2 + 14, y + 34);
+
   y += 74;
 
   if (kind !== "statement") {
