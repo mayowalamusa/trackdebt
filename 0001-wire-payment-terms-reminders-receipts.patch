@@ -1,0 +1,1113 @@
+From dc18b2e96e238e41c277b75123c2f4d025dd93ff Mon Sep 17 00:00:00 2001
+From: Claude <claude@anthropic.com>
+Date: Sat, 8 Aug 2026 06:06:43 +0000
+Subject: [PATCH] Wire due dates, reminders, AI generation and PDF receipts
+ into the UI
+
+- Add payment terms picker (Due Today/7/14/30 days/Custom) to the
+  credit sale form; sale transactions now store a due date + issued
+  receipt reference.
+- Add a Reminder Preview screen: template picker (with Pro badges +
+  gating), tone selector, working AI generation via the existing
+  server function, editable message, and Send via WhatsApp - which
+  now logs to reminder history instead of just opening a link.
+- Wire PDF receipt/statement downloads and a copy-summary action
+  using the existing receipts.ts, alongside the existing WhatsApp
+  text share.
+- Add color-coded due-date badges to the customer list, detail
+  screen and per-transaction rows, plus Due Today/Due This Week
+  dashboard stats and filter chips.
+- Replace ad-hoc local Stat/Chip/Field/Header components with the
+  shared ui-kit (also gains the offline indicator for free).
+- Mount Toaster in the root route so toast feedback renders.
+- Fix pre-existing Prettier violations in touched lib files.
+---
+ src/lib/ads.ts                 |   6 +-
+ src/lib/app-config.ts          |   6 +-
+ src/lib/due-dates.ts           |   4 +-
+ src/lib/receipts.ts            |  84 +++--
+ src/lib/reminders.functions.ts |   2 +-
+ src/lib/reminders.ts           |   8 +-
+ src/lib/subscription.ts        |   6 +-
+ src/lib/use-ledger-storage.ts  |   1 -
+ src/routes/__root.tsx          |   2 +
+ src/routes/index.tsx           | 554 ++++++++++++++++++++++++++-------
+ src/styles.css                 |   1 -
+ 11 files changed, 517 insertions(+), 157 deletions(-)
+
+diff --git a/src/lib/ads.ts b/src/lib/ads.ts
+index bb97b91..22e82ba 100644
+--- a/src/lib/ads.ts
++++ b/src/lib/ads.ts
+@@ -12,7 +12,11 @@ export const adUnitId = (slot: AdSlot) => {
+  *  render nothing. On device, the native plugin is initialised here. */
+ export const isNativePlatform = () =>
+   typeof window !== "undefined" &&
+-  Boolean((window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.());
++  Boolean(
++    (
++      window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }
++    ).Capacitor?.isNativePlatform?.(),
++  );
+ 
+ export type AdService = {
+   initialize(): Promise<void>;
+diff --git a/src/lib/app-config.ts b/src/lib/app-config.ts
+index 59c7659..9bc03d9 100644
+--- a/src/lib/app-config.ts
++++ b/src/lib/app-config.ts
+@@ -42,14 +42,14 @@ export const COMPARISON: { feature: string; free: boolean; pro: boolean }[] = [
+  *  environment configuration — the Google test ids are used in development. */
+ export const ADMOB = {
+   testMode: import.meta.env.MODE !== "production",
+-  appId: import.meta.env['VITE_ADMOB_APP_ID'] ?? "ca-app-pub-3940256099942544~3347511713",
++  appId: import.meta.env["VITE_ADMOB_APP_ID"] ?? "ca-app-pub-3940256099942544~3347511713",
+   banner: {
+     test: "ca-app-pub-3940256099942544/6300978111",
+-    production: import.meta.env['VITE_ADMOB_BANNER_ID'] ?? "",
++    production: import.meta.env["VITE_ADMOB_BANNER_ID"] ?? "",
+   },
+   native: {
+     test: "ca-app-pub-3940256099942544/2247696110",
+-    production: import.meta.env['VITE_ADMOB_NATIVE_ID'] ?? "",
++    production: import.meta.env["VITE_ADMOB_NATIVE_ID"] ?? "",
+   },
+ } as const;
+ 
+diff --git a/src/lib/due-dates.ts b/src/lib/due-dates.ts
+index 27aa289..3d4441f 100644
+--- a/src/lib/due-dates.ts
++++ b/src/lib/due-dates.ts
+@@ -22,9 +22,7 @@ export function openSales(c: Customer): { txn: Txn; outstanding: number }[] {
+     .filter((t) => t.type === "sale")
+     .slice()
+     .sort((a, b) => a.date.localeCompare(b.date));
+-  let credit = c.txns
+-    .filter((t) => t.type === "payment")
+-    .reduce((sum, t) => sum + t.amount, 0);
++  let credit = c.txns.filter((t) => t.type === "payment").reduce((sum, t) => sum + t.amount, 0);
+ 
+   const open: { txn: Txn; outstanding: number }[] = [];
+   for (const txn of sales) {
+diff --git a/src/lib/receipts.ts b/src/lib/receipts.ts
+index f651925..3947346 100644
+--- a/src/lib/receipts.ts
++++ b/src/lib/receipts.ts
+@@ -1,5 +1,12 @@
+ import trackDebtLogo from "@/assets/track-debt-logo.png.asset.json";
+-import { balanceOf, fmtDateLong, naira, type BusinessProfile, type Customer, type Txn } from "./ledger";
++import {
++  balanceOf,
++  fmtDateLong,
++  naira,
++  type BusinessProfile,
++  type Customer,
++  type Txn,
++} from "./ledger";
+ import { dueInfoOf, dueInfoFromDate, openSales } from "./due-dates";
+ import { APP_NAME } from "./ledger";
+ 
+@@ -102,9 +109,15 @@ export async function generateReceiptPdf(
+     }
+   }
+   const textX = bizLogo ? M + 60 : M;
+-  doc.setTextColor(...INK).setFont("helvetica", "bold").setFontSize(16);
++  doc
++    .setTextColor(...INK)
++    .setFont("helvetica", "bold")
++    .setFontSize(16);
+   doc.text(p.name || APP_NAME, textX, y + 16);
+-  doc.setFont("helvetica", "normal").setFontSize(9).setTextColor(...SOFT);
++  doc
++    .setFont("helvetica", "normal")
++    .setFontSize(9)
++    .setTextColor(...SOFT);
+   const bizLines = [p.category, p.phone, p.email, p.address].filter(Boolean) as string[];
+   bizLines.forEach((line, i) => doc.text(line, textX, y + 30 + i * 11));
+ 
+@@ -119,20 +132,35 @@ export async function generateReceiptPdf(
+   doc.text(APP_NAME, W - M - 34, y + 44, { maxWidth: 40 });
+ 
+   y += Math.max(52, 30 + bizLines.length * 11) + 14;
+-  doc.setDrawColor(...LINE).setLineWidth(1).line(M, y, W - M, y);
++  doc
++    .setDrawColor(...LINE)
++    .setLineWidth(1)
++    .line(M, y, W - M, y);
+   y += 26;
+ 
+   /* ---- title ---- */
+-  doc.setFont("helvetica", "bold").setFontSize(13).setTextColor(...INK);
++  doc
++    .setFont("helvetica", "bold")
++    .setFontSize(13)
++    .setTextColor(...INK);
+   doc.text(receiptTitle(kind), M, y);
+-  doc.setFont("helvetica", "normal").setFontSize(9).setTextColor(...SOFT);
++  doc
++    .setFont("helvetica", "normal")
++    .setFontSize(9)
++    .setTextColor(...SOFT);
+   if (t?.reference) doc.text(t.reference, W - M, y, { align: "right" });
+   y += 22;
+ 
+   /* ---- parties ---- */
+   const row = (label: string, value: string, yy: number) => {
+-    doc.setFontSize(8).setTextColor(...SOFT).text(label.toUpperCase(), M, yy);
+-    doc.setFontSize(10).setTextColor(...INK).text(value, M + 150, yy);
++    doc
++      .setFontSize(8)
++      .setTextColor(...SOFT)
++      .text(label.toUpperCase(), M, yy);
++    doc
++      .setFontSize(10)
++      .setTextColor(...INK)
++      .text(value, M + 150, yy);
+   };
+ 
+   row("Customer", c.name, y);
+@@ -192,8 +220,14 @@ export async function generateReceiptPdf(
+     y += 6;
+     doc.setDrawColor(...LINE).line(M, y, W - M, y);
+     y += 20;
+-    doc.setFontSize(9).setTextColor(...SOFT).text("Running balance", M, y);
+-    doc.setFont("helvetica", "bold").setFontSize(11).setTextColor(...INK);
++    doc
++      .setFontSize(9)
++      .setTextColor(...SOFT)
++      .text("Running balance", M, y);
++    doc
++      .setFont("helvetica", "bold")
++      .setFontSize(11)
++      .setTextColor(...INK);
+     doc.text(naira(Math.max(running, 0)), W - M, y, { align: "right" });
+     y += 24;
+   } else {
+@@ -202,7 +236,11 @@ export async function generateReceiptPdf(
+     const paid = kind === "payment" ? amount : 0;
+ 
+     const money = (label: string, value: string, bold = false) => {
+-      doc.setFont("helvetica", "normal").setFontSize(9).setTextColor(...SOFT).text(label, M, y);
++      doc
++        .setFont("helvetica", "normal")
++        .setFontSize(9)
++        .setTextColor(...SOFT)
++        .text(label, M, y);
+       doc
+         .setFont("helvetica", bold ? "bold" : "normal")
+         .setFontSize(bold ? 13 : 10)
+@@ -218,14 +256,22 @@ export async function generateReceiptPdf(
+ 
+   /* ---- status block ---- */
+   const info = t?.term?.dueDate ? dueInfoFromDate(t.term.dueDate, bal > 0) : dueInfoOf(c);
+-  doc.setDrawColor(...LINE).setLineWidth(1).rect(M, y, W - M * 2, 52);
+-  doc.setFontSize(8).setTextColor(...SOFT).text("PAYMENT DUE DATE", M + 14, y + 18);
+-  doc.setFontSize(10).setTextColor(...INK).text(
+-    info.dueDate ? fmtDateLong(info.dueDate) : "Not set",
+-    M + 14,
+-    y + 34,
+-  );
+-  doc.setFontSize(8).setTextColor(...SOFT).text("STATUS", W / 2 + 14, y + 18);
++  doc
++    .setDrawColor(...LINE)
++    .setLineWidth(1)
++    .rect(M, y, W - M * 2, 52);
++  doc
++    .setFontSize(8)
++    .setTextColor(...SOFT)
++    .text("PAYMENT DUE DATE", M + 14, y + 18);
++  doc
++    .setFontSize(10)
++    .setTextColor(...INK)
++    .text(info.dueDate ? fmtDateLong(info.dueDate) : "Not set", M + 14, y + 34);
++  doc
++    .setFontSize(8)
++    .setTextColor(...SOFT)
++    .text("STATUS", W / 2 + 14, y + 18);
+   const statusColor: readonly [number, number, number] = info.tone === "debt" ? DEBT : INK;
+   doc
+     .setFontSize(10)
+diff --git a/src/lib/reminders.functions.ts b/src/lib/reminders.functions.ts
+index e92ae6d..e057b7b 100644
+--- a/src/lib/reminders.functions.ts
++++ b/src/lib/reminders.functions.ts
+@@ -18,7 +18,7 @@ const InputSchema = z.object({
+ export const generateReminder = createServerFn({ method: "POST" })
+   .inputValidator((input: unknown) => InputSchema.parse(input))
+   .handler(async ({ data }) => {
+-    const key = process.env['LOVABLE_API_KEY'];
++    const key = process.env["LOVABLE_API_KEY"];
+     if (!key) {
+       return { ok: false as const, error: "AI is not configured yet." };
+     }
+diff --git a/src/lib/reminders.ts b/src/lib/reminders.ts
+index b2ff1b9..6147921 100644
+--- a/src/lib/reminders.ts
++++ b/src/lib/reminders.ts
+@@ -11,13 +11,7 @@ import {
+ export type Tone = "friendly" | "professional" | "firm";
+ 
+ export type TemplateId =
+-  | "friendly"
+-  | "professional"
+-  | "firm"
+-  | "very-firm"
+-  | "final"
+-  | "end-of-month"
+-  | "vip";
++  "friendly" | "professional" | "firm" | "very-firm" | "final" | "end-of-month" | "vip";
+ 
+ export type ReminderTemplate = {
+   id: TemplateId;
+diff --git a/src/lib/subscription.ts b/src/lib/subscription.ts
+index f641b5a..54e9191 100644
+--- a/src/lib/subscription.ts
++++ b/src/lib/subscription.ts
+@@ -1,11 +1,7 @@
+ import type { PlanId } from "./app-config";
+ 
+ export type SubscriptionState =
+-  | "free"
+-  | "pro_active"
+-  | "pro_expired"
+-  | "payment_pending"
+-  | "payment_failed";
++  "free" | "pro_active" | "pro_expired" | "payment_pending" | "payment_failed";
+ 
+ export type Subscription = {
+   state: SubscriptionState;
+diff --git a/src/lib/use-ledger-storage.ts b/src/lib/use-ledger-storage.ts
+index 5a305db..e8df828 100644
+--- a/src/lib/use-ledger-storage.ts
++++ b/src/lib/use-ledger-storage.ts
+@@ -87,4 +87,3 @@ export function issueReceiptReference(): string {
+   }
+   return `TD-${year}-${String(next).padStart(6, "0")}`;
+ }
+-
+diff --git a/src/routes/__root.tsx b/src/routes/__root.tsx
+index 84e043a..b71c8f5 100644
+--- a/src/routes/__root.tsx
++++ b/src/routes/__root.tsx
+@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
+ 
+ import appCss from "../styles.css?url";
+ import { reportLovableError } from "../lib/lovable-error-reporting";
++import { Toaster } from "@/components/ui/sonner";
+ 
+ function NotFoundComponent() {
+   return (
+@@ -123,6 +124,7 @@ function RootComponent() {
+     <QueryClientProvider client={queryClient}>
+       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+       <Outlet />
++      <Toaster />
+     </QueryClientProvider>
+   );
+ }
+diff --git a/src/routes/index.tsx b/src/routes/index.tsx
+index 17849a5..529a3e8 100644
+--- a/src/routes/index.tsx
++++ b/src/routes/index.tsx
+@@ -1,5 +1,6 @@
+ import { createFileRoute } from "@tanstack/react-router";
+ import { useMemo, useRef, useState } from "react";
++import { toast } from "sonner";
+ import {
+   ArrowLeft,
+   Plus,
+@@ -16,9 +17,16 @@ import {
+   TrendingDown,
+   TrendingUp,
+   Camera,
++  Sparkles,
++  Download,
++  Copy,
++  FileText,
++  CalendarClock,
++  CalendarDays,
+ } from "lucide-react";
+ import {
+   BUSINESS_CATEGORIES,
++  addDaysISO,
+   balanceOf,
+   fmtDate,
+   lastActivity,
+@@ -30,11 +38,48 @@ import {
+   waLink,
+   type BusinessProfile,
+   type Customer,
++  type TermKey,
+   type Txn,
+ } from "@/lib/ledger";
+-import { isOverdue } from "@/lib/due-dates";
+-import { buildReminder } from "@/lib/reminders";
+-import { usePersistentCustomers, usePersistentProfile } from "@/lib/use-ledger-storage";
++import {
++  dueDateLong,
++  dueInfoOf,
++  dueInfoOfTxn,
++  isDueThisWeek,
++  isDueToday,
++  isOverdue,
++  openSales,
++} from "@/lib/due-dates";
++import {
++  REMINDER_TEMPLATES,
++  buildContext,
++  buildReminder,
++  type ReminderRecord,
++  type ReminderTemplate,
++  type TemplateId,
++  type Tone,
++} from "@/lib/reminders";
++import { generateReminder } from "@/lib/reminders.functions";
++import { generateReceiptPdf, receiptSummary } from "@/lib/receipts";
++import { isPro } from "@/lib/subscription";
++import { track } from "@/lib/analytics";
++import {
++  issueReceiptReference,
++  useReminderHistory,
++  useSubscription,
++  usePersistentCustomers,
++  usePersistentProfile,
++} from "@/lib/use-ledger-storage";
++import {
++  AppShell,
++  Chip,
++  DueBadge,
++  Field,
++  PremiumGate,
++  ProBadge,
++  ScreenHeader,
++  Stat,
++} from "@/components/ui-kit";
+ 
+ export const Route = createFileRoute("/")({
+   head: () => ({
+@@ -63,13 +108,31 @@ type Screen =
+   | "editCustomer"
+   | "addTxn"
+   | "editTxn"
+-  | "profile";
++  | "profile"
++  | "reminder";
+ 
+-type Filter = "all" | "outstanding" | "settled" | "overdue";
++type Filter = "all" | "outstanding" | "settled" | "overdue" | "dueToday" | "dueWeek";
+ type Sort = "newest" | "highest";
+ 
+ const emptyForm = { name: "", phone: "", notes: "", amount: "", note: "" };
+ 
++const TERM_OPTIONS: { key: TermKey; label: string }[] = [
++  { key: "today", label: "Due today" },
++  { key: "d7", label: "7 days" },
++  { key: "d14", label: "14 days" },
++  { key: "d30", label: "30 days" },
++  { key: "custom", label: "Custom" },
++];
++
++function termDueDate(key: TermKey, custom: string): string | undefined {
++  if (key === "today") return addDaysISO(0);
++  if (key === "d7") return addDaysISO(7);
++  if (key === "d14") return addDaysISO(14);
++  if (key === "d30") return addDaysISO(30);
++  if (key === "custom") return custom || undefined;
++  return undefined;
++}
++
+ function DebtTracker() {
+   const [profile, setProfile, profileLoaded] = usePersistentProfile();
+   const [customers, setCustomers, customersLoaded] = usePersistentCustomers();
+@@ -87,6 +150,21 @@ function DebtTracker() {
+   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+   const logoInput = useRef<HTMLInputElement>(null);
+ 
++  const [termKey, setTermKey] = useState<TermKey>("none");
++  const [customDueDate, setCustomDueDate] = useState("");
++
++  const [sub] = useSubscription();
++  const [, setReminderHistory] = useReminderHistory();
++  const [reminderTemplate, setReminderTemplate] = useState<TemplateId>("friendly");
++  const [reminderTone, setReminderTone] = useState<Tone>("friendly");
++  const [reminderSource, setReminderSource] = useState<TemplateId | "ai">("friendly");
++  const [reminderMessage, setReminderMessage] = useState("");
++  const [aiLoading, setAiLoading] = useState(false);
++  const [aiError, setAiError] = useState<string | null>(null);
++  const [gateFeature, setGateFeature] = useState<{ title: string; description: string } | null>(
++    null,
++  );
++
+   const selected = customers.find((c) => c.id === selectedId) ?? null;
+   const resetForm = () => setForm(emptyForm);
+   const go = (s: Screen) => {
+@@ -98,12 +176,16 @@ function DebtTracker() {
+   const stats = useMemo(() => {
+     let outstanding = 0;
+     let overdue = 0;
++    let dueToday = 0;
++    let dueWeek = 0;
+     let collections = 0;
+     let creditSales = 0;
+     const activity: { c: Customer; t: Txn }[] = [];
+     for (const c of customers) {
+       outstanding += Math.max(balanceOf(c), 0);
+       if (isOverdue(c)) overdue += 1;
++      if (isDueToday(c)) dueToday += 1;
++      if (isDueThisWeek(c)) dueWeek += 1;
+       for (const t of c.txns) {
+         if (thisMonth(t.date)) {
+           if (t.type === "payment") collections += t.amount;
+@@ -113,7 +195,15 @@ function DebtTracker() {
+       }
+     }
+     activity.sort((a, b) => (a.t.date < b.t.date ? 1 : a.t.date > b.t.date ? -1 : 0));
+-    return { outstanding, overdue, collections, creditSales, activity: activity.slice(0, 5) };
++    return {
++      outstanding,
++      overdue,
++      dueToday,
++      dueWeek,
++      collections,
++      creditSales,
++      activity: activity.slice(0, 5),
++    };
+   }, [customers]);
+ 
+   const filtered = useMemo(() => {
+@@ -132,6 +222,8 @@ function DebtTracker() {
+         if (filter === "outstanding") return bal > 0;
+         if (filter === "settled") return bal <= 0;
+         if (filter === "overdue") return isOverdue(c);
++        if (filter === "dueToday") return isDueToday(c);
++        if (filter === "dueWeek") return isDueThisWeek(c);
+         return true;
+       })
+       .sort((a, b) =>
+@@ -155,6 +247,7 @@ function DebtTracker() {
+         txns: [],
+       },
+     ]);
++    track("customer_added");
+     resetForm();
+     go("list");
+   };
+@@ -189,6 +282,7 @@ function DebtTracker() {
+     const amt = parseFloat(form.amount);
+     if (!amt || amt <= 0 || !selectedId || !selected) return;
+     const bal = balanceOf(selected);
++    const dueDate = txnType === "sale" ? termDueDate(termKey, customDueDate) : undefined;
+     const t: Txn = {
+       id: "t" + Date.now(),
+       type: txnType,
+@@ -196,17 +290,27 @@ function DebtTracker() {
+       date: todayISO(),
+       note: form.note.trim(),
+       ...(txnType === "payment" ? { kind: amt >= bal ? "full" : "partial" } : {}),
++      ...(txnType === "sale"
++        ? {
++            reference: issueReceiptReference(),
++            ...(dueDate
++              ? { term: { key: termKey, dueDate, setAt: new Date().toISOString() } }
++              : {}),
++          }
++        : {}),
+     };
+-    setCustomers((cs) =>
+-      cs.map((c) => (c.id === selectedId ? { ...c, txns: [...c.txns, t] } : c)),
+-    );
++    setCustomers((cs) => cs.map((c) => (c.id === selectedId ? { ...c, txns: [...c.txns, t] } : c)));
++    track(txnType === "sale" ? "transaction_created" : "payment_recorded");
+     resetForm();
++    setTermKey("none");
++    setCustomDueDate("");
+     go("detail");
+   };
+ 
+   const saveTxnEdit = () => {
+     const amt = parseFloat(form.amount);
+     if (!amt || amt <= 0 || !selectedId || !editingTxnId) return;
++    const dueDate = txnType === "sale" ? termDueDate(termKey, customDueDate) : undefined;
+     setCustomers((cs) =>
+       cs.map((c) => {
+         if (c.id !== selectedId) return c;
+@@ -223,16 +327,20 @@ function DebtTracker() {
+               type: txnType,
+               amount: amt,
+               note: form.note.trim(),
++              ...(txnType === "sale" ? { reference: t.reference ?? issueReceiptReference() } : {}),
+             };
+             if (txnType === "payment") base.kind = amt >= others ? "full" : "partial";
++            if (txnType === "sale" && dueDate)
++              base.term = { key: termKey, dueDate, setAt: new Date().toISOString() };
+             return base;
+           }),
+-
+         };
+       }),
+     );
+     setEditingTxnId(null);
+     resetForm();
++    setTermKey("none");
++    setCustomDueDate("");
+     go("detail");
+   };
+ 
+@@ -251,6 +359,8 @@ function DebtTracker() {
+     setTxnType(t.type);
+     setPayKind(t.kind ?? "partial");
+     setForm({ ...emptyForm, amount: String(t.amount), note: t.note });
++    setTermKey(t.term?.key ?? "none");
++    setCustomDueDate(t.term?.key === "custom" ? (t.term.dueDate ?? "") : "");
+     go("editTxn");
+   };
+ 
+@@ -265,10 +375,112 @@ function DebtTracker() {
+ 
+   const bizLabel = (profile.name || "Your business").toUpperCase();
+ 
++  /* ---------- reminder preview ---------- */
++  const openReminder = () => {
++    if (!selected) return;
++    setReminderTemplate("friendly");
++    setReminderSource("friendly");
++    setReminderTone("friendly");
++    setReminderMessage(buildReminder(selected, profile, "friendly"));
++    setAiError(null);
++    track("reminder_prepared");
++    go("reminder");
++  };
++
++  const selectTemplate = (tpl: ReminderTemplate) => {
++    if (!selected) return;
++    if (tpl.tier === "pro" && !isPro(sub)) {
++      setGateFeature({
++        title: tpl.name,
++        description: `Unlock ${tpl.name.toLowerCase()} and the rest of the premium reminder library with Track Debt Pro.`,
++      });
++      return;
++    }
++    setReminderTemplate(tpl.id);
++    setReminderSource(tpl.id);
++    setReminderMessage(buildReminder(selected, profile, tpl.id));
++  };
++
++  const generateWithAI = async () => {
++    if (!selected) return;
++    setAiLoading(true);
++    setAiError(null);
++    try {
++      const ctx = buildContext(selected, profile);
++      const res = await generateReminder({
++        data: {
++          customerName: ctx.customerName,
++          businessName: ctx.businessName,
++          outstanding: ctx.outstanding,
++          originalAmount: ctx.originalAmount,
++          dueDate: ctx.dueDateLong ?? null,
++          daysOverdue: ctx.daysOverdue,
++          status: ctx.status,
++          tone: reminderTone,
++        },
++      });
++      if (res.ok) {
++        setReminderMessage(res.message);
++        setReminderSource("ai");
++        track("ai_reminder_generated", { tone: reminderTone });
++      } else {
++        setAiError(res.error);
++      }
++    } catch {
++      setAiError("Could not generate a message. Please try again.");
++    } finally {
++      setAiLoading(false);
++    }
++  };
++
++  const sendReminder = () => {
++    if (!selected || !reminderMessage.trim()) return;
++    const record: ReminderRecord = {
++      id: "r" + Date.now(),
++      customerId: selected.id,
++      customerName: selected.name,
++      at: new Date().toISOString(),
++      templateId: reminderSource,
++      ...(reminderSource === "ai" ? { tone: reminderTone } : {}),
++      message: reminderMessage,
++      status: "sent",
++    };
++    setReminderHistory((rs) => [record, ...rs].slice(0, 200));
++    track("reminder_sent", { source: reminderSource });
++    window.open(waLink(selected.phone, reminderMessage), "_blank", "noreferrer");
++    go("detail");
++  };
++
++  /* ---------- receipts ---------- */
++  const downloadReceipt = async (kind: "sale" | "payment" | "statement", t?: Txn) => {
++    if (!selected) return;
++    try {
++      const doc = await generateReceiptPdf(kind, selected, profile, t);
++      const a = document.createElement("a");
++      a.href = doc.url;
++      a.download = doc.filename;
++      a.click();
++      setTimeout(() => URL.revokeObjectURL(doc.url), 4000);
++      track("receipt_generated", { kind });
++    } catch {
++      toast.error("Could not generate the PDF. Please try again.");
++    }
++  };
++
++  const copySummary = async (kind: "sale" | "payment" | "statement", t?: Txn) => {
++    if (!selected) return;
++    try {
++      await navigator.clipboard.writeText(receiptSummary(kind, selected, profile, t));
++      toast.success("Receipt summary copied.");
++    } catch {
++      toast.error("Could not copy. Please try again.");
++    }
++  };
++
+   /* ---------- render ---------- */
+   return (
+-    <main className="min-h-screen bg-background flex justify-center">
+-      <div className="w-full max-w-[430px] min-h-screen bg-paper relative pb-28 shadow-sm">
++    <AppShell>
++      <>
+         {/* ===== LIST / DASHBOARD ===== */}
+         {screen === "list" && (
+           <div className="animate-in fade-in duration-200">
+@@ -306,12 +518,24 @@ function DebtTracker() {
+                 {naira(stats.outstanding)}
+               </p>
+ 
+-              <div className="grid grid-cols-2 gap-2.5 mt-6">
++              <div className="grid grid-cols-3 gap-2 mt-6">
+                 <Stat
+                   icon={<Users size={13} />}
+                   label="Customers"
+                   value={String(customers.length)}
+                 />
++                <Stat
++                  icon={<CalendarClock size={13} />}
++                  label="Due today"
++                  value={String(stats.dueToday)}
++                  tone={stats.dueToday ? "warn" : undefined}
++                />
++                <Stat
++                  icon={<CalendarDays size={13} />}
++                  label="Due this week"
++                  value={String(stats.dueWeek)}
++                  tone={stats.dueWeek ? "warn" : undefined}
++                />
+                 <Stat
+                   icon={<AlertTriangle size={13} />}
+                   label="Overdue"
+@@ -400,8 +624,10 @@ function DebtTracker() {
+                       [
+                         ["all", "All"],
+                         ["outstanding", "Outstanding"],
+-                        ["settled", "Settled"],
++                        ["dueToday", "Due today"],
++                        ["dueWeek", "Due this week"],
+                         ["overdue", "Overdue"],
++                        ["settled", "Settled"],
+                       ] as const
+                     ).map(([key, label]) => (
+                       <Chip
+@@ -460,7 +686,7 @@ function DebtTracker() {
+                           </span>
+                           <span className="text-[11px] text-ink-soft mt-1 flex items-center gap-2">
+                             <span>last activity {fmtDate(lastActivity(c))}</span>
+-                            {isOverdue(c) && <span className="stamp text-debt">overdue</span>}
++                            <DueBadge info={dueInfoOf(c)} />
+                           </span>
+                         </span>
+                         <span
+@@ -493,7 +719,7 @@ function DebtTracker() {
+         {/* ===== BUSINESS PROFILE ===== */}
+         {screen === "profile" && (
+           <div className="p-5 animate-in fade-in slide-in-from-right-2 duration-200">
+-            <Header title="Business profile" onClose={() => go("list")} />
++            <ScreenHeader title="Business profile" onClose={() => go("list")} />
+ 
+             <div className="flex items-center gap-4 mb-7">
+               {profile.logo ? (
+@@ -599,7 +825,7 @@ function DebtTracker() {
+         {/* ===== ADD / EDIT CUSTOMER ===== */}
+         {(screen === "addCustomer" || screen === "editCustomer") && (
+           <div className="p-5 animate-in fade-in slide-in-from-right-2 duration-200">
+-            <Header
++            <ScreenHeader
+               title={screen === "addCustomer" ? "New customer" : "Edit customer"}
+               onClose={() => {
+                 resetForm();
+@@ -681,7 +907,7 @@ function DebtTracker() {
+         {/* ===== ADD / EDIT TRANSACTION ===== */}
+         {(screen === "addTxn" || screen === "editTxn") && selected && (
+           <div className="p-5 animate-in fade-in slide-in-from-right-2 duration-200">
+-            <Header
++            <ScreenHeader
+               title={`${screen === "editTxn" ? "Edit entry · " : ""}${selected.name}`}
+               onClose={() => {
+                 resetForm();
+@@ -754,6 +980,44 @@ function DebtTracker() {
+               />
+             </Field>
+ 
++            {txnType === "sale" && (
++              <Field label="PAYMENT TERMS">
++                <div className="flex flex-wrap gap-1.5">
++                  {TERM_OPTIONS.map((opt) => (
++                    <button
++                      key={opt.key}
++                      type="button"
++                      onClick={() => setTermKey(opt.key)}
++                      className={`rounded-full px-3 py-1.5 text-[12px] font-semibold border transition-colors ${
++                        termKey === opt.key
++                          ? "bg-ink text-paper-raised border-ink"
++                          : "bg-paper-raised text-ink-soft border-line"
++                      }`}
++                    >
++                      {opt.label}
++                    </button>
++                  ))}
++                </div>
++                {termKey === "custom" && (
++                  <input
++                    type="date"
++                    value={customDueDate}
++                    min={todayISO()}
++                    onChange={(e) => setCustomDueDate(e.target.value)}
++                    className="input-field w-full rounded px-3 py-2.5 text-sm mt-2.5"
++                  />
++                )}
++                {termKey !== "none" && (
++                  <p className="text-[11px] text-ink-soft mt-2">
++                    {(() => {
++                      const d = termDueDate(termKey, customDueDate);
++                      return d ? `Due ${fmtDate(d)}` : "Pick a custom date above.";
++                    })()}
++                  </p>
++                )}
++              </Field>
++            )}
++
+             <p className="text-[11px] text-ink-soft mb-5">
+               Current balance {naira(Math.max(balanceOf(selected), 0))} · balances recalculate
+               automatically.
+@@ -851,12 +1115,18 @@ function DebtTracker() {
+                   {naira(Math.abs(balanceOf(selected)))}
+                 </p>
+                 <p className="text-[11px] text-ink-soft mt-1.5">
+-                  {balanceOf(selected) > 0
+-                    ? isOverdue(selected)
+-                      ? "owed to you · overdue"
+-                      : "owed to you"
+-                    : "settled"}
++                  {balanceOf(selected) > 0 ? "owed to you" : "settled"}
+                 </p>
++                {balanceOf(selected) > 0 && (
++                  <div className="flex items-center justify-center gap-2 mt-2.5">
++                    <DueBadge info={dueInfoOf(selected)} />
++                  </div>
++                )}
++                {balanceOf(selected) > 0 && dueInfoOf(selected).dueDate && (
++                  <p className="mono text-[11px] text-ink-soft mt-1.5">
++                    Due {dueDateLong(selected)}
++                  </p>
++                )}
+               </div>
+ 
+               <div className="grid grid-cols-2 gap-2 mt-4">
+@@ -884,24 +1154,41 @@ function DebtTracker() {
+               </div>
+ 
+               {balanceOf(selected) > 0 && (
+-                <a
+-                  href={waLink(selected.phone, buildReminder(selected, profile))}
+-                  target="_blank"
+-                  rel="noreferrer"
+-                  className="btn-wa mt-2 rounded py-2.5 text-sm font-semibold flex items-center justify-center gap-2"
++                <button
++                  onClick={openReminder}
++                  className="btn-wa mt-2 rounded py-2.5 text-sm font-semibold flex items-center justify-center gap-2 w-full transition-transform active:scale-[0.99]"
+                 >
+                   <MessageCircle size={16} /> Send reminder on WhatsApp
+-                </a>
++                </button>
+               )}
+               {selected.txns.length > 0 && (
+-                <a
+-                  href={waLink(selected.phone, statementMessage(selected, profile))}
+-                  target="_blank"
+-                  rel="noreferrer"
+-                  className="mt-2 rounded py-2.5 text-sm font-semibold flex items-center justify-center gap-2 border border-line bg-paper-raised text-ink"
+-                >
+-                  <Receipt size={15} /> Send statement
+-                </a>
++                <div className="mt-3">
++                  <p className="mono text-[10px] tracking-widest text-ink-soft mb-1.5 flex items-center gap-1.5">
++                    <FileText size={11} /> CUSTOMER STATEMENT
++                  </p>
++                  <div className="grid grid-cols-3 gap-2">
++                    <a
++                      href={waLink(selected.phone, statementMessage(selected, profile))}
++                      target="_blank"
++                      rel="noreferrer"
++                      className="rounded py-2.5 text-[12px] font-semibold flex items-center justify-center gap-1.5 border border-line bg-paper-raised text-ink"
++                    >
++                      <Receipt size={14} /> WhatsApp
++                    </a>
++                    <button
++                      onClick={() => downloadReceipt("statement")}
++                      className="rounded py-2.5 text-[12px] font-semibold flex items-center justify-center gap-1.5 border border-line bg-paper-raised text-ink"
++                    >
++                      <Download size={14} /> PDF
++                    </button>
++                    <button
++                      onClick={() => copySummary("statement")}
++                      className="rounded py-2.5 text-[12px] font-semibold flex items-center justify-center gap-1.5 border border-line bg-paper-raised text-ink"
++                    >
++                      <Copy size={14} /> Copy
++                    </button>
++                  </div>
++                </div>
+               )}
+             </header>
+ 
+@@ -926,25 +1213,41 @@ function DebtTracker() {
+                   className="ledger-row flex items-start justify-between px-5 py-3.5 gap-3"
+                 >
+                   <div className="min-w-0">
+-                    <p className="text-sm font-medium">
++                    <p className="text-sm font-medium flex items-center gap-2">
+                       {t.type === "sale"
+                         ? "Credit sale"
+                         : t.kind === "partial"
+                           ? "Partial payment"
+                           : "Full payment"}
++                      {t.type === "sale" && t.term?.dueDate && (
++                        <DueBadge
++                          info={dueInfoOfTxn(
++                            t,
++                            openSales(selected).find((o) => o.txn.id === t.id)?.outstanding ?? 0,
++                          )}
++                        />
++                      )}
+                     </p>
+                     <p className="text-[11px] text-ink-soft mt-1 truncate">
+                       {fmtDate(t.date)}
+                       {t.note ? ` · ${t.note}` : ""}
+                     </p>
+-                    <a
+-                      href={waLink(selected.phone, receiptMessage(selected, t, profile))}
+-                      target="_blank"
+-                      rel="noreferrer"
+-                      className="text-[11px] font-semibold text-wa inline-flex items-center gap-1 mt-1.5"
+-                    >
+-                      <Receipt size={12} /> Send receipt
+-                    </a>
++                    <span className="flex items-center gap-3 mt-1.5">
++                      <a
++                        href={waLink(selected.phone, receiptMessage(selected, t, profile))}
++                        target="_blank"
++                        rel="noreferrer"
++                        className="text-[11px] font-semibold text-wa inline-flex items-center gap-1"
++                      >
++                        <Receipt size={12} /> Receipt
++                      </a>
++                      <button
++                        onClick={() => downloadReceipt(t.type, t)}
++                        className="text-[11px] font-semibold text-ink-soft inline-flex items-center gap-1"
++                      >
++                        <Download size={12} /> PDF
++                      </button>
++                    </span>
+                     {confirmDelete === t.id && (
+                       <span className="flex items-center gap-2 mt-2 animate-in fade-in duration-150">
+                         <button
+@@ -991,79 +1294,98 @@ function DebtTracker() {
+             </section>
+           </div>
+         )}
+-      </div>
+-    </main>
+-  );
+-}
+ 
+-function Stat({
+-  icon,
+-  label,
+-  value,
+-  tone,
+-}: {
+-  icon: React.ReactNode;
+-  label: string;
+-  value: string;
+-  tone?: "debt" | "paid" | undefined;
+-}) {
+-  return (
+-    <div className="rounded border border-line bg-paper px-3 py-2.5">
+-      <p className="text-[10px] tracking-wide text-ink-soft flex items-center gap-1.5">
+-        {icon} {label}
+-      </p>
+-      <p
+-        className={`mono text-[15px] font-bold mt-1 ${
+-          tone === "debt" ? "text-debt" : tone === "paid" ? "text-paid" : "text-ink"
+-        }`}
+-      >
+-        {value}
+-      </p>
+-    </div>
+-  );
+-}
++        {/* ===== REMINDER PREVIEW ===== */}
++        {screen === "reminder" && selected && (
++          <div className="p-5 animate-in fade-in slide-in-from-right-2 duration-200">
++            <ScreenHeader title="Reminder preview" onClose={() => go("detail")} />
+ 
+-function Chip({
+-  active,
+-  label,
+-  onClick,
+-}: {
+-  active: boolean;
+-  label: string;
+-  onClick: () => void;
+-}) {
+-  return (
+-    <button
+-      onClick={onClick}
+-      className={`shrink-0 rounded-full px-3 py-1.5 text-[12px] font-semibold border transition-colors ${
+-        active
+-          ? "bg-ink text-paper-raised border-ink"
+-          : "bg-paper-raised text-ink-soft border-line"
+-      }`}
+-    >
+-      {label}
+-    </button>
+-  );
+-}
++            <div className="rounded border border-line bg-paper-raised p-4 mb-5">
++              <div className="flex items-center justify-between gap-2">
++                <p className="font-semibold text-[15px] truncate">{selected.name}</p>
++                <DueBadge info={dueInfoOf(selected)} />
++              </div>
++              <p className="mono text-xl font-bold text-debt mt-1.5">
++                {naira(Math.max(balanceOf(selected), 0))}
++              </p>
++              <p className="text-[11px] text-ink-soft mt-0.5">{dueDateLong(selected)}</p>
++            </div>
+ 
+-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+-  return (
+-    <div className="mb-4">
+-      <label className="mono text-[11px] tracking-widest text-ink-soft block mb-1.5">
+-        {label}
+-      </label>
+-      {children}
+-    </div>
+-  );
+-}
++            <p className="mono text-[11px] tracking-widest text-ink-soft mb-2">TEMPLATE</p>
++            <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 mb-5">
++              {REMINDER_TEMPLATES.map((tpl) => (
++                <button
++                  key={tpl.id}
++                  onClick={() => selectTemplate(tpl)}
++                  className={`shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold border transition-colors ${
++                    reminderTemplate === tpl.id && reminderSource !== "ai"
++                      ? "bg-ink text-paper-raised border-ink"
++                      : "bg-paper-raised text-ink-soft border-line"
++                  }`}
++                >
++                  {tpl.name}
++                  {tpl.tier === "pro" && <ProBadge />}
++                </button>
++              ))}
++            </div>
+ 
+-function Header({ title, onClose }: { title: string; onClose: () => void }) {
+-  return (
+-    <div className="flex items-center gap-3 pt-4 pb-7">
+-      <button onClick={onClose} aria-label="Close">
+-        <X size={20} />
+-      </button>
+-      <h2 className="font-semibold text-lg truncate">{title}</h2>
+-    </div>
++            <p className="mono text-[11px] tracking-widest text-ink-soft mb-2">GENERATE WITH AI</p>
++            <div className="flex gap-1.5 mb-2">
++              {(["friendly", "professional", "firm"] as const).map((tone) => (
++                <button
++                  key={tone}
++                  onClick={() => setReminderTone(tone)}
++                  className={`flex-1 rounded py-2 text-[12px] font-semibold border transition-colors ${
++                    reminderTone === tone
++                      ? "border-ink text-ink bg-paper-raised"
++                      : "border-line text-ink-soft bg-paper-raised"
++                  }`}
++                >
++                  {tone[0]!.toUpperCase() + tone.slice(1)}
++                </button>
++              ))}
++            </div>
++            <button
++              onClick={generateWithAI}
++              disabled={aiLoading}
++              className="w-full flex items-center justify-center gap-2 rounded py-2.5 text-sm font-semibold border border-line bg-paper-raised text-ink mb-1 disabled:opacity-50 transition-transform active:scale-[0.99]"
++            >
++              <Sparkles size={15} /> {aiLoading ? "Generating…" : "Generate with AI"}
++            </button>
++            {aiError && <p className="text-[11px] text-debt mt-1 mb-2">{aiError}</p>}
++
++            <p className="mono text-[11px] tracking-widest text-ink-soft mb-2 mt-5">MESSAGE</p>
++            <textarea
++              value={reminderMessage}
++              onChange={(e) => setReminderMessage(e.target.value)}
++              rows={8}
++              className="input-field w-full rounded px-3 py-2.5 text-sm resize-none mb-5 leading-relaxed"
++            />
++
++            <button
++              onClick={sendReminder}
++              disabled={!reminderMessage.trim()}
++              className="btn-wa w-full rounded py-3 text-sm font-semibold flex items-center justify-center gap-2 mb-2 disabled:opacity-40 transition-transform active:scale-[0.99]"
++            >
++              <MessageCircle size={16} /> Send via WhatsApp
++            </button>
++            <button
++              onClick={() => go("detail")}
++              className="w-full rounded py-2.5 text-sm font-semibold border border-line bg-paper-raised text-ink-soft"
++            >
++              Cancel
++            </button>
++          </div>
++        )}
++
++        {gateFeature && (
++          <PremiumGate
++            title={gateFeature.title}
++            description={gateFeature.description}
++            onClose={() => setGateFeature(null)}
++          />
++        )}
++      </>
++    </AppShell>
+   );
+ }
+diff --git a/src/styles.css b/src/styles.css
+index c6f0b54..27c59e7 100644
+--- a/src/styles.css
++++ b/src/styles.css
+@@ -56,7 +56,6 @@
+   --warn: oklch(0.55 0.15 62);
+   --wa: oklch(0.63 0.16 152);
+ 
+-
+   --background: var(--paper);
+   --foreground: var(--ink);
+   --card: var(--paper-raised);
+-- 
+2.43.0
+
