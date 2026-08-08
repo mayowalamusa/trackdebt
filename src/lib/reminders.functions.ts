@@ -26,7 +26,7 @@ export const generateReminder = createServerFn({ method: "POST" })
     try {
       const gateway = createLovableAiGatewayProvider(key);
       const result = streamText({
-        model: gateway("google/gemini-3-flash"),
+        model: gateway("google/gemini-3.6-flash"),
         prompt: buildReminderPrompt(data),
       });
       const text = (await result.text).trim();
