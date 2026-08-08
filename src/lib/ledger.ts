@@ -1,3 +1,5 @@
+import { normalizeForWhatsApp } from "./phone";
+
 export const APP_NAME = "Track Debt";
 export const APP_VERSION = "3.0.0";
 
@@ -77,7 +79,25 @@ export const BUSINESS_CATEGORIES = [
 
 export const naira = (n: number) => "₦" + Math.round(n).toLocaleString("en-NG");
 
-export const todayISO = () => new Date().toISOString().slice(0, 10);
+/** True local calendar date as YYYY-MM-DD.
+ *
+ *  Deliberately NOT `new Date().toISOString().slice(0, 10)` — that reports
+ *  the UTC date, which is a day off from the user's actual local date for
+ *  part of every day in any timezone other than UTC+0. For a UTC-5 user at
+ *  8pm local time, toISOString() already reports tomorrow's date. Reading
+ *  local date components avoids that entirely. */
+export const todayLocalISO = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+/** Back-compat alias used throughout the app. Same local-date-correct
+ *  implementation as todayLocalISO — kept as one name so there's a single
+ *  source of truth for "what date is it today". */
+export const todayISO = todayLocalISO;
 
 export const addDaysISO = (days: number, from = todayISO()) => {
   const d = new Date(from + "T00:00:00");
@@ -102,12 +122,20 @@ export function termDueDate(key: TermKey, custom: string): string | undefined {
   return undefined;
 }
 
-/** Whole days from `iso` until today. Positive = in the past. */
-export const daysSince = (iso: string) =>
+/** Whole calendar days from `a` to `b` (both YYYY-MM-DD), date-only.
+ *  Both sides are parsed at local midnight of that calendar date, so this
+ *  is never thrown off by time-of-day. Math.round absorbs the rare
+ *  DST edge case where the ms difference isn't an exact multiple of a day
+ *  (moot for Nigeria, which doesn't observe DST, but safe everywhere). This
+ *  is the single place day-difference math happens — every other date
+ *  comparison in the app goes through this or daysSince/daysUntil below. */
+export const daysBetween = (a: string, b: string) =>
   Math.round(
-    (new Date(todayISO() + "T00:00:00").getTime() - new Date(iso + "T00:00:00").getTime()) /
-      86400000,
+    (new Date(b + "T00:00:00").getTime() - new Date(a + "T00:00:00").getTime()) / 86400000,
   );
+
+/** Whole days from `iso` until today. Positive = in the past. */
+export const daysSince = (iso: string) => daysBetween(iso, todayISO());
 
 /** Whole days from today until `iso`. Negative = overdue. */
 export const daysUntil = (iso: string) => -daysSince(iso);
@@ -130,15 +158,8 @@ export const lastActivity = (c: Customer) =>
 
 export const thisMonth = (iso: string) => iso.slice(0, 7) === todayISO().slice(0, 7);
 
-export const waPhone = (raw: string) => {
-  const digits = raw.replace(/\D/g, "");
-  if (digits.startsWith("234")) return digits;
-  if (digits.startsWith("0")) return "234" + digits.slice(1);
-  return "234" + digits;
-};
-
 export const waLink = (phone: string, text: string) =>
-  `https://wa.me/${waPhone(phone)}?text=${encodeURIComponent(text)}`;
+  `https://wa.me/${normalizeForWhatsApp(phone)}?text=${encodeURIComponent(text)}`;
 
 export const profileFooter = (p: BusinessProfile) =>
   [p.phone, p.email, p.address].filter(Boolean).join(" · ");

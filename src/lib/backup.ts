@@ -1,101 +1,147 @@
-// src/lib/backup.ts
-import { todayLocalISO } from "./dates";
+/**
+ * Backup & restore for Track Debt's local data.
+ *
+ * Everything Track Debt stores lives in a handful of localStorage keys.
+ * A backup is just a versioned snapshot of those keys as one JSON file,
+ * so the user can move data between devices or recover from a lost app.
+ *
+ * The format is versioned (BACKUP_VERSION) so a future release can add a
+ * migration step in `migrateBackup` without breaking older backup files.
+ */
 
-export type BackupV1 = {
-  backupVersion: 1;
-  createdAt: string; // ISO timestamp
-  payload: {
-    profile: unknown;
-    customers: unknown;
-    reminders: unknown;
-    subscription: unknown;
-    onboarding: unknown;
-    receiptCounter: unknown;
-    // keep a place for future keys
-    [k: string]: unknown;
-  };
-};
+export const BACKUP_VERSION = 1;
 
 const KEYS = {
-  profile: "debtbook.v2.profile",
   customers: "debtbook.v2.customers",
+  profile: "debtbook.v2.profile",
   reminders: "trackdebt.v3.reminders",
   subscription: "trackdebt.v3.subscription",
   onboarding: "trackdebt.v3.onboarding",
   receiptCounter: "trackdebt.v3.receiptCounter",
+} as const;
+
+export type BackupData = {
+  customers: unknown;
+  profile: unknown;
+  reminders: unknown;
+  subscription: unknown;
+  onboarding: unknown;
+  receiptCounter: unknown;
 };
 
-export function createBackup(): BackupV1 {
-  const payload: BackupV1["payload"] = {
-    profile: safeGet(KEYS.profile),
-    customers: safeGet(KEYS.customers),
-    reminders: safeGet(KEYS.reminders),
-    subscription: safeGet(KEYS.subscription),
-    onboarding: safeGet(KEYS.onboarding),
-    receiptCounter: safeGet(KEYS.receiptCounter),
-  };
+export type BackupFile = {
+  version: number;
+  app: "track-debt";
+  exportedAt: string;
+  data: BackupData;
+};
 
-  return {
-    backupVersion: 1,
-    createdAt: new Date().toISOString(),
-    payload,
-  };
-}
+const LAST_BACKUP_KEY = "trackdebt.v3.lastBackupAt";
 
-export function formatBackupFilename(createdAt: string) {
-  // createdAt in ISO; use yyyy-mm-dd
-  const d = createdAt.slice(0, 10);
-  return `TrackDebt-Backup-${d}.json`;
-}
-
-function safeGet(key: string) {
+export function getLastBackupAt(): string | null {
   try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return null;
-    return JSON.parse(raw);
+    return window.localStorage.getItem(LAST_BACKUP_KEY);
   } catch {
     return null;
   }
 }
 
-export function validateBackup(obj: unknown): { ok: true; backup: BackupV1 } | { ok: false; error: string } {
-  if (!obj || typeof obj !== "object") return { ok: false, error: "Not a valid JSON object" };
-  const b = obj as BackupV1;
-  if (b.backupVersion !== 1) return { ok: false, error: "Unsupported backup version" };
-  if (!b.payload || typeof b.payload !== "object") return { ok: false, error: "Missing payload" };
-  // basic checks for the keys we expect
-  const p = b.payload as Record<string, unknown>;
-  if (!("customers" in p) || !("profile" in p)) return { ok: false, error: "Missing required data" };
-  return { ok: true, backup: b };
-}
-
-export async function exportBackupFile(backup: BackupV1) {
-  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = formatBackupFilename(backup.createdAt);
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
-}
-
-export function restoreBackup(backup: BackupV1): { ok: true } | { ok: false; error: string } {
+function setLastBackupAt(iso: string) {
   try {
-    const p = backup.payload;
-    if (p.profile !== undefined) window.localStorage.setItem(KEYS.profile, JSON.stringify(p.profile));
-    if (p.customers !== undefined) window.localStorage.setItem(KEYS.customers, JSON.stringify(p.customers));
-    if (p.reminders !== undefined) window.localStorage.setItem(KEYS.reminders, JSON.stringify(p.reminders));
-    if (p.subscription !== undefined)
-      window.localStorage.setItem(KEYS.subscription, JSON.stringify(p.subscription));
-    if (p.onboarding !== undefined) window.localStorage.setItem(KEYS.onboarding, JSON.stringify(p.onboarding));
-    if (p.receiptCounter !== undefined)
-      window.localStorage.setItem(KEYS.receiptCounter, JSON.stringify(p.receiptCounter));
-
-    // leave migration to existing startup logic; reload required to refresh hooks
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: "Could not restore backup. The file may be corrupted." };
+    window.localStorage.setItem(LAST_BACKUP_KEY, iso);
+  } catch {
+    /* non-fatal: last-backup label just won't update */
   }
+}
+
+function readKey(key: string): unknown {
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeKey(key: string, value: unknown) {
+  window.localStorage.setItem(key, JSON.stringify(value));
+}
+
+/** Snapshot everything Track Debt has stored on this device. */
+export function createBackup(): BackupFile {
+  const exportedAt = new Date().toISOString();
+  const backup: BackupFile = {
+    version: BACKUP_VERSION,
+    app: "track-debt",
+    exportedAt,
+    data: {
+      customers: readKey(KEYS.customers) ?? [],
+      profile: readKey(KEYS.profile) ?? {},
+      reminders: readKey(KEYS.reminders) ?? [],
+      subscription: readKey(KEYS.subscription),
+      onboarding: readKey(KEYS.onboarding),
+      receiptCounter: readKey(KEYS.receiptCounter),
+    },
+  };
+  setLastBackupAt(exportedAt);
+  return backup;
+}
+
+export function backupFilename(b: Pick<BackupFile, "exportedAt">): string {
+  const d = new Date(b.exportedAt);
+  if (Number.isNaN(d.getTime())) return "track-debt-backup.json";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `track-debt-backup-${y}-${m}-${day}.json`;
+}
+
+/** Structural validation only — enough to know it's a Track Debt backup
+ *  we can safely act on, not full schema validation of every record. */
+export function isValidBackup(input: unknown): input is BackupFile {
+  if (!input || typeof input !== "object") return false;
+  const b = input as Record<string, unknown>;
+  if (b["app"] !== "track-debt") return false;
+  if (typeof b["version"] !== "number" || !Number.isFinite(b["version"]) || b["version"] < 1) {
+    return false;
+  }
+  if (typeof b["exportedAt"] !== "string" || Number.isNaN(new Date(b["exportedAt"]).getTime())) {
+    return false;
+  }
+  if (!b["data"] || typeof b["data"] !== "object") return false;
+  const d = b["data"] as Record<string, unknown>;
+  if (!Array.isArray(d["customers"])) return false;
+  if (!d["profile"] || typeof d["profile"] !== "object") return false;
+  return true;
+}
+
+/** No-op today — the seam future backup-version upgrades hook into. */
+export function migrateBackup(input: BackupFile): BackupFile {
+  if (input.version === BACKUP_VERSION) return input;
+  return { ...input, version: BACKUP_VERSION };
+}
+
+export function parseBackupFile(raw: string): BackupFile | null {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!isValidBackup(parsed)) return null;
+    return migrateBackup(parsed);
+  } catch {
+    return null;
+  }
+}
+
+/** Replaces all local Track Debt data with what's in the backup.
+ *  Callers should reload the app afterward so every hook re-hydrates
+ *  from the newly-written storage instead of holding stale in-memory
+ *  state. Throws if any key fails to write, so a partial write is
+ *  reported rather than silently accepted. */
+export function restoreBackup(input: BackupFile): void {
+  const b = migrateBackup(input);
+  writeKey(KEYS.customers, b.data.customers ?? []);
+  writeKey(KEYS.profile, b.data.profile ?? {});
+  writeKey(KEYS.reminders, b.data.reminders ?? []);
+  if (b.data.subscription != null) writeKey(KEYS.subscription, b.data.subscription);
+  if (b.data.onboarding != null) writeKey(KEYS.onboarding, b.data.onboarding);
+  if (b.data.receiptCounter != null) writeKey(KEYS.receiptCounter, b.data.receiptCounter);
 }

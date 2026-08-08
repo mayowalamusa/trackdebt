@@ -76,6 +76,8 @@ import {
 } from "@/lib/reminders";
 import { generateReminder } from "@/lib/reminders.functions";
 import { generateReceiptPdf, receiptSummary } from "@/lib/receipts";
+import { downloadFile } from "@/lib/download";
+import { isProbablyValidPhone, normalizeForStorage } from "@/lib/phone";
 import { isPro, paymentService, stateLabel } from "@/lib/subscription";
 import { DEVELOPER, SUPPORT_EMAIL, WEBSITE_URL } from "@/lib/app-config";
 import { track } from "@/lib/analytics";
@@ -234,36 +236,46 @@ function DebtTracker() {
   /* ---------- mutations ---------- */
   const addCustomer = () => {
     if (!form.name.trim() || !form.phone.trim()) return;
+    if (!isProbablyValidPhone(form.phone)) {
+      toast.error("That phone number doesn't look right. Please check it and try again.");
+      return;
+    }
     setCustomers((cs) => [
       ...cs,
       {
         id: "c" + Date.now(),
         name: form.name.trim(),
-        phone: form.phone.trim(),
+        phone: normalizeForStorage(form.phone),
         notes: form.notes.trim(),
         createdAt: todayISO(),
         txns: [],
       },
     ]);
     track("customer_added");
+    toast.success("Customer added.");
     resetForm();
     go("list");
   };
 
   const saveCustomerEdit = () => {
     if (!selectedId || !form.name.trim() || !form.phone.trim()) return;
+    if (!isProbablyValidPhone(form.phone)) {
+      toast.error("That phone number doesn't look right. Please check it and try again.");
+      return;
+    }
     setCustomers((cs) =>
       cs.map((c) =>
         c.id === selectedId
           ? {
               ...c,
               name: form.name.trim(),
-              phone: form.phone.trim(),
+              phone: normalizeForStorage(form.phone),
               notes: form.notes.trim(),
             }
           : c,
       ),
     );
+    toast.success("Customer updated.");
     resetForm();
     go("detail");
   };
@@ -455,11 +467,12 @@ function DebtTracker() {
     if (!selected) return;
     try {
       const doc = await generateReceiptPdf(kind, selected, profile, t);
-      const a = document.createElement("a");
-      a.href = doc.url;
-      a.download = doc.filename;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(doc.url), 4000);
+      const result = await downloadFile(doc.filename, doc.blob, "application/pdf");
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("PDF generated.");
       track("receipt_generated", { kind });
     } catch {
       toast.error("Could not generate the PDF. Please try again.");
@@ -1128,6 +1141,11 @@ function DebtTracker() {
                 inputMode="tel"
                 className="input-field w-full rounded px-3 py-2.5 text-sm"
               />
+              {form.phone.trim() && !isProbablyValidPhone(form.phone) && (
+                <p className="text-[11px] text-debt mt-1.5">
+                  That doesn&rsquo;t look like a valid phone number.
+                </p>
+              )}
             </Field>
             <Field label="NOTES (OPTIONAL)">
               <textarea
@@ -1141,7 +1159,9 @@ function DebtTracker() {
 
             <button
               onClick={screen === "addCustomer" ? addCustomer : saveCustomerEdit}
-              disabled={!form.name.trim() || !form.phone.trim()}
+              disabled={
+                !form.name.trim() || !form.phone.trim() || !isProbablyValidPhone(form.phone)
+              }
               className="btn-primary w-full rounded py-3 text-sm font-semibold mt-2 disabled:opacity-40 transition-transform active:scale-[0.99]"
             >
               {screen === "addCustomer" ? "Save customer" : "Save changes"}

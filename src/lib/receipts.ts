@@ -3,6 +3,7 @@ import {
   balanceOf,
   fmtDateLong,
   naira,
+  todayISO,
   type BusinessProfile,
   type Customer,
   type Txn,
@@ -15,7 +16,6 @@ export type ReceiptKind = "sale" | "payment" | "statement";
 export type ReceiptDoc = {
   filename: string;
   blob: Blob;
-  url: string;
 };
 
 const INK = [40, 34, 28] as const;
@@ -78,12 +78,26 @@ export function receiptSummary(
     "",
     `Outstanding balance: ${naira(Math.max(balanceOf(c), 0))}`,
     `Status: ${dueInfoOf(c).label}`,
-    `Generated: ${fmtDateLong(new Date().toISOString().slice(0, 10))} · ${APP_NAME}`,
+    `Generated: ${fmtDateLong(todayISO())} · ${APP_NAME}`,
   );
   return lines.filter((l) => l !== "").join("\n");
 }
 
 export async function generateReceiptPdf(
+  kind: ReceiptKind,
+  c: Customer,
+  p: BusinessProfile,
+  t?: Txn,
+): Promise<ReceiptDoc> {
+  try {
+    return await buildReceiptPdf(kind, c, p, t);
+  } catch (err) {
+    console.error("[receipts] PDF generation failed", err);
+    throw new Error("Could not generate the PDF. Please try again.");
+  }
+}
+
+async function buildReceiptPdf(
   kind: ReceiptKind,
   c: Customer,
   p: BusinessProfile,
@@ -290,17 +304,13 @@ export async function generateReceiptPdf(
   const footerY = doc.internal.pageSize.getHeight() - 46;
   doc.setDrawColor(...LINE).line(M, footerY - 16, W - M, footerY - 16);
   doc.setFontSize(8).setTextColor(...SOFT);
-  doc.text(
-    `Generated ${fmtDateLong(new Date().toISOString().slice(0, 10))} with ${APP_NAME}`,
-    M,
-    footerY,
-  );
+  doc.text(`Generated ${fmtDateLong(todayISO())} with ${APP_NAME}`, M, footerY);
   doc.text("Thank you for your patronage.", W - M, footerY, { align: "right" });
 
   const blob = doc.output("blob") as Blob;
   const safeName = c.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
   const filename = `${kind === "statement" ? "statement" : "receipt"}-${safeName}-${t?.reference ?? Date.now()}.pdf`;
-  return { filename, blob, url: URL.createObjectURL(blob) };
+  return { filename, blob };
 }
 
 /** Only used to decide whether the statement can show an opening balance. */
