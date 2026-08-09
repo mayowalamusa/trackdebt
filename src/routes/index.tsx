@@ -987,6 +987,13 @@ function DebtTracker() {
               href={`mailto:${SUPPORT_EMAIL}`}
             />
 
+            <p className="mono text-[10px] tracking-widest text-ink-soft px-5 pb-2 pt-5">DATA</p>
+            <SettingsRow
+              icon={<Download size={17} />}
+              label="Backup & Restore"
+              onClick={() => go("backup")}
+            />
+
             <p className="mono text-[10px] tracking-widest text-ink-soft px-5 pb-2 pt-5">
               ADVANCED
             </p>
@@ -1001,6 +1008,78 @@ function DebtTracker() {
             </p>
           </div>
         )}
+
+        {/* ===== BACKUP & RESTORE ===== */}
+        {screen === "backup" && (
+          <div className="p-5 animate-in fade-in slide-in-from-right-2 duration-200">
+            <ScreenHeader title="Backup & Restore" onClose={() => go("settings")} />
+
+            <p className="text-[13px] leading-relaxed text-ink-soft mb-5">
+              Your Track Debt data is stored on this device. Back up your data regularly so you can
+              restore it if you change devices or lose app data.
+            </p>
+
+            <div className="rounded border border-line bg-paper-raised px-4 py-3 mb-5">
+              <p className="mono text-[10px] tracking-widest text-ink-soft">LAST BACKUP</p>
+              <p className="text-sm mt-1">
+                {lastBackup ? new Date(lastBackup).toLocaleString() : "Never"}
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                onClick={exportBackup}
+                className="btn-primary w-full min-h-[48px] rounded py-3 text-sm font-semibold"
+              >
+                Export Backup
+              </button>
+              <input
+                ref={backupInput}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = "";
+                  void pickBackupFile(f);
+                }}
+              />
+              <button
+                onClick={() => backupInput.current?.click()}
+                className="w-full min-h-[48px] rounded border border-line bg-paper-raised py-3 text-sm font-semibold text-ink"
+              >
+                Import Backup
+              </button>
+            </div>
+
+            {pendingBackup && (
+              <div className="fixed inset-0 z-50 grid place-items-center bg-ink/50 p-5">
+                <div className="w-full max-w-sm rounded border border-line bg-paper p-5 shadow-lg">
+                  <h3 className="text-base font-semibold mb-2">Restore Backup?</h3>
+                  <p className="text-[13px] text-ink-soft mb-5">
+                    Restoring this backup will replace the current Track Debt data on this device.
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setPendingBackup(null)}
+                      className="flex-1 min-h-[44px] rounded border border-line bg-paper-raised text-sm font-semibold"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={confirmRestore}
+                      className="btn-primary flex-1 min-h-[44px] rounded text-sm font-semibold"
+                    >
+                      Restore
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+
 
         {/* ===== ABOUT ===== */}
         {screen === "about" && (
