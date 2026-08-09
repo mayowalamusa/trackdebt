@@ -1,22 +1,31 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import type { BusinessProfile, Customer, Txn } from "./ledger";
 import { emptyProfile } from "./ledger";
 import type { ReminderRecord } from "./reminders";
+import { isPlainObject, readJSON, writeJSON } from "./storage";
 import { freeSubscription, normalize, type Subscription } from "./subscription";
 
-function usePersisted<T>(key: string, initial: T, migrate?: (raw: T) => T) {
+type PersistOptions<T> = {
+  migrate?: (raw: T) => T;
+  validate?: (parsed: unknown) => boolean;
+  /** Shown once if the stored value could not be read. */
+  corruptMessage?: string;
+};
+
+function usePersisted<T>(key: string, initial: T, options: PersistOptions<T> = {}) {
   const [value, setValue] = useState<T>(initial);
   const [loaded, setLoaded] = useState(false);
+  const warnedQuota = useRef(false);
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(key);
-      if (raw) {
-        const parsed = JSON.parse(raw) as T;
-        setValue(migrate ? migrate(parsed) : parsed);
-      }
-    } catch {
-      /* ignore corrupt storage */
+    const read = readJSON<T>(key, initial, {
+      ...(options.migrate ? { migrate: options.migrate } : {}),
+      ...(options.validate ? { validate: options.validate } : {}),
+    });
+    setValue(read.value);
+    if (read.corrupt && options.corruptMessage) {
+      toast.error(options.corruptMessage);
     }
     setLoaded(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -24,15 +33,20 @@ function usePersisted<T>(key: string, initial: T, migrate?: (raw: T) => T) {
 
   useEffect(() => {
     if (!loaded) return;
-    try {
-      window.localStorage.setItem(key, JSON.stringify(value));
-    } catch {
-      /* ignore quota errors */
+    const res = writeJSON(key, value);
+    if (!res.ok && !warnedQuota.current) {
+      warnedQuota.current = true;
+      toast.error(
+        res.reason === "quota"
+          ? "This device is out of storage space. Recent changes may not be saved — export a backup."
+          : "Changes could not be saved on this device.",
+      );
     }
   }, [key, value, loaded]);
 
   return [value, setValue, loaded] as const;
 }
+
 
 /** Phase 1 migration: give older transactions the new payment-term shape
  *  without discarding anything the user already recorded. */
