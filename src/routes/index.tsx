@@ -199,6 +199,15 @@ function DebtTracker() {
     null,
   );
 
+  // backup & restore
+  const backupInput = useRef<HTMLInputElement>(null);
+  const [pendingBackup, setPendingBackup] = useState<BackupFile | null>(null);
+  const [lastBackup, setLastBackup] = useState<string | null>(null);
+  useEffect(() => {
+    if (screen === "backup") setLastBackup(getLastBackupAt());
+  }, [screen]);
+
+
   const selected = customers.find((c) => c.id === selectedId) ?? null;
   const resetForm = () => setForm(emptyForm);
   const go = (s: Screen) => {
