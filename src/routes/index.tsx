@@ -380,6 +380,8 @@ function DebtTracker() {
       }),
     );
     setEditingTxnId(null);
+    toast.success("Transaction updated.");
+
     resetForm();
     setTermKey("none");
     setCustomDueDate("");
