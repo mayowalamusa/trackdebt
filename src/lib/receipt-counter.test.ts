@@ -45,19 +45,17 @@ describe("issueReceiptReference", () => {
   });
 
   it("keeps issuing unique numbers when storage throws", () => {
-    const original = window.localStorage.setItem.bind(window.localStorage);
-    Object.defineProperty(window.localStorage, "setItem", {
-      value: () => {
-        throw new DOMException("quota", "QuotaExceededError");
-      },
-      configurable: true,
-    });
-    const a = issueReceiptReference();
-    const b = issueReceiptReference();
-    Object.defineProperty(window.localStorage, "setItem", {
-      value: original,
-      configurable: true,
-    });
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = () => {
+      throw new DOMException("quota", "QuotaExceededError");
+    };
+    let a: string, b: string;
+    try {
+      a = issueReceiptReference();
+      b = issueReceiptReference();
+    } finally {
+      Storage.prototype.setItem = original;
+    }
     expect(a).not.toBe(b);
   });
 

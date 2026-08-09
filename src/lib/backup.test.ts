@@ -92,21 +92,20 @@ describe("restoreBackup", () => {
     const backup = createBackup();
     backup.data.customers = [{ id: "restored" }];
 
-    const original = window.localStorage.setItem.bind(window.localStorage);
+    const original = Storage.prototype.setItem;
     let calls = 0;
-    const spy = (key: string, value: string) => {
+    Storage.prototype.setItem = function patched(this: Storage, key: string, value: string) {
       calls += 1;
       if (calls === 2) throw new DOMException("quota", "QuotaExceededError");
-      original(key, value);
+      return original.call(this, key, value);
     };
-    Object.defineProperty(window.localStorage, "setItem", { value: spy, configurable: true });
 
-    expect(() => restoreBackup(backup)).toThrow();
+    try {
+      expect(() => restoreBackup(backup)).toThrow();
+    } finally {
+      Storage.prototype.setItem = original;
+    }
 
-    Object.defineProperty(window.localStorage, "setItem", {
-      value: original,
-      configurable: true,
-    });
     expect(JSON.parse(window.localStorage.getItem(CUSTOMERS)!)).toEqual([{ id: "old" }]);
   });
 });
