@@ -504,7 +504,6 @@ function DebtTracker() {
     go("detail");
   };
 
-
   /* ---------- receipts ---------- */
   const downloadReceipt = async (kind: "sale" | "payment" | "statement", t?: Txn) => {
     if (!selected) return;
