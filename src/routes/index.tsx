@@ -525,6 +525,58 @@ function DebtTracker() {
     setOnboarding(() => ({ ...defaultOnboarding }));
   };
 
+  /* ---------- backup & restore ---------- */
+  const exportBackup = async () => {
+    try {
+      const file = createBackup();
+      const res = await downloadFile(
+        backupFilename(file),
+        JSON.stringify(file, null, 2),
+        "application/json",
+      );
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      setLastBackup(getLastBackupAt());
+      toast.success("Backup created successfully.");
+      track("backup_created");
+    } catch {
+      toast.error("Could not create the backup. Please try again.");
+    }
+  };
+
+  const pickBackupFile = async (file?: File) => {
+    if (!file) return;
+    try {
+      const parsed = parseBackupFile(await file.text());
+      if (!parsed) {
+        toast.error("This file is not a valid Track Debt backup.");
+        return;
+      }
+      setPendingBackup(parsed);
+    } catch {
+      toast.error("This file is not a valid Track Debt backup.");
+    }
+  };
+
+  const confirmRestore = () => {
+    if (!pendingBackup) return;
+    try {
+      restoreBackup(pendingBackup);
+      setPendingBackup(null);
+      toast.success("Backup restored successfully.");
+      track("backup_restored");
+      // Reload so every persisted hook re-hydrates from the restored storage.
+      setTimeout(() => window.location.reload(), 400);
+    } catch {
+      setPendingBackup(null);
+      toast.error("Could not restore the backup. Your existing data was not changed.");
+    }
+  };
+
+
+
   /* ---------- render ---------- */
   if (!onboardingLoaded) {
     return <main className="min-h-dvh bg-background" />;
