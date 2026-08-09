@@ -134,14 +134,31 @@ export function parseBackupFile(raw: string): BackupFile | null {
 /** Replaces all local Track Debt data with what's in the backup.
  *  Callers should reload the app afterward so every hook re-hydrates
  *  from the newly-written storage instead of holding stale in-memory
- *  state. Throws if any key fails to write, so a partial write is
- *  reported rather than silently accepted. */
+ *  state. The write is all-or-nothing: if any key fails (e.g. storage
+ *  quota), the previous values are rolled back and the error rethrown, so
+ *  the user is never left with half-restored data. */
 export function restoreBackup(input: BackupFile): void {
   const b = migrateBackup(input);
-  writeKey(KEYS.customers, b.data.customers ?? []);
-  writeKey(KEYS.profile, b.data.profile ?? {});
-  writeKey(KEYS.reminders, b.data.reminders ?? []);
-  if (b.data.subscription != null) writeKey(KEYS.subscription, b.data.subscription);
-  if (b.data.onboarding != null) writeKey(KEYS.onboarding, b.data.onboarding);
-  if (b.data.receiptCounter != null) writeKey(KEYS.receiptCounter, b.data.receiptCounter);
+  const keys = Object.values(KEYS);
+  const snapshot = new Map<string, string | null>();
+  for (const k of keys) snapshot.set(k, window.localStorage.getItem(k));
+
+  try {
+    writeKey(KEYS.customers, b.data.customers ?? []);
+    writeKey(KEYS.profile, b.data.profile ?? {});
+    writeKey(KEYS.reminders, b.data.reminders ?? []);
+    if (b.data.subscription != null) writeKey(KEYS.subscription, b.data.subscription);
+    if (b.data.onboarding != null) writeKey(KEYS.onboarding, b.data.onboarding);
+    if (b.data.receiptCounter != null) writeKey(KEYS.receiptCounter, b.data.receiptCounter);
+  } catch (err) {
+    for (const [k, v] of snapshot) {
+      try {
+        if (v === null) window.localStorage.removeItem(k);
+        else window.localStorage.setItem(k, v);
+      } catch {
+        /* best effort rollback */
+      }
+    }
+    throw err;
+  }
 }
