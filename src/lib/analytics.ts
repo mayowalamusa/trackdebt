@@ -12,7 +12,10 @@ export type AnalyticsEvent =
   | "receipt_generated"
   | "upgrade_page_viewed"
   | "upgrade_initiated"
-  | "subscription_activated";
+  | "subscription_activated"
+  | "backup_created"
+  | "backup_restored";
+
 
 type Props = Record<string, string | number | boolean>;
 
