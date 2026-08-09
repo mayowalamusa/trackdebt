@@ -316,6 +316,8 @@ function DebtTracker() {
     if (!selectedId) return;
     setCustomers((cs) => cs.filter((c) => c.id !== selectedId));
     setSelectedId(null);
+    toast.success("Customer deleted.");
+
     resetForm();
     go("list");
   };
