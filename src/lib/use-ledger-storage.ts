@@ -47,7 +47,6 @@ function usePersisted<T>(key: string, initial: T, options: PersistOptions<T> = {
   return [value, setValue, loaded] as const;
 }
 
-
 /** Phase 1 migration: give older transactions the new payment-term shape
  *  without discarding anything the user already recorded. */
 const migrateCustomers = (cs: Customer[]): Customer[] =>
@@ -122,4 +121,3 @@ export function useOnboardingState() {
 /** Receipt numbering lives in its own module; re-exported here so existing
  *  callers keep working. */
 export { issueReceiptReference } from "./receipt-counter";
-

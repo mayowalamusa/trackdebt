@@ -9,8 +9,7 @@
  */
 
 export type WriteResult =
-  | { ok: true }
-  | { ok: false; reason: "quota" | "unavailable" | "serialize" };
+  { ok: true } | { ok: false; reason: "quota" | "unavailable" | "serialize" };
 
 export const storageAvailable = () => {
   try {

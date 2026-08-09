@@ -112,7 +112,6 @@ import {
   type BackupFile,
 } from "@/lib/backup";
 
-
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -144,7 +143,6 @@ type Screen =
   | "reminder"
   | "settings"
   | "backup"
-
   | "about"
   | "privacy"
   | "terms";
@@ -206,7 +204,6 @@ function DebtTracker() {
   useEffect(() => {
     if (screen === "backup") setLastBackup(getLastBackupAt());
   }, [screen]);
-
 
   const selected = customers.find((c) => c.id === selectedId) ?? null;
   const resetForm = () => setForm(emptyForm);
@@ -401,7 +398,6 @@ function DebtTracker() {
     );
     setConfirmDelete(null);
     toast.success("Transaction deleted.");
-
   };
 
   const openEditTxn = (t: Txn) => {
@@ -602,8 +598,6 @@ function DebtTracker() {
       toast.error("Could not restore the backup. Your existing data was not changed.");
     }
   };
-
-
 
   /* ---------- render ---------- */
   if (!onboardingLoaded) {
@@ -1158,8 +1152,6 @@ function DebtTracker() {
             )}
           </div>
         )}
-
-
 
         {/* ===== ABOUT ===== */}
         {screen === "about" && (

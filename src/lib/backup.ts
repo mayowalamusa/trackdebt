@@ -162,4 +162,3 @@ export function restoreBackup(input: BackupFile): void {
     throw err;
   }
 }
-

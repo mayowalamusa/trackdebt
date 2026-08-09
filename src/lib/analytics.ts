@@ -16,7 +16,6 @@ export type AnalyticsEvent =
   | "backup_created"
   | "backup_restored";
 
-
 type Props = Record<string, string | number | boolean>;
 
 export interface AnalyticsProvider {
