@@ -495,9 +495,15 @@ function DebtTracker() {
     };
     setReminderHistory((rs) => [record, ...rs].slice(0, 200));
     track("reminder_sent", { source: reminderSource });
-    window.open(waLink(selected.phone, reminderMessage), "_blank", "noreferrer");
+    const win = window.open(waLink(selected.phone, reminderMessage), "_blank", "noreferrer");
+    if (win) {
+      toast.success("Reminder opened in WhatsApp.");
+    } else {
+      toast.error("Couldn't open WhatsApp. Please allow pop-ups and try again.");
+    }
     go("detail");
   };
+
 
   /* ---------- receipts ---------- */
   const downloadReceipt = async (kind: "sale" | "payment" | "statement", t?: Txn) => {
