@@ -8,6 +8,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
+    "build:capacitor": "vite build --config vite.client.config.ts",
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
