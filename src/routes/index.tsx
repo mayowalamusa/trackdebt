@@ -143,6 +143,8 @@ type Screen =
   | "profile"
   | "reminder"
   | "settings"
+  | "backup"
+
   | "about"
   | "privacy"
   | "terms";
