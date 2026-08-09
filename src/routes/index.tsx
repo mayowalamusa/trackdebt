@@ -394,6 +394,8 @@ function DebtTracker() {
       ),
     );
     setConfirmDelete(null);
+    toast.success("Transaction deleted.");
+
   };
 
   const openEditTxn = (t: Txn) => {
