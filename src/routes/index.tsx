@@ -343,6 +343,8 @@ function DebtTracker() {
     };
     setCustomers((cs) => cs.map((c) => (c.id === selectedId ? { ...c, txns: [...c.txns, t] } : c)));
     track(txnType === "sale" ? "transaction_created" : "payment_recorded");
+    toast.success(txnType === "sale" ? "Credit sale recorded." : "Payment recorded.");
+
     resetForm();
     setTermKey("none");
     setCustomDueDate("");
