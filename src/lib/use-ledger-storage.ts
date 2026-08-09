@@ -58,25 +58,33 @@ const migrateCustomers = (cs: Customer[]): Customer[] =>
   }));
 
 export function usePersistentCustomers() {
-  return usePersisted<Customer[]>("debtbook.v2.customers", [], migrateCustomers);
+  return usePersisted<Customer[]>("debtbook.v2.customers", [], {
+    migrate: migrateCustomers,
+    validate: Array.isArray,
+    corruptMessage:
+      "Saved customer data on this device could not be read. A copy was kept so nothing was deleted.",
+  });
 }
 
 export function usePersistentProfile() {
-  return usePersisted<BusinessProfile>("debtbook.v2.profile", emptyProfile, (p) => ({
-    ...emptyProfile,
-    ...p,
-  }));
+  return usePersisted<BusinessProfile>("debtbook.v2.profile", emptyProfile, {
+    migrate: (p) => ({ ...emptyProfile, ...p }),
+    validate: isPlainObject,
+    corruptMessage: "Your saved business profile could not be read and was reset on this device.",
+  });
 }
 
 export function useReminderHistory() {
-  return usePersisted<ReminderRecord[]>("trackdebt.v3.reminders", []);
+  return usePersisted<ReminderRecord[]>("trackdebt.v3.reminders", [], {
+    validate: Array.isArray,
+  });
 }
 
 export function useSubscription() {
   const [sub, setSub, loaded] = usePersisted<Subscription>(
     "trackdebt.v3.subscription",
     freeSubscription,
-    normalize,
+    { migrate: normalize, validate: isPlainObject },
   );
   return [sub, setSub, loaded] as const;
 }
@@ -98,15 +106,19 @@ export const defaultOnboarding: OnboardingState = {
 };
 
 export function useOnboardingState() {
-  return usePersisted<OnboardingState>("trackdebt.v3.onboarding", defaultOnboarding, (o) => ({
-    completed: !!o?.completed,
-    tips: {
-      addCustomer: !!o?.tips?.addCustomer,
-      openCustomer: !!o?.tips?.openCustomer,
-      reminder: !!o?.tips?.reminder,
-    },
-  }));
+  return usePersisted<OnboardingState>("trackdebt.v3.onboarding", defaultOnboarding, {
+    validate: isPlainObject,
+    migrate: (o) => ({
+      completed: !!o?.completed,
+      tips: {
+        addCustomer: !!o?.tips?.addCustomer,
+        openCustomer: !!o?.tips?.openCustomer,
+        reminder: !!o?.tips?.reminder,
+      },
+    }),
+  });
 }
+
 
 const COUNTER_KEY = "trackdebt.v3.receiptCounter";
 
