@@ -103,6 +103,15 @@ import {
   Stat,
   TipCallout,
 } from "@/components/ui-kit";
+import {
+  backupFilename,
+  createBackup,
+  getLastBackupAt,
+  parseBackupFile,
+  restoreBackup,
+  type BackupFile,
+} from "@/lib/backup";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
