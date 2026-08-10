@@ -2,16 +2,18 @@
 import './styles.css';
 
 import React from 'react';
-import { hydrateStart, StartClient } from '@tanstack/react-start-client';
+import { createRoot } from 'react-dom/client';
+import { RouterProvider } from '@tanstack/react-router';
 import { getRouter } from './router';
-import { startInstance } from './start';
 
-async function mount() {
-  const router = await getRouter();
-  const config = await startInstance.getOptions();
-  hydrateStart(
-    <StartClient router={router} config={config} element={document.getElementById('root')!} />,
+function mount() {
+  const router = getRouter();
+  const rootEl = document.getElementById('root')!;
+  createRoot(rootEl).render(
+    <React.StrictMode>
+      <RouterProvider router={router} />
+    </React.StrictMode>,
   );
 }
 
-mount().catch((e) => console.error('Client mount failed', e));
+mount();
