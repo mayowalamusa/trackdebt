@@ -1,0 +1,59 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+    <!-- Branding Background (Rounded Rectangle from favicon.svg) -->
+    <path
+        android:pathData="M112,0h288c61.86,0 112,50.14 112,112v288c0,61.86 -50.14,112 -112,112h-288c-61.86,0 -112,-50.14 -112,-112v-288c0,-61.86 50.14,-112 112,-112z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="0"
+                android:startY="0"
+                android:endX="512"
+                android:endY="512"
+                android:type="linear">
+                <item android:offset="0" android:color="#e6443d"/>
+                <item android:offset="1" android:color="#8d0005"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- White brand symbols scaled for prominence -->
+    <group
+        android:translateX="0"
+        android:translateY="-20"
+        android:scaleX="1.25"
+        android:scaleY="1.25"
+        android:pivotX="256"
+        android:pivotY="286">
+
+        <!-- Beam -->
+        <path
+            android:strokeColor="#ffffff"
+            android:strokeWidth="40"
+            android:strokeLineCap="round"
+            android:pathData="M96,300A160,160 0,0 1,416 300" />
+
+        <!-- Base -->
+        <path
+            android:fillColor="#ffffff"
+            android:pathData="M232,306L256,160L280,306Z" />
+
+        <!-- Pivot -->
+        <path
+            android:fillColor="#ffffff"
+            android:pathData="M256,308m-26,0a26,26 0,1 1,52 0a26,26 0,1 1,-52 0" />
+
+        <!-- Top bar -->
+        <path
+            android:fillColor="#ffffff"
+            android:pathData="M198,356h116c12.15,0 22,9.85 22,22v0c0,12.15 -9.85,22 -22,22h-116c-12.15,0 -22,-9.85 -22,-22v0c0,-12.15 9.85,-22 22,-22z" />
+
+        <!-- Bottom bar -->
+        <path
+            android:fillColor="#ffffff"
+            android:pathData="M148,408h216c12.15,0 22,9.85 22,22v0c0,12.15 -9.85,22 -22,22h-216c-12.15,0 -22,-9.85 -22,-22v0c0,-12.15 9.85,-22 22,-22z" />
+    </group>
+</vector>
