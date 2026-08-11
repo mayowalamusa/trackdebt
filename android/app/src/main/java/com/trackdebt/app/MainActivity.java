@@ -15,24 +15,21 @@ public class MainActivity extends BridgeActivity {
     public void onStart() {
         super.onStart();
         // Ensure WebView is focusable and gains focus to accept input
-        if (bridge != null && bridge.getWebView() != null) {
-            View webView = bridge.getWebView();
+        View webView = findViewById(R.id.webview);
+        if (webView != null) {
             webView.setFocusable(true);
             webView.setFocusableInTouchMode(true);
             webView.requestFocus();
             webView.requestFocusFromTouch();
 
             // Ensure focus is requested on touch
-            webView.setOnTouchListener(new View.OnTouchListener() {
-                @Override
-                public boolean onTouch(View v, MotionEvent event) {
-                    if (event.getAction() == MotionEvent.ACTION_DOWN || event.getAction() == MotionEvent.ACTION_UP) {
-                        if (!v.hasFocus()) {
-                            v.requestFocus();
-                        }
+            webView.setOnTouchListener((v, event) -> {
+                if (event.getAction() == MotionEvent.ACTION_DOWN || event.getAction() == MotionEvent.ACTION_UP) {
+                    if (!v.hasFocus()) {
+                        v.requestFocus();
                     }
-                    return false;
                 }
+                return false;
             });
         }
     }
