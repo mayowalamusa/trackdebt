@@ -17,22 +17,27 @@ public class MainActivity extends BridgeActivity {
     public void onStart() {
         super.onStart();
         // Ensure WebView is focusable and gains focus to accept input
-        // Using the bridge's WebView is more reliable than findViewById
         if (this.bridge != null) {
-            View webView = this.bridge.getWebView();
+            WebView webView = this.bridge.getWebView();
             if (webView != null) {
+                // Configure WebView for better focus handling
                 webView.setFocusable(true);
                 webView.setFocusableInTouchMode(true);
                 
-                // Request focus in a post to ensure it happens after layout
-                webView.post(() -> {
+                // Request focus with a slight delay to ensure the window is ready
+                webView.postDelayed(() -> {
                     webView.requestFocus(View.FOCUS_DOWN);
                     webView.requestFocusFromTouch();
-                });
+                }, 200);
 
-                // Remove the manual onTouchListener which was forcing the keyboard
-                // and potentially interfering with WebView's internal focus management.
-                webView.setOnTouchListener(null);
+                // Add a touch listener that ensures focus but doesn't block events
+                webView.setOnTouchListener((v, event) -> {
+                    if (!v.hasFocus()) {
+                        v.requestFocus();
+                        v.requestFocusFromTouch();
+                    }
+                    return false;
+                });
             }
         }
     }
