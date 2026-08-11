@@ -1,6 +1,8 @@
 package com.trackdebt.app;
 
 import android.os.Bundle;
+import android.view.MotionEvent;
+import android.view.View;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -14,9 +16,24 @@ public class MainActivity extends BridgeActivity {
         super.onStart();
         // Ensure WebView is focusable and gains focus to accept input
         if (bridge != null && bridge.getWebView() != null) {
-            bridge.getWebView().setFocusable(true);
-            bridge.getWebView().setFocusableInTouchMode(true);
-            bridge.getWebView().requestFocus();
+            View webView = bridge.getWebView();
+            webView.setFocusable(true);
+            webView.setFocusableInTouchMode(true);
+            webView.requestFocus();
+            webView.requestFocusFromTouch();
+
+            // Ensure focus is requested on touch
+            webView.setOnTouchListener(new View.OnTouchListener() {
+                @Override
+                public boolean onTouch(View v, MotionEvent event) {
+                    if (event.getAction() == MotionEvent.ACTION_DOWN || event.getAction() == MotionEvent.ACTION_UP) {
+                        if (!v.hasFocus()) {
+                            v.requestFocus();
+                        }
+                    }
+                    return false;
+                }
+            });
         }
     }
 }
