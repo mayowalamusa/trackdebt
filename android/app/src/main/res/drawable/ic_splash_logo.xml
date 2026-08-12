@@ -24,10 +24,10 @@
     <group
         android:translateX="0"
         android:translateY="-20"
-        android:scaleX="1.25"
-        android:scaleY="1.25"
+        android:scaleX="0.5"
+        android:scaleY="0.5"
         android:pivotX="256"
-        android:pivotY="286">
+        android:pivotY="256">
 
         <!-- Beam -->
         <path
