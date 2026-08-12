@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "881792159512",
+    "project_id": "track-debt",
+    "storage_bucket": "track-debt.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:881792159512:android:1b6d5597dc6b50f0a3186d",
+        "android_client_info": {
+          "package_name": "com.trackdebt.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCw8hFoudVBrY_wriQhmKqwdTBl43JUuZM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
