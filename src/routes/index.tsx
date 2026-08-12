@@ -710,7 +710,24 @@ function DebtTracker() {
                     <Search size={15} className="text-ink-soft" />
                     <input
                       value={query}
-                      onChange={(e) => setQuery(e.target.value)}
+                      onChange={(e) => {
+                        // TEMPORARY DEBUG — remove once confirmed fixed on device.
+                        // Check via chrome://inspect on the connected emulator.
+                        console.log("SEARCH INPUT onChange:", JSON.stringify(e.target.value));
+                        setQuery(e.target.value);
+                      }}
+                      onCompositionEnd={(e) => {
+                        // Safety net for Android WebView IME composition: if an
+                        // intermediate onChange during composition didn't land
+                        // (or got raced by a re-render reasserting the stale
+                        // controlled value), this guarantees the final composed
+                        // text still reaches React state once composition ends.
+                        console.log(
+                          "SEARCH INPUT onCompositionEnd:",
+                          JSON.stringify(e.currentTarget.value),
+                        );
+                        setQuery(e.currentTarget.value);
+                      }}
                       placeholder="Search name, phone or note"
                       className="bg-transparent w-full text-sm outline-none text-ink"
                     />
