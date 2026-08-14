@@ -87,6 +87,13 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  #root {
+    height: 100%;
   }
 }
 
