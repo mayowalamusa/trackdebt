@@ -11,7 +11,7 @@ import type { DueInfo } from "@/lib/due-dates";
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <main className="min-h-screen bg-background flex justify-center">
-      <div className="w-full max-w-[430px] min-h-screen bg-paper relative pb-28 shadow-sm">
+      <div className="w-full max-w-[430px] min-h-screen bg-paper relative pb-64 shadow-sm">
         <OfflineIndicator />
         {children}
       </div>
