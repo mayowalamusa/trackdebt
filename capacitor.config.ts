@@ -21,7 +21,7 @@ const config: CapacitorConfig = {
     // built-in plugin from redundantly compensating for the same inset
     // a second time.
     SystemBars: {
-      insetsHandling: 'disable',
+      insetsHandling: 'css',
     },
   },
 };

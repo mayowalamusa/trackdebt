@@ -109,8 +109,8 @@ export function Onboarding({
   const stepNumber = step === "business" ? 1 : step === "customer" ? 2 : step === "sale" ? 3 : 0;
 
   return (
-    <main className="min-h-dvh bg-background flex justify-center">
-      <div className="w-full max-w-[430px] min-h-dvh bg-paper relative flex flex-col">
+    <main className="min-h-screen bg-background flex justify-center">
+      <div className="w-full max-w-[430px] min-h-screen bg-paper relative flex flex-col">
         {/* ===== WELCOME ===== */}
         {step === "welcome" && (
           <div className="flex-1 flex flex-col justify-between p-6 pt-16 pb-8 animate-in fade-in duration-300">
