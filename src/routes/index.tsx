@@ -230,7 +230,12 @@ function DebtTracker() {
   useEffect(() => {
     if (loaded) {
       initNotifications();
-      reconcileDebtReminders(customers, notifSettings, profile, inAppNotifs, setInAppNotifs);
+      // Safeguard: Wait for the initial rendering and focus cycle to settle
+      // before running heavy reconciliation logic.
+      const timer = setTimeout(() => {
+        reconcileDebtReminders(customers, notifSettings, profile, inAppNotifs, setInAppNotifs);
+      }, 1000);
+      return () => clearTimeout(timer);
     }
   }, [loaded]);
 
