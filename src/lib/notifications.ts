@@ -9,7 +9,8 @@ export type PaymentReminderType =
   | "due_3_days"
   | "due_1_day"
   | "due_today"
-  | "overdue";
+  | "overdue"
+  | "daily_record_reminder";
 
 export type NotificationSettings = {
   enabled: boolean;
@@ -20,6 +21,9 @@ export type NotificationSettings = {
   remindOverdue: boolean;
   overdueIntervalDays: number;
   reminderTime: string; // HH:mm format
+  // Daily record reminders
+  dailyReminderEnabled: boolean;
+  dailyReminderTime: string; // HH:mm format
 };
 
 export const defaultNotificationSettings: NotificationSettings = {
@@ -31,6 +35,8 @@ export const defaultNotificationSettings: NotificationSettings = {
   remindOverdue: true,
   overdueIntervalDays: 3,
   reminderTime: "09:00",
+  dailyReminderEnabled: true,
+  dailyReminderTime: "19:00",
 };
 
 export type InAppNotification = {
@@ -72,8 +78,8 @@ export async function requestPermissions() {
 
 /** Generates a deterministic integer ID for Capacitor notifications.
  *  Capacitor local notifications require a number as ID. */
-function getDeterministicNotificationId(debtId: string, type: PaymentReminderType, cycleDate?: string): number {
-  const str = `${debtId}_${type}${cycleDate ? "_" + cycleDate : ""}`;
+function getDeterministicNotificationId(idBase: string, type: PaymentReminderType, cycleDate?: string): number {
+  const str = `${idBase}_${type}${cycleDate ? "_" + cycleDate : ""}`;
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
@@ -81,6 +87,98 @@ function getDeterministicNotificationId(debtId: string, type: PaymentReminderTyp
     hash = hash & hash; // Convert to 32bit integer
   }
   return Math.abs(hash);
+}
+
+const DAILY_MESSAGES = [
+  {
+    title: "Any credit buyer today?",
+    body: "Note them down. It takes just a few seconds to do that.",
+  },
+  {
+    title: "Don't forget today's credit sales",
+    body: "Did anyone buy on credit today? Record it before you forget.",
+  },
+  {
+    title: "Quick debt check",
+    body: "Any customer owing you today? Add the record now. It only takes a few seconds.",
+  },
+  {
+    title: "Record it while you remember",
+    body: "Sold on credit today? Note the debtor now and keep your records straight.",
+  },
+  {
+    title: "Small reminder 👋",
+    body: "Any credit buyer today? Add them to Track Debt before the day ends.",
+  },
+  {
+    title: "Keep today's records complete",
+    body: "If anyone bought on credit today, take a few seconds to record it.",
+  },
+];
+
+export async function scheduleDailyReminder(
+  customers: Customer[],
+  settings: NotificationSettings
+) {
+  if (!settings.enabled || !settings.dailyReminderEnabled) {
+    // If disabled, cancel any pending daily reminders for today and tomorrow
+    const pending = await LocalNotifications.getPending();
+    const toCancel = pending.notifications
+      .filter(n => n.extra?.type === "daily_record_reminder")
+      .map(n => ({ id: n.id }));
+    if (toCancel.length > 0) {
+      await LocalNotifications.cancel({ notifications: toCancel });
+    }
+    return;
+  }
+
+  const today = todayISO();
+  const hasRecordToday = customers.some(c =>
+    c.txns.some(t => t.type === "sale" && t.date === today)
+  );
+
+  const [hours, minutes] = settings.dailyReminderTime.split(":").map(Number);
+  const now = new Date();
+
+  // Determine which day to schedule for
+  let targetDate = parseISO(today);
+  let scheduledTime = setMinutes(setHours(startOfDay(targetDate), hours || 19), minutes || 0);
+
+  // If user already added a record today, or the time for today has passed, schedule for tomorrow
+  if (hasRecordToday || isBefore(scheduledTime, now)) {
+    targetDate = addDays(targetDate, 1);
+    scheduledTime = setMinutes(setHours(startOfDay(targetDate), hours || 19), minutes || 0);
+  }
+
+  const targetDateStr = format(targetDate, "yyyy-MM-dd");
+  const notificationId = getDeterministicNotificationId("daily", "daily_record_reminder", targetDateStr);
+
+  // Choose a message based on the day
+  const msgIndex = (targetDate.getFullYear() + targetDate.getMonth() + targetDate.getDate()) % DAILY_MESSAGES.length;
+  const msg = DAILY_MESSAGES[msgIndex]!;
+
+  await LocalNotifications.schedule({
+    notifications: [
+      {
+        id: notificationId,
+        title: msg.title,
+        body: msg.body,
+        schedule: { at: scheduledTime },
+        channelId: CHANNEL_ID,
+        smallIcon: "ic_splash_logo",
+        actionTypeId: "RECORD_DEBT",
+        extra: { type: "daily_record_reminder", date: targetDateStr }
+      }
+    ]
+  });
+
+  console.log(`[TrackDebt Notifications] Scheduled daily reminder for ${targetDateStr} at ${format(scheduledTime, "HH:mm")}`);
+
+  // If we scheduled for tomorrow, make sure today's reminder is cancelled if it was pending
+  if (targetDateStr !== today) {
+    const todayId = getDeterministicNotificationId("daily", "daily_record_reminder", today);
+    await LocalNotifications.cancel({ notifications: [{ id: todayId }] });
+  }
 }
 
 export async function scheduleDebtReminders(
@@ -252,6 +350,7 @@ export async function reconcileDebtReminders(
         await scheduleDebtReminders(customer, settings, profile, inAppNotifs, setInAppNotifs);
       }
     }
+    await scheduleDailyReminder(customers, settings);
   } else {
     // If disabled globally, clear all
     const allReminders = pending.notifications

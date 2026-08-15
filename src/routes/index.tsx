@@ -124,6 +124,7 @@ import {
   setupNotificationListeners,
   cancelDebtReminders,
   scheduleDebtReminders,
+  scheduleDailyReminder,
 } from "@/lib/notifications";
 
 export const Route = createFileRoute("/")({
@@ -223,13 +224,29 @@ function DebtTracker() {
     if (screen === "backup") setLastBackup(getLastBackupAt());
   }, [screen]);
 
-  // Notifications initialization
   useEffect(() => {
     if (loaded) {
       initNotifications();
+      reconcileDebtReminders(customers, notifSettings, profile, inAppNotifs, setInAppNotifs);
+    }
+  }, [loaded]);
+
+  // Handle notification actions
+  useEffect(() => {
+    if (loaded) {
       setupNotificationListeners((action) => {
         console.log("[TrackDebt Notifications] Action performed:", action);
-        const { debtId, customerId } = action.notification.extra;
+        const { debtId, customerId, type } = action.notification.extra;
+
+        if (type === "daily_record_reminder") {
+          // Open the list screen and show a tip?
+          // The prompt says "open directly to the existing screen/form used to create a new debt record".
+          // This requires a customer. Let's see if we can pick the most recent customer or just go to list.
+          go("list");
+          toast("Tap a customer to record a sale.");
+          return;
+        }
+
         if (customerId) {
           setSelectedId(customerId);
           go("detail");
@@ -241,7 +258,6 @@ function DebtTracker() {
           );
         }
       });
-      reconcileDebtReminders(customers, notifSettings, profile, inAppNotifs, setInAppNotifs);
     }
   }, [loaded]);
 
@@ -393,6 +409,9 @@ function DebtTracker() {
       // Re-schedule everything for this customer since payment might have cleared debts
       scheduleDebtReminders({ ...selected, txns: [...selected.txns, t] }, notifSettings, profile, inAppNotifs, setInAppNotifs);
     }
+
+    // Trigger daily reminder rescheduling
+    scheduleDailyReminder([...customers.map(c => c.id === selectedId ? { ...c, txns: [...c.txns, t] } : c)], notifSettings);
 
     resetForm();
     setTermKey("none");
@@ -1274,6 +1293,39 @@ function DebtTracker() {
                       className="input-field rounded px-3 py-1.5 text-sm"
                     />
                   </div>
+                </div>
+
+                <div className="pt-2 border-t border-line mt-6 pt-6">
+                  <p className="mono text-[10px] tracking-widest text-ink-soft mb-4">DAILY RECORD REMINDER</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold">Remind me to record today&rsquo;s credit sales</p>
+                      <p className="text-[12px] text-ink-soft mt-0.5">Track every credit sale while you still remember it.</p>
+                    </div>
+                    <button
+                      onClick={() => setNotifSettings((s) => ({ ...s, dailyReminderEnabled: !s.dailyReminderEnabled }))}
+                      className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ml-4 ${
+                        notifSettings.dailyReminderEnabled ? "bg-debt" : "bg-line"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                          notifSettings.dailyReminderEnabled ? "translate-x-5" : ""
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  {notifSettings.dailyReminderEnabled && (
+                    <div className="mt-4 flex items-center justify-between">
+                      <p className="text-sm text-ink-soft">Reminder time</p>
+                      <input
+                        type="time"
+                        value={notifSettings.dailyReminderTime}
+                        onChange={(e) => setNotifSettings((s) => ({ ...s, dailyReminderTime: e.target.value }))}
+                        className="input-field rounded px-3 py-1.5 text-sm"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
