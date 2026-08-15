@@ -1,10 +1,12 @@
-import { ArrowLeft, ChevronRight, Crown, WifiOff, X } from "lucide-react";
+import { ArrowLeft, ChevronRight, Crown, WifiOff, X, Bell, BellRing, Circle } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { showAds, type Subscription } from "@/lib/subscription";
 import { canShowAdIn, isNativePlatform, type AdSlot } from "@/lib/ads";
 import type { DueInfo } from "@/lib/due-dates";
+import type { InAppNotification } from "@/lib/notifications";
+import { fmtDate } from "@/lib/ledger";
 
 /* ---------------- layout ---------------- */
 
@@ -341,3 +343,50 @@ export function AdPlacement({
   // only the layout anchor so content is never covered.
   return <div data-ad-slot={slot} aria-hidden="true" className="h-14 w-full" />;
 }
+
+export function NotificationItem({
+  notification,
+  onClick,
+}: {
+  notification: InAppNotification;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`ledger-row w-full flex items-start gap-4 px-5 py-4 text-left transition-colors active:bg-muted ${
+        notification.read ? "" : "bg-paper-raised"
+      }`}
+      onClick={onClick}
+    >
+      <div className="mt-1 shrink-0">
+        {notification.read ? (
+          <Bell size={18} className="text-ink-soft" />
+        ) : (
+          <BellRing size={18} className="text-debt" />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <p
+            className={`text-sm font-semibold truncate ${
+              notification.read ? "text-ink-soft" : "text-ink"
+            }`}
+          >
+            {notification.title}
+          </p>
+          {!notification.read && <Circle size={8} className="fill-debt text-debt shrink-0" />}
+        </div>
+        <p
+          className={`text-[13px] leading-relaxed mt-1 ${
+            notification.read ? "text-ink-soft" : "text-ink"
+          }`}
+        >
+          {notification.body}
+        </p>
+        <p className="text-[11px] text-ink-soft mt-2">{fmtDate(notification.createdAt.slice(0, 10))}</p>
+      </div>
+    </button>
+  );
+}
+

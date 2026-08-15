@@ -1,0 +1,10 @@
+{
+  "appId": "com.trackdebt.app",
+  "appName": "Track Debt",
+  "webDir": "dist/capacitor",
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "disable"
+    }
+  }
+}

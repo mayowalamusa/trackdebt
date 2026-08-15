@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import type { BusinessProfile, Customer, Txn } from "./ledger";
 import { emptyProfile } from "./ledger";
 import type { ReminderRecord } from "./reminders";
+import { defaultNotificationSettings, type InAppNotification, type NotificationSettings } from "./notifications";
 import { isPlainObject, readJSON, writeJSON } from "./storage";
 import { freeSubscription, normalize, type Subscription } from "./subscription";
 
@@ -86,6 +87,22 @@ export function useSubscription() {
     { migrate: normalize, validate: isPlainObject },
   );
   return [sub, setSub, loaded] as const;
+}
+
+export function useNotificationSettings() {
+  return usePersisted<NotificationSettings>(
+    "trackdebt.v3.notification_settings",
+    defaultNotificationSettings,
+    { validate: isPlainObject }
+  );
+}
+
+export function useInAppNotifications() {
+  return usePersisted<InAppNotification[]>(
+    "trackdebt.v3.in_app_notifications",
+    [],
+    { validate: Array.isArray }
+  );
 }
 
 export type OnboardingTips = {

@@ -33,6 +33,10 @@ import {
   Crown,
   RotateCcw,
   Info,
+  Bell,
+  BellRing,
+  Trash,
+  CheckCheck,
 } from "lucide-react";
 import {
   APP_NAME,
@@ -102,6 +106,7 @@ import {
   SettingsRow,
   Stat,
   TipCallout,
+  NotificationItem,
 } from "@/components/ui-kit";
 import {
   backupFilename,
@@ -111,6 +116,15 @@ import {
   restoreBackup,
   type BackupFile,
 } from "@/lib/backup";
+import {
+  checkPermissions,
+  initNotifications,
+  reconcileDebtReminders,
+  requestPermissions,
+  setupNotificationListeners,
+  cancelDebtReminders,
+  scheduleDebtReminders,
+} from "@/lib/notifications";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -142,6 +156,8 @@ type Screen =
   | "profile"
   | "reminder"
   | "settings"
+  | "notifications"
+  | "notificationSettings"
   | "backup"
   | "about"
   | "privacy"
@@ -186,6 +202,8 @@ function DebtTracker() {
 
   const [sub, setSub] = useSubscription();
   const [onboarding, setOnboarding, onboardingLoaded] = useOnboardingState();
+  const [notifSettings, setNotifSettings] = useNotificationSettings();
+  const [inAppNotifs, setInAppNotifs] = useInAppNotifications();
   const [, setReminderHistory] = useReminderHistory();
   const [reminderTemplate, setReminderTemplate] = useState<TemplateId>("friendly");
   const [reminderTone, setReminderTone] = useState<Tone>("friendly");
@@ -204,6 +222,28 @@ function DebtTracker() {
   useEffect(() => {
     if (screen === "backup") setLastBackup(getLastBackupAt());
   }, [screen]);
+
+  // Notifications initialization
+  useEffect(() => {
+    if (loaded) {
+      initNotifications();
+      setupNotificationListeners((action) => {
+        console.log("[TrackDebt Notifications] Action performed:", action);
+        const { debtId, customerId } = action.notification.extra;
+        if (customerId) {
+          setSelectedId(customerId);
+          go("detail");
+          // Mark as read
+          setInAppNotifs((prev) =>
+            prev.map((n) =>
+              n.debtId === debtId ? { ...n, read: true } : n
+            )
+          );
+        }
+      });
+      reconcileDebtReminders(customers, notifSettings, profile, inAppNotifs, setInAppNotifs);
+    }
+  }, [loaded]);
 
   const selected = customers.find((c) => c.id === selectedId) ?? null;
   const resetForm = () => setForm(emptyForm);
@@ -310,7 +350,10 @@ function DebtTracker() {
   };
 
   const deleteCustomer = () => {
-    if (!selectedId) return;
+    if (!selectedId || !selected) return;
+    // Cancel all notifications for this customer's debts
+    selected.txns.forEach(t => cancelDebtReminders(t.id));
+
     setCustomers((cs) => cs.filter((c) => c.id !== selectedId));
     setSelectedId(null);
     toast.success("Customer deleted.");
@@ -343,6 +386,13 @@ function DebtTracker() {
     setCustomers((cs) => cs.map((c) => (c.id === selectedId ? { ...c, txns: [...c.txns, t] } : c)));
     track(txnType === "sale" ? "transaction_created" : "payment_recorded");
     toast.success(txnType === "sale" ? "Credit sale recorded." : "Payment recorded.");
+
+    if (txnType === "sale" && t.term?.dueDate) {
+      scheduleDebtReminders({ ...selected, txns: [...selected.txns, t] }, notifSettings, profile, inAppNotifs, setInAppNotifs);
+    } else if (txnType === "payment") {
+      // Re-schedule everything for this customer since payment might have cleared debts
+      scheduleDebtReminders({ ...selected, txns: [...selected.txns, t] }, notifSettings, profile, inAppNotifs, setInAppNotifs);
+    }
 
     resetForm();
     setTermKey("none");
@@ -383,6 +433,12 @@ function DebtTracker() {
     setEditingTxnId(null);
     toast.success("Transaction updated.");
 
+    // Update reminders for this customer
+    const updatedCustomer = customers.find(c => c.id === selectedId);
+    if (updatedCustomer) {
+      scheduleDebtReminders(updatedCustomer, notifSettings, profile, inAppNotifs, setInAppNotifs);
+    }
+
     resetForm();
     setTermKey("none");
     setCustomDueDate("");
@@ -398,6 +454,13 @@ function DebtTracker() {
     );
     setConfirmDelete(null);
     toast.success("Transaction deleted.");
+
+    cancelDebtReminders(txnId);
+    // Also re-schedule in case it was a payment deletion
+    const updatedCustomer = customers.find(c => c.id === selectedId);
+    if (updatedCustomer) {
+      scheduleDebtReminders(updatedCustomer, notifSettings, profile, inAppNotifs, setInAppNotifs);
+    }
   };
 
   const openEditTxn = (t: Txn) => {
@@ -642,13 +705,33 @@ function DebtTracker() {
                     {bizLabel}
                   </h1>
                 </div>
-                <button
-                  onClick={() => go("settings")}
-                  aria-label="Settings"
-                  className="text-ink-soft transition-opacity active:opacity-60"
-                >
-                  <SettingsIcon size={18} />
-                </button>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => go("notifications")}
+                    aria-label="Notifications"
+                    className="text-ink-soft transition-opacity active:opacity-60 relative"
+                  >
+                    {inAppNotifs.some((n) => !n.read && new Date(n.scheduledFor) <= new Date()) ? (
+                      <>
+                        <BellRing size={20} className="text-debt" />
+                        <span className="absolute -top-1 -right-1 h-4 w-4 bg-debt text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                          {inAppNotifs.filter((n) => !n.read && new Date(n.scheduledFor) <= new Date()).length > 9
+                            ? "9+"
+                            : inAppNotifs.filter((n) => !n.read && new Date(n.scheduledFor) <= new Date()).length}
+                        </span>
+                      </>
+                    ) : (
+                      <Bell size={20} />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => go("settings")}
+                    aria-label="Settings"
+                    className="text-ink-soft transition-opacity active:opacity-60"
+                  >
+                    <SettingsIcon size={18} />
+                  </button>
+                </div>
               </div>
 
               <p className="mono text-[10px] tracking-[0.2em] text-ink-soft mt-6">
@@ -1017,6 +1100,197 @@ function DebtTracker() {
           </div>
         )}
 
+        {/* ===== NOTIFICATION CENTER ===== */}
+        {screen === "notifications" && (
+          <div className="animate-in fade-in slide-in-from-right-2 duration-200">
+            <div className="px-5">
+              <ScreenHeader title="Notifications" onClose={() => go("list")} />
+            </div>
+
+            <div className="flex items-center justify-between px-5 pb-4">
+              <p className="mono text-[10px] tracking-widest text-ink-soft">
+                {inAppNotifs.filter(n => new Date(n.scheduledFor) <= new Date()).length} {inAppNotifs.filter(n => new Date(n.scheduledFor) <= new Date()).length === 1 ? "NOTIFICATION" : "NOTIFICATIONS"}
+              </p>
+              {inAppNotifs.length > 0 && (
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => setInAppNotifs((prev) => prev.map((n) => ({ ...n, read: true })))}
+                    className="text-[11px] font-semibold text-ink-soft flex items-center gap-1"
+                  >
+                    <CheckCheck size={13} /> Mark all read
+                  </button>
+                  <button
+                    onClick={() => setInAppNotifs([])}
+                    className="text-[11px] font-semibold text-debt flex items-center gap-1"
+                  >
+                    <Trash size={13} /> Clear all
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <section className="pb-8">
+              {inAppNotifs.filter(n => new Date(n.scheduledFor) <= new Date()).length === 0 ? (
+                <div className="px-8 py-20 text-center">
+                  <span className="mx-auto h-14 w-14 rounded-full perforated grid place-items-center text-ink-soft">
+                    <Bell size={24} />
+                  </span>
+                  <p className="text-sm font-semibold mt-4">No notifications yet</p>
+                  <p className="text-[12px] text-ink-soft mt-1.5 leading-relaxed">
+                    We&rsquo;ll notify you here when payments are coming up or overdue.
+                  </p>
+                </div>
+              ) : (
+                inAppNotifs
+                  .filter(n => new Date(n.scheduledFor) <= new Date())
+                  .sort((a, b) => b.scheduledFor.localeCompare(a.scheduledFor))
+                  .map((n) => (
+                    <NotificationItem
+                      key={n.id}
+                      notification={n}
+                      onClick={() => {
+                        setInAppNotifs((prev) =>
+                          prev.map((item) => (item.id === n.id ? { ...item, read: true } : item))
+                        );
+                        setSelectedId(n.customerId);
+                        go("detail");
+                      }}
+                    />
+                  ))
+              )}
+            </section>
+
+          </div>
+        )}
+
+        {/* ===== NOTIFICATION SETTINGS ===== */}
+        {screen === "notificationSettings" && (
+          <div className="p-5 animate-in fade-in slide-in-from-right-2 duration-200">
+            <ScreenHeader title="Payment Reminders" onClose={() => go("settings")} />
+
+            <p className="text-[13px] leading-relaxed text-ink-soft mb-6">
+              Automatically get notified about upcoming and overdue payments from your customers.
+            </p>
+
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold">Enable Reminders</p>
+                  <p className="text-[12px] text-ink-soft">Master switch for all notifications</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    if (!notifSettings.enabled) {
+                      const status = await requestPermissions();
+                      if (status !== "granted") {
+                        toast.error("Notification permission is required to enable reminders.");
+                        return;
+                      }
+                    }
+                    setNotifSettings((s) => ({ ...s, enabled: !s.enabled }));
+                  }}
+                  className={`w-11 h-6 rounded-full transition-colors relative ${
+                    notifSettings.enabled ? "bg-debt" : "bg-line"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                      notifSettings.enabled ? "translate-x-5" : ""
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className={`space-y-6 transition-opacity ${notifSettings.enabled ? "" : "opacity-40 pointer-events-none"}`}>
+                <div className="pt-2">
+                  <p className="mono text-[10px] tracking-widest text-ink-soft mb-4">UPCOMING PAYMENTS</p>
+                  <div className="space-y-4">
+                    {[
+                      ["remind7DaysBefore", "7 days before"],
+                      ["remind3DaysBefore", "3 days before"],
+                      ["remind1DayBefore", "1 day before"],
+                      ["remindOnDueDate", "On the due date"],
+                    ].map(([key, label]) => (
+                      <div key={key} className="flex items-center justify-between">
+                        <p className="text-sm">{label}</p>
+                        <button
+                          onClick={() => setNotifSettings((s) => ({ ...s, [key]: !s[key as keyof typeof s] }))}
+                          className={`w-11 h-6 rounded-full transition-colors relative ${
+                            notifSettings[key as keyof typeof notifSettings] ? "bg-debt" : "bg-line"
+                          }`}
+                        >
+                          <span
+                            className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                              notifSettings[key as keyof typeof notifSettings] ? "translate-x-5" : ""
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <p className="mono text-[10px] tracking-widest text-ink-soft mb-4">OVERDUE PAYMENTS</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm">Remind me about overdue payments</p>
+                    <button
+                      onClick={() => setNotifSettings((s) => ({ ...s, remindOverdue: !s.remindOverdue }))}
+                      className={`w-11 h-6 rounded-full transition-colors relative ${
+                        notifSettings.remindOverdue ? "bg-debt" : "bg-line"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                          notifSettings.remindOverdue ? "translate-x-5" : ""
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  {notifSettings.remindOverdue && (
+                    <div className="mt-4 flex items-center justify-between">
+                      <p className="text-sm text-ink-soft">Remind every</p>
+                      <select
+                        value={notifSettings.overdueIntervalDays}
+                        onChange={(e) => setNotifSettings((s) => ({ ...s, overdueIntervalDays: Number(e.target.value) }))}
+                        className="input-field rounded px-2 py-1 text-sm"
+                      >
+                        {[1, 2, 3, 5, 7].map((d) => (
+                          <option key={d} value={d}>{d} {d === 1 ? "day" : "days"}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-2">
+                  <p className="mono text-[10px] tracking-widest text-ink-soft mb-4">TIME</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm">Reminder time</p>
+                    <input
+                      type="time"
+                      value={notifSettings.reminderTime}
+                      onChange={(e) => setNotifSettings((s) => ({ ...s, reminderTime: e.target.value }))}
+                      className="input-field rounded px-3 py-1.5 text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                reconcileDebtReminders(customers, notifSettings, profile, inAppNotifs, setInAppNotifs);
+                go("settings");
+              }}
+              className="btn-primary w-full rounded py-3 text-sm font-semibold mt-10 transition-transform active:scale-[0.99]"
+            >
+              Done
+            </button>
+          </div>
+        )}
+
+
         {/* ===== SETTINGS ===== */}
         {screen === "settings" && (
           <div className="animate-in fade-in slide-in-from-right-2 duration-200">
@@ -1061,7 +1335,18 @@ function DebtTracker() {
               onClick={restorePurchase}
             />
 
-            <p className="mono text-[10px] tracking-widest text-ink-soft px-5 pb-2 pt-5">SUPPORT</p>
+            <p className="mono text-[10px] tracking-widest text-ink-soft px-5 pb-2 pt-5">
+              PREFERENCES
+            </p>
+            <SettingsRow
+              icon={<Bell size={17} />}
+              label="Payment Reminders"
+              onClick={() => go("notificationSettings")}
+            />
+
+            <p className="mono text-[10px] tracking-widest text-ink-soft px-5 pb-2 pt-5">
+              SUPPORT
+            </p>
             <SettingsRow
               icon={<Info size={17} />}
               label={`About ${APP_NAME}`}
