@@ -94,6 +94,8 @@ import {
   useSubscription,
   usePersistentCustomers,
   usePersistentProfile,
+  useNotificationSettings,
+  useInAppNotifications,
 } from "@/lib/use-ledger-storage";
 import { Onboarding } from "@/components/onboarding";
 import {
@@ -205,6 +207,7 @@ function DebtTracker() {
   const [onboarding, setOnboarding, onboardingLoaded] = useOnboardingState();
   const [notifSettings, setNotifSettings] = useNotificationSettings();
   const [inAppNotifs, setInAppNotifs] = useInAppNotifications();
+
   const [, setReminderHistory] = useReminderHistory();
   const [reminderTemplate, setReminderTemplate] = useState<TemplateId>("friendly");
   const [reminderTone, setReminderTone] = useState<Tone>("friendly");

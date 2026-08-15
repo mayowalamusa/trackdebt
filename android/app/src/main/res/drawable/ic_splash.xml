@@ -24,8 +24,8 @@
     <group
         android:translateX="0"
         android:translateY="-20"
-        android:scaleX="0.8"
-        android:scaleY="0.8"
+        android:scaleX="0.5"
+        android:scaleY="0.5"
         android:pivotX="256"
         android:pivotY="256">
 
