@@ -8,7 +8,11 @@ import { getRouter } from './router';
 
 function mount() {
   const router = getRouter();
-  const rootEl = document.getElementById('root')!;
+  const rootEl = document.getElementById('root');
+  if (!rootEl) {
+    console.error('[Track Debt] #root element not found — cannot mount app.');
+    return;
+  }
   createRoot(rootEl).render(
     <React.StrictMode>
       <RouterProvider router={router} />
@@ -16,4 +20,8 @@ function mount() {
   );
 }
 
-mount();
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', mount);
+} else {
+  mount();
+}
