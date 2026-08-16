@@ -10,7 +10,8 @@ export type PaymentReminderType =
   | "due_1_day"
   | "due_today"
   | "overdue"
-  | "daily_record_reminder";
+  | "daily_record_reminder"
+  | "weekly_summary";
 
 export type NotificationSettings = {
   enabled: boolean;
@@ -24,6 +25,8 @@ export type NotificationSettings = {
   // Daily record reminders
   dailyReminderEnabled: boolean;
   dailyReminderTime: string; // HH:mm format
+  // Weekly summary
+  weeklySummaryEnabled: boolean;
 };
 
 export const defaultNotificationSettings: NotificationSettings = {
@@ -37,7 +40,9 @@ export const defaultNotificationSettings: NotificationSettings = {
   reminderTime: "09:00",
   dailyReminderEnabled: true,
   dailyReminderTime: "19:00",
+  weeklySummaryEnabled: true,
 };
+
 
 export type InAppNotification = {
   id: string;
@@ -351,7 +356,9 @@ export async function reconcileDebtReminders(
       }
     }
     await scheduleDailyReminder(customers, settings);
+    await scheduleWeeklySummary(customers, settings);
   } else {
+
     // If disabled globally, clear all
     const allReminders = pending.notifications
       .filter(n => n.channelId === CHANNEL_ID)
@@ -385,4 +392,59 @@ export function setupNotificationListeners(
 ) {
   LocalNotifications.addListener("localNotificationActionPerformed", onAction);
 }
+
+export async function scheduleWeeklySummary(
+
+  customers: Customer[],
+  settings: NotificationSettings
+) {
+  if (!settings.enabled || !settings.weeklySummaryEnabled) {
+    const pending = await LocalNotifications.getPending();
+    const toCancel = pending.notifications
+      .filter(n => n.extra?.type === "weekly_summary")
+      .map(n => ({ id: n.id }));
+    if (toCancel.length > 0) {
+      await LocalNotifications.cancel({ notifications: toCancel });
+    }
+    return;
+  }
+
+  // Calculate stats for the summary
+  let totalOutstanding = 0;
+  let count = 0;
+  for (const c of customers) {
+    const bal = balanceOf(c);
+    if (bal > 0) {
+      totalOutstanding += bal;
+      count++;
+    }
+  }
+
+  if (count === 0) return;
+
+  const id = getDeterministicNotificationId("weekly", "weekly_summary");
+
+  // Schedule for next Sunday at 10 AM
+  const now = new Date();
+  let nextSunday = addDays(startOfDay(now), (7 - now.getDay()) % 7);
+  if (isBefore(setHours(nextSunday, 10), now)) {
+    nextSunday = addDays(nextSunday, 7);
+  }
+  const scheduledTime = setMinutes(setHours(nextSunday, 10), 0);
+
+  await LocalNotifications.schedule({
+    notifications: [
+      {
+        id,
+        title: "Your weekly debt report is ready",
+        body: `${naira(totalOutstanding)} outstanding across ${count} ${count === 1 ? "customer" : "customers"}.`,
+        schedule: { at: scheduledTime, repeats: true, every: "week" },
+        channelId: CHANNEL_ID,
+        smallIcon: "ic_splash_logo",
+        extra: { type: "weekly_summary" }
+      }
+    ]
+  });
+}
+
 

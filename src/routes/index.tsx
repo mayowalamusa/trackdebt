@@ -37,6 +37,10 @@ import {
   BellRing,
   Trash,
   CheckCheck,
+  Mic,
+  Ticket,
+  Zap,
+  TicketPercent,
 } from "lucide-react";
 import {
   APP_NAME,
@@ -96,6 +100,8 @@ import {
   usePersistentProfile,
   useNotificationSettings,
   useInAppNotifications,
+  useEntitlements,
+  usePromoEntitlements,
 } from "@/lib/use-ledger-storage";
 import { Onboarding } from "@/components/onboarding";
 import {
@@ -164,7 +170,9 @@ type Screen =
   | "backup"
   | "about"
   | "privacy"
-  | "terms";
+  | "terms"
+  | "redeem";
+
 
 type Filter = "all" | "outstanding" | "settled" | "overdue" | "dueToday" | "dueWeek";
 type Sort = "newest" | "highest";
@@ -207,6 +215,11 @@ function DebtTracker() {
   const [onboarding, setOnboarding, onboardingLoaded] = useOnboardingState();
   const [notifSettings, setNotifSettings] = useNotificationSettings();
   const [inAppNotifs, setInAppNotifs] = useInAppNotifications();
+  const { entitlements, loaded: entitlementsLoaded } = useEntitlements();
+  const [promo, setPromo] = usePromoEntitlements();
+  const [promoCode, setPromoCode] = useState("");
+  const [redeeming, setRedeeming] = useState(false);
+
 
   const [, setReminderHistory] = useReminderHistory();
   const [reminderTemplate, setReminderTemplate] = useState<TemplateId>("friendly");
@@ -540,7 +553,15 @@ function DebtTracker() {
 
   const generateWithAI = async () => {
     if (!selected) return;
+    if (!entitlements.aiReminders) {
+      setGateFeature({
+        title: "AI Reminders",
+        description: "AI-generated payment reminders are available on Track Debt Plus and Premium.",
+      });
+      return;
+    }
     setAiLoading(true);
+
     setAiError(null);
     try {
       const ctx = buildContext(selected, profile);
@@ -597,8 +618,16 @@ function DebtTracker() {
   /* ---------- receipts ---------- */
   const downloadReceipt = async (kind: "sale" | "payment" | "statement", t?: Txn) => {
     if (!selected) return;
+    if (!entitlements.pdfReceipts) {
+      setGateFeature({
+        title: "PDF Receipts",
+        description: "Professional PDF receipts and statements are available on Track Debt Plus.",
+      });
+      return;
+    }
     try {
       const doc = await generateReceiptPdf(kind, selected, profile, t);
+
       const result = await downloadFile(doc.filename, doc.blob, "application/pdf");
       if (!result.ok) {
         toast.error(result.error);
@@ -694,7 +723,83 @@ function DebtTracker() {
     }
   };
 
+  /* ---------- promo redemption ---------- */
+  const redeemPromo = async () => {
+    if (!promoCode.trim()) return;
+    setRedeeming(true);
+
+    // Simulate API call for code validation
+    setTimeout(() => {
+      const code = promoCode.trim().toUpperCase();
+      let newPromo = null;
+
+      if (code === "PLUS30") {
+        newPromo = { plan: "plus" as const, expiresAt: addDaysISO(30), code };
+      } else if (code === "PREMIUM30") {
+        newPromo = { plan: "premium" as const, expiresAt: addDaysISO(30), code };
+      }
+
+      if (newPromo) {
+        setPromo(newPromo);
+        toast.success(`Congratulations! You've unlocked 30 days of Track Debt ${newPromo.plan === "plus" ? "Plus" : "Premium"}.`);
+        track("promo_redeemed", { code, plan: newPromo.plan });
+        go("settings");
+      } else {
+        toast.error("Invalid promo code. Please check and try again.");
+      }
+
+      setRedeeming(false);
+      setPromoCode("");
+    }, 1000);
+  };
+
+  /* ---------- voice assistance ---------- */
+  const [voiceActive, setVoiceOverlay] = useState(false);
+  const [voiceReview, setVoiceReview] = useState<{ type: "customer" | "txn", data: any } | null>(null);
+
+  const startVoice = (type: "customer" | "txn") => {
+    if (!entitlements.voiceEntry) {
+      setGateFeature({
+        title: "Voice Entry",
+        description: "Voice-assisted customer and transaction entry is available on Track Debt Plus.",
+      });
+      return;
+    }
+    setVoiceOverlay(true);
+    // Simulate processing after 3 seconds
+    setTimeout(() => {
+      setVoiceOverlay(false);
+      if (type === "customer") {
+        setVoiceReview({
+          type: "customer",
+          data: { name: "Ngozi Okafor", phone: "08031234567", notes: "Extracted from voice" }
+        });
+      } else {
+        setVoiceReview({
+          type: "txn",
+          data: { amount: "85000", note: "2 bags cement", termKey: "d14" }
+        });
+      }
+    }, 3000);
+  };
+
+  const applyVoiceCustomer = () => {
+    if (!voiceReview) return;
+    setForm({ ...emptyForm, name: voiceReview.data.name, phone: voiceReview.data.phone, notes: voiceReview.data.notes });
+    setVoiceReview(null);
+    go("addCustomer");
+  };
+
+  const applyVoiceTxn = () => {
+    if (!voiceReview) return;
+    setForm({ ...emptyForm, amount: voiceReview.data.amount, note: voiceReview.data.note });
+    setTermKey(voiceReview.data.termKey);
+    setVoiceReview(null);
+    go("addTxn");
+  };
+
   /* ---------- render ---------- */
+
   if (!onboardingLoaded) {
     return <main className="min-h-dvh bg-background" />;
   }
@@ -975,21 +1080,71 @@ function DebtTracker() {
               </TipCallout>
             )}
 
+            <div className="fixed bottom-6 right-[max(1.25rem,calc(50%-215px+1.25rem))] flex flex-col gap-3">
+              <button
+                onClick={() => startVoice("customer")}
+                aria-label="Voice add customer"
+                className="bg-paper-raised border border-line text-ink rounded-full flex items-center justify-center shadow-lg h-12 w-12 transition-transform active:scale-95"
+              >
+                <Mic size={20} />
+              </button>
+              <button
+                onClick={() => {
+                  resetForm();
+                  setOnboarding((o) => ({ ...o, tips: { ...o.tips, addCustomer: true } }));
+                  go("addCustomer");
+                }}
+                aria-label="Add customer"
+                className="btn-primary rounded-full flex items-center justify-center shadow-lg h-14 w-14 transition-transform active:scale-95"
+              >
+                <Plus size={24} />
+              </button>
+            </div>
+          </div>
+        )}
+
+
+        {/* ===== PROMO REDEMPTION ===== */}
+        {screen === "redeem" && (
+          <div className="p-5 animate-in fade-in slide-in-from-right-2 duration-200">
+            <ScreenHeader title="Redeem Promo Code" onClose={() => go("settings")} />
+
+            <p className="text-[13px] leading-relaxed text-ink-soft mb-6">
+              Enter your code below to unlock Track Debt Plus or Premium features temporarily.
+            </p>
+
+            <Field label="PROMO CODE">
+              <input
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value)}
+                placeholder="e.g. PLUS30"
+                className="input-field w-full rounded px-3 py-2.5 text-sm mono uppercase"
+              />
+            </Field>
+
             <button
-              onClick={() => {
-                resetForm();
-                setOnboarding((o) => ({ ...o, tips: { ...o.tips, addCustomer: true } }));
-                go("addCustomer");
-              }}
-              aria-label="Add customer"
-              className="btn-primary rounded-full flex items-center justify-center shadow-lg fixed bottom-6 h-14 w-14 right-[max(1.25rem,calc(50%-215px+1.25rem))] transition-transform active:scale-95"
+              onClick={redeemPromo}
+              disabled={!promoCode.trim() || redeeming}
+              className="btn-primary w-full rounded py-3 text-sm font-semibold mt-4 disabled:opacity-40 transition-transform active:scale-[0.99]"
             >
-              <Plus size={24} />
+              {redeeming ? "Verifying code..." : "Redeem Code"}
             </button>
+
+            {promo && (
+              <div className="mt-10 p-4 rounded-lg border border-paid bg-paid/5">
+                <p className="text-[11px] font-bold text-paid uppercase tracking-widest">Active Promo</p>
+                <div className="flex justify-between items-center mt-2">
+                  <p className="text-sm font-semibold">{promo.code}</p>
+                  <p className="text-[11px] text-ink-soft">Expires {fmtDate(promo.expiresAt)}</p>
+                </div>
+                <p className="text-xs text-ink-soft mt-1">Unlocked {planLabel(promo.plan)} features.</p>
+              </div>
+            )}
           </div>
         )}
 
         {/* ===== BUSINESS PROFILE ===== */}
+
         {screen === "profile" && (
           <div className="p-5 animate-in fade-in slide-in-from-right-2 duration-200">
             <ScreenHeader title="Business profile" onClose={() => go("settings")} />
@@ -1399,10 +1554,16 @@ function DebtTracker() {
               PREFERENCES
             </p>
             <SettingsRow
+              icon={<TicketPercent size={17} />}
+              label="Promo Code"
+              onClick={() => go("redeem")}
+            />
+            <SettingsRow
               icon={<Bell size={17} />}
               label="Payment Reminders"
               onClick={() => go("notificationSettings")}
             />
+
 
             <p className="mono text-[10px] tracking-widest text-ink-soft px-5 pb-2 pt-5">
               SUPPORT
@@ -1983,6 +2144,14 @@ function DebtTracker() {
                 </button>
               </div>
 
+              <button
+                onClick={() => startVoice("txn")}
+                className="w-full mt-2 rounded py-2.5 text-sm font-semibold flex items-center justify-center gap-2 border border-line bg-paper-raised text-ink transition-transform active:scale-[0.98]"
+              >
+                <Mic size={16} /> Record with Voice
+              </button>
+
+
               {balanceOf(selected) > 0 && (
                 <button
                   onClick={openReminder}
@@ -2195,7 +2364,96 @@ function DebtTracker() {
             onClose={() => setGateFeature(null)}
           />
         )}
+
+        {/* ===== VOICE ASSISTANCE OVERLAYS ===== */}
+        {voiceActive && (
+          <div className="fixed inset-0 z-[60] bg-ink/90 flex flex-col items-center justify-center text-paper-raised p-8">
+            <div className="h-24 w-24 rounded-full bg-debt flex items-center justify-center animate-pulse mb-8">
+              <Mic size={40} />
+            </div>
+            <h3 className="text-xl font-bold mb-2">Listening...</h3>
+            <p className="text-center text-paper-raised/60">Say something like: "Add a new customer named Chidi" or "Record a sale of 5000 naira for Amaka."</p>
+            <button
+              onClick={() => setVoiceOverlay(false)}
+              className="mt-12 text-sm font-semibold underline opacity-70"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+
+        {voiceReview && (
+          <div className="fixed inset-0 z-[60] bg-ink/40 flex items-end justify-center p-4">
+            <div className="w-full max-w-[430px] rounded-xl bg-paper-raised border border-line p-6 shadow-2xl animate-in slide-in-from-bottom-8">
+              <div className="flex justify-between items-start mb-6">
+                <h3 className="text-lg font-bold">Review {voiceReview.type === "customer" ? "Customer" : "Transaction"}</h3>
+                <button onClick={() => setVoiceReview(null)}><X size={20} /></button>
+              </div>
+
+              <div className="space-y-4 mb-8 bg-paper p-4 rounded-lg border border-line">
+                {voiceReview.type === "customer" ? (
+                  <>
+                    <div className="flex justify-between border-b border-line pb-2">
+                      <span className="text-[11px] font-bold text-ink-soft uppercase">Name</span>
+                      <span className="font-semibold">{voiceReview.data.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[11px] font-bold text-ink-soft uppercase">Phone</span>
+                      <span className="font-semibold mono">{voiceReview.data.phone}</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between border-b border-line pb-2">
+                      <span className="text-[11px] font-bold text-ink-soft uppercase">Amount</span>
+                      <span className="font-bold text-debt">{naira(voiceReview.data.amount)}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-line pb-2">
+                      <span className="text-[11px] font-bold text-ink-soft uppercase">Note</span>
+                      <span className="font-semibold">{voiceReview.data.note}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[11px] font-bold text-ink-soft uppercase">Terms</span>
+                      <span className="font-semibold">
+                        {TERM_OPTIONS.find(o => o.key === voiceReview.data.termKey)?.label}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => {
+                    if (voiceReview.type === "customer") {
+                      setForm({ ...emptyForm, name: voiceReview.data.name, phone: voiceReview.data.phone, notes: voiceReview.data.notes });
+                      go("addCustomer");
+                    } else {
+                      setForm({ ...emptyForm, amount: voiceReview.data.amount, note: voiceReview.data.note });
+                      setTermKey(voiceReview.data.termKey);
+                      go("addTxn");
+                    }
+                    setVoiceReview(null);
+                  }}
+                  className="rounded-lg py-3 text-sm font-semibold border border-line bg-paper"
+                >
+                  Edit Details
+                </button>
+                <button
+                  onClick={() => {
+                    if (voiceReview.type === "customer") applyVoiceCustomer();
+                    else applyVoiceTxn();
+                  }}
+                  className="btn-primary rounded-lg py-3 text-sm font-semibold"
+                >
+                  Save {voiceReview.type === "customer" ? "Customer" : "Debt"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </>
     </AppShell>
   );
 }
+

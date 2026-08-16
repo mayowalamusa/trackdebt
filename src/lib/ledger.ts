@@ -1,7 +1,7 @@
 import { normalizeForWhatsApp } from "./phone";
 
 export const APP_NAME = "Track Debt";
-export const APP_VERSION = "3.0.0";
+export const APP_VERSION = "1.0.0";
 
 /** Payment terms attached to a credit sale. Stored per-transaction so that
  *  future features (multiple invoices, credit terms, forecasting, analytics)

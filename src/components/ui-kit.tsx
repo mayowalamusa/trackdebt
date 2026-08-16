@@ -286,10 +286,12 @@ export function PremiumGate({
   title,
   description,
   onClose,
+  plan = "plus",
 }: {
   title: string;
   description: string;
   onClose: () => void;
+  plan?: "plus" | "premium";
 }) {
   return (
     <div
@@ -300,7 +302,7 @@ export function PremiumGate({
     >
       <div className="w-full max-w-[398px] rounded-lg border border-line bg-paper-raised p-5 animate-in slide-in-from-bottom-4 duration-200">
         <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-ink-soft">
-          <Crown size={13} aria-hidden="true" /> Track Debt Pro feature
+          <Crown size={13} aria-hidden="true" /> Track Debt {plan === "premium" ? "Premium" : "Plus"} feature
         </p>
         <h3 className="mt-2 text-lg font-semibold">{title}</h3>
         <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">{description}</p>
@@ -316,13 +318,14 @@ export function PremiumGate({
             to="/upgrade"
             className="btn-primary min-h-11 rounded grid place-items-center text-sm font-semibold"
           >
-            Upgrade to Pro
+            {plan === "premium" ? "Coming Soon" : "Upgrade to Plus"}
           </Link>
         </div>
       </div>
     </div>
   );
 }
+
 
 /* ---------------- ads ----------------
  * Track Debt ships to Android through Capacitor, where AdMob is a native SDK.

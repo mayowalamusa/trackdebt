@@ -5,7 +5,7 @@ import { emptyProfile } from "./ledger";
 import type { ReminderRecord } from "./reminders";
 import { defaultNotificationSettings, type InAppNotification, type NotificationSettings } from "./notifications";
 import { isPlainObject, readJSON, writeJSON } from "./storage";
-import { freeSubscription, normalize, type Subscription } from "./subscription";
+import { freeSubscription, normalize, resolvePlan, getEntitlements, type Subscription, type PromoEntitlement } from "./subscription";
 
 type PersistOptions<T> = {
   migrate?: (raw: T) => T;
@@ -88,6 +88,23 @@ export function useSubscription() {
   );
   return [sub, setSub, loaded] as const;
 }
+
+export function usePromoEntitlements() {
+  const [promo, setPromo, loaded] = usePersisted<PromoEntitlement | null>(
+    "trackdebt.v3.promo",
+    null,
+    { validate: (p) => p === null || isPlainObject(p) }
+  );
+  return [promo, setPromo, loaded] as const;
+}
+
+export function useEntitlements() {
+  const [sub, , subLoaded] = useSubscription();
+  const [promo, , promoLoaded] = usePromoEntitlements();
+  const plan = resolvePlan(sub, promo);
+  return { entitlements: getEntitlements(plan), loaded: subLoaded && promoLoaded };
+}
+
 
 export function useNotificationSettings() {
   return usePersisted<NotificationSettings>(

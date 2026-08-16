@@ -1,70 +1,122 @@
 import type { PlanId } from "./app-config";
 
 export type SubscriptionState =
-  "free" | "pro_active" | "pro_expired" | "payment_pending" | "payment_failed";
+  | "free"
+  | "plus_active"
+  | "plus_expired"
+  | "premium_active"
+  | "premium_expired"
+  | "payment_pending"
+  | "payment_failed";
 
 export type Subscription = {
   state: SubscriptionState;
-  /** ISO timestamp; only meaningful for pro states. */
+  /** ISO timestamp; only meaningful for active states. */
   expiresAt?: string;
   /** Which billing provider activated the plan, when known. */
   provider?: "google_play" | "paystack" | "manual";
   lastError?: string;
 };
 
+export type PromoEntitlement = {
+  plan: PlanId;
+  expiresAt: string; // ISO
+  code: string;
+};
+
 export const freeSubscription: Subscription = { state: "free" };
 
-/** Resolve the effective plan, taking expiry into account.
- *  A Pro plan whose expiry has passed silently falls back to Free —
- *  local data is never touched. */
-export function resolvePlan(sub: Subscription): PlanId {
-  if (sub.state !== "pro_active") return "free";
-  if (sub.expiresAt && new Date(sub.expiresAt).getTime() < Date.now()) return "free";
-  return "pro";
+/** Resolve the effective plan, taking base subscription and promo entitlements into account. */
+export function resolvePlan(sub: Subscription, promo?: PromoEntitlement | null): PlanId {
+  const now = Date.now();
+
+  // Check promo first as it might be higher tier
+  if (promo && new Date(promo.expiresAt).getTime() > now) {
+    // If base is premium and active, promo plus doesn't downgrade it.
+    if (sub.state === "premium_active" && sub.expiresAt && new Date(sub.expiresAt).getTime() > now) {
+      return "premium";
+    }
+    return promo.plan;
+  }
+
+  // Check base subscription
+  if (sub.expiresAt && new Date(sub.expiresAt).getTime() > now) {
+    if (sub.state === "premium_active") return "premium";
+    if (sub.state === "plus_active") return "plus";
+  }
+
+  return "free";
 }
 
 export function normalize(sub: Subscription): Subscription {
-  if (sub.state === "pro_active" && sub.expiresAt && new Date(sub.expiresAt) < new Date()) {
-    return { ...sub, state: "pro_expired" };
+  const now = new Date();
+  if (sub.expiresAt && new Date(sub.expiresAt) < now) {
+    if (sub.state === "plus_active") return { ...sub, state: "plus_expired" };
+    if (sub.state === "premium_active") return { ...sub, state: "premium_expired" };
   }
   return sub;
 }
 
-export const isPro = (sub: Subscription) => resolvePlan(sub) === "pro";
-export const showAds = (sub: Subscription) => !isPro(sub);
-
-export const stateLabel = (sub: Subscription) => {
-  switch (normalize(sub).state) {
-    case "pro_active":
-      return "Track Debt Pro";
-    case "pro_expired":
-      return "Track Debt Pro (expired)";
-    case "payment_pending":
-      return "Payment pending";
-    case "payment_failed":
-      return "Payment failed";
-    default:
-      return "Track Debt Free";
+export const planLabel = (plan: PlanId) => {
+  switch (plan) {
+    case "premium": return "Track Debt Premium";
+    case "plus": return "Track Debt Plus";
+    default: return "Track Debt Free";
   }
 };
 
-/* ---------------- payment service abstraction ----------------
- * The frontend NEVER decides that a payment succeeded. These methods describe
- * the contract that a backend (Google Play Billing or Paystack verification)
- * will fulfil later; today they only move the local UI state. */
+export const stateLabel = (sub: Subscription) => {
+  const normalized = normalize(sub);
+  switch (normalized.state) {
+    case "premium_active": return "Track Debt Premium";
+    case "premium_expired": return "Track Debt Premium (expired)";
+    case "plus_active": return "Track Debt Plus";
+    case "plus_expired": return "Track Debt Plus (expired)";
+    case "payment_pending": return "Payment pending";
+    case "payment_failed": return "Payment failed";
+    default: return "Track Debt Free";
+  }
+};
 
-export type PaymentIntent = { reference: string; plan: "monthly" | "yearly" };
+export const isPro = (sub: Subscription) => sub.state === "plus_active" || sub.state === "premium_active";
+export const showAds = (sub: Subscription) => !isPro(sub);
+
+/** Centralized feature gating. */
+
+export interface Entitlements {
+  plan: PlanId;
+  ads: boolean;
+  aiReminders: boolean;
+  voiceEntry: boolean;
+  pdfReceipts: boolean;
+  whatsappTools: boolean;
+  premiumTemplates: boolean;
+  automation: boolean; // Premium only
+}
+
+export function getEntitlements(plan: PlanId): Entitlements {
+  return {
+    plan,
+    ads: plan === "free",
+    aiReminders: plan !== "free",
+    voiceEntry: plan !== "free",
+    pdfReceipts: plan !== "free",
+    whatsappTools: plan !== "free",
+    premiumTemplates: plan !== "free",
+    automation: plan === "premium",
+  };
+}
+
+/* ---------------- payment service abstraction ---------------- */
+
+export type PaymentIntent = { reference: string; plan: "plus" };
 
 export interface PaymentService {
-  /** Start a checkout. Returns a reference the backend can verify. */
-  startCheckout(plan: "monthly" | "yearly"): Promise<PaymentIntent>;
-  /** Server-side verification. Only the backend may confirm activation. */
+  startCheckout(plan: "plus"): Promise<PaymentIntent>;
   verify(reference: string): Promise<Subscription>;
-  /** Re-read an existing entitlement (app-store restore purchase). */
   restore(): Promise<Subscription>;
 }
 
-/** Placeholder implementation used until a billing backend is connected. */
 export const paymentService: PaymentService = {
   async startCheckout(plan) {
     return { reference: `TD-CHECKOUT-${Date.now()}`, plan };
