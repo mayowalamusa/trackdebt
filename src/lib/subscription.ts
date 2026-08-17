@@ -27,35 +27,49 @@ export type PromoEntitlement = {
 export const freeSubscription: Subscription = { state: "free" };
 
 /** Resolve the effective plan, taking base subscription and promo entitlements into account. */
-export function resolvePlan(sub: Subscription, promo?: PromoEntitlement | null): PlanId {
+export function resolvePlan(sub: Subscription | null | undefined, promo?: PromoEntitlement | null): PlanId {
   const now = Date.now();
+  const normalized = normalize(sub);
 
   // Check promo first as it might be higher tier
-  if (promo && new Date(promo.expiresAt).getTime() > now) {
+  if (promo && promo.expiresAt && new Date(promo.expiresAt).getTime() > now) {
     // If base is premium and active, promo plus doesn't downgrade it.
-    if (sub.state === "premium_active" && sub.expiresAt && new Date(sub.expiresAt).getTime() > now) {
+    if (normalized.state === "premium_active" && normalized.expiresAt && new Date(normalized.expiresAt).getTime() > now) {
       return "premium";
     }
     return promo.plan;
   }
 
   // Check base subscription
-  if (sub.expiresAt && new Date(sub.expiresAt).getTime() > now) {
-    if (sub.state === "premium_active") return "premium";
-    if (sub.state === "plus_active") return "plus";
+  if (normalized.expiresAt && new Date(normalized.expiresAt).getTime() > now) {
+    if (normalized.state === "premium_active") return "premium";
+    if (normalized.state === "plus_active") return "plus";
   }
 
   return "free";
 }
 
-export function normalize(sub: Subscription): Subscription {
+
+export function normalize(sub: Subscription | null | undefined): Subscription {
   const now = new Date();
-  if (sub.expiresAt && new Date(sub.expiresAt) < now) {
-    if (sub.state === "plus_active") return { ...sub, state: "plus_expired" };
-    if (sub.state === "premium_active") return { ...sub, state: "premium_expired" };
+  if (!sub || typeof sub !== "object") return freeSubscription;
+  let normalized = { ...sub };
+
+  // Legacy migration from Phase 3 "pro_active"
+  const rawState = (normalized as any).state;
+  if (rawState === "pro_active") {
+    normalized.state = "plus_active";
+  } else if (rawState === "pro_expired") {
+    normalized.state = "plus_expired";
   }
-  return sub;
+
+  if (normalized.expiresAt && new Date(normalized.expiresAt) < now) {
+    if (normalized.state === "plus_active") normalized.state = "plus_expired";
+    else if (normalized.state === "premium_active") normalized.state = "premium_expired";
+  }
+  return normalized;
 }
+
 
 export const planLabel = (plan: PlanId) => {
   switch (plan) {
@@ -65,7 +79,7 @@ export const planLabel = (plan: PlanId) => {
   }
 };
 
-export const stateLabel = (sub: Subscription) => {
+export const stateLabel = (sub: Subscription | null | undefined) => {
   const normalized = normalize(sub);
   switch (normalized.state) {
     case "premium_active": return "Track Debt Premium";
@@ -78,11 +92,15 @@ export const stateLabel = (sub: Subscription) => {
   }
 };
 
-export const isPro = (sub: Subscription) => sub.state === "plus_active" || sub.state === "premium_active";
+export const isPro = (sub: Subscription | null | undefined) => {
+  const normalized = normalize(sub);
+  return normalized.state === "plus_active" || normalized.state === "premium_active";
+};
+
+
 export const showAds = (sub: Subscription) => !isPro(sub);
 
 /** Centralized feature gating. */
-
 export interface Entitlements {
   plan: PlanId;
   ads: boolean;

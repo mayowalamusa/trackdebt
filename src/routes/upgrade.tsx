@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
   ArrowLeft,
-  BarChart3,
+  TrendingUp,
   Ban,
   Check,
   Zap,
@@ -49,19 +49,19 @@ const BENEFIT_ICONS: Record<string, any> = {
   "message-square": MessageSquare,
   clock: Clock,
   users: Users,
-  "bar-chart": BarChart3,
+  "bar-chart": TrendingUp,
 };
 
 function UpgradePage() {
   const [sub, setSub] = useSubscription();
-  const [, , entitlementsLoaded] = useEntitlements();
-  const { entitlements } = useEntitlements();
+  const { entitlements, loaded: entitlementsLoaded } = useEntitlements();
   const [loading, setLoading] = useState(false);
   const [restoring, setRestoring] = useState(false);
 
   useEffect(() => {
     track("upgrade_page_viewed");
   }, []);
+
 
   const subscribePlus = async () => {
     setLoading(true);
