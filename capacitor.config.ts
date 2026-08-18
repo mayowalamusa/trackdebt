@@ -5,12 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Track Debt',
   webDir: 'dist/capacitor',
   android: {
-    captureInput: true,
-  },
-  plugins: {
-    SystemBars: {
-      insetsHandling: 'disable',
-    },
+    captureInput: false,
   },
 };
 

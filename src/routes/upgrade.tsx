@@ -98,8 +98,8 @@ function UpgradePage() {
   };
 
   return (
-    <main className="min-h-dvh bg-background flex justify-center">
-      <div className="w-full max-w-[430px] min-h-dvh bg-paper relative pb-16">
+    <main className="min-h-screen bg-background flex justify-center">
+      <div className="w-full max-w-[430px] min-h-screen bg-paper relative pb-16">
         <header className="flex items-center gap-2 px-3 pt-6 pb-5 border-b border-line bg-paper-raised">
           <Link
             to="/"

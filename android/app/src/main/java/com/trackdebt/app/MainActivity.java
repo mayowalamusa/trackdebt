@@ -1,13 +1,13 @@
 package com.trackdebt.app;
 
+import android.os.Bundle;
+import android.util.Log;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
     @Override
-    public void onPause() {
-        super.onPause();
-        if (getBridge() != null && getBridge().getWebView() != null) {
-            getBridge().getWebView().clearFocus();
-        }
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        Log.d("TrackDebt", "MainActivity onCreate");
     }
 }
