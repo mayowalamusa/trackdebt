@@ -191,7 +191,16 @@ const TEMPLATE_TONE: Record<TemplateId, Tone> = {
   vip: "friendly",
 };
 
+function LifecycleLogger({ name, children }: { name: string, children: React.ReactNode }) {
+  useEffect(() => {
+    console.log(`[TRACK-DEBT-DIAG] ${name} MOUNTED`);
+    return () => console.log(`[TRACK-DEBT-DIAG] ${name} UNMOUNTED`);
+  }, [name]);
+  return <>{children}</>;
+}
+
 function DebtTracker() {
+
   const [profile, setProfile, profileLoaded] = usePersistentProfile();
   const [customers, setCustomers, customersLoaded] = usePersistentCustomers();
   const loaded = profileLoaded && customersLoaded;
@@ -240,6 +249,7 @@ function DebtTracker() {
     if (screen === "backup") setLastBackup(getLastBackupAt());
   }, [screen]);
 
+  /*
   useEffect(() => {
     if (loaded) {
       initNotifications();
@@ -251,6 +261,8 @@ function DebtTracker() {
       return () => clearTimeout(timer);
     }
   }, [loaded]);
+  */
+
 
   // Handle notification actions
   useEffect(() => {
@@ -921,29 +933,24 @@ function DebtTracker() {
             ) : (
               <>
                 <div className="px-5 pt-5 pb-3 space-y-3">
-                  <div className="flex items-center gap-2 input-field rounded px-3 py-2.5">
+                  <LifecycleLogger name="SearchInputContainer">
+                    <div className="flex items-center gap-2 input-field rounded px-3 py-2.5">
+
+
                     <Search size={15} className="text-ink-soft" />
                     <input
                       value={query}
+                      onFocus={() => {
+                        console.log("[TRACK-DEBT-DIAG] SEARCH FOCUS");
+                        console.log("[TRACK-DEBT-DIAG] Active Element:", document.activeElement?.tagName);
+                      }}
+                      onBlur={() => console.log("[TRACK-DEBT-DIAG] SEARCH BLUR")}
                       onChange={(e) => {
-                        // TEMPORARY DEBUG — remove once confirmed fixed on device.
-                        // Check via chrome://inspect on the connected emulator.
-                        console.log("SEARCH INPUT onChange:", JSON.stringify(e.target.value));
+                        console.log("[TRACK-DEBT-DIAG] SEARCH CHANGE:", e.target.value);
                         setQuery(e.target.value);
                       }}
-                      onCompositionEnd={(e) => {
-                        // Safety net for Android WebView IME composition: if an
-                        // intermediate onChange during composition didn't land
-                        // (or got raced by a re-render reasserting the stale
-                        // controlled value), this guarantees the final composed
-                        // text still reaches React state once composition ends.
-                        console.log(
-                          "SEARCH INPUT onCompositionEnd:",
-                          JSON.stringify(e.currentTarget.value),
-                        );
-                        setQuery(e.currentTarget.value);
-                      }}
                       placeholder="Search name, phone or note"
+
                       className="bg-transparent w-full text-sm outline-none text-ink"
                     />
                     {query && (
@@ -952,8 +959,10 @@ function DebtTracker() {
                       </button>
                     )}
                   </div>
+                  </LifecycleLogger>
 
                   <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+
                     {(
                       [
                         ["all", "All"],

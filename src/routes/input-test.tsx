@@ -6,53 +6,43 @@ export const Route = createFileRoute("/input-test")({
 });
 
 function InputTest() {
-  const [value, setValue] = React.useState("");
+  React.useEffect(() => {
+    console.log("[TRACK-DEBT-DIAG] InputTest Mounted");
+    return () => console.log("[TRACK-DEBT-DIAG] InputTest Unmounted");
+  }, []);
 
   return (
-    <div
-      style={{
-        padding: "30px",
-        minHeight: "100vh",
-        background: "white",
-        color: "black",
-      }}
-    >
-      <h1>Track Debt Input Test</h1>
+    <div style={{ padding: "50px", background: "#fff", color: "#000" }}>
+      <h1>ISOLATED INPUT TEST</h1>
+      <p>This page has NO state and NO effects (other than mounting log).</p>
 
-      <p>Type in the fields below.</p>
+      <div style={{ marginBottom: "20px" }}>
+        <label block>Plain HTML Input:</label>
+        <input
+          type="text"
+          placeholder="Type here..."
+          style={{ width: "100%", padding: "10px", border: "1px solid #000" }}
+          onFocus={() => console.log("[TRACK-DEBT-DIAG] Plain Input Focus")}
+          onBlur={() => console.log("[TRACK-DEBT-DIAG] Plain Input Blur")}
+        />
+      </div>
 
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="Type here"
-        style={{
-          width: "100%",
-          padding: "15px",
-          fontSize: "18px",
-          border: "1px solid black",
-          boxSizing: "border-box",
-        }}
-      />
+      <div style={{ marginBottom: "20px" }}>
+        <label block>Plain HTML Textarea:</label>
+        <textarea
+          placeholder="Type here..."
+          style={{ width: "100%", height: "100px", padding: "10px", border: "1px solid #000" }}
+          onFocus={() => console.log("[TRACK-DEBT-DIAG] Plain Textarea Focus")}
+          onBlur={() => console.log("[TRACK-DEBT-DIAG] Plain Textarea Blur")}
+        />
+      </div>
 
-      <p>
-        <strong>You typed:</strong> {value}
-      </p>
-
-      <textarea
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="Textarea test"
-        style={{
-          width: "100%",
-          height: "100px",
-          marginTop: "20px",
-          padding: "15px",
-          fontSize: "18px",
-          border: "1px solid black",
-          boxSizing: "border-box",
-        }}
-      />
+      <button
+        onClick={() => alert("Button works!")}
+        style={{ padding: "10px 20px", background: "#000", color: "#fff" }}
+      >
+        TEST BUTTON
+      </button>
     </div>
   );
 }
