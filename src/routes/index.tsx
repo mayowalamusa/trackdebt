@@ -127,7 +127,7 @@ import {
 import {
   checkPermissions,
   initNotifications,
-  reconcileDebtReminders,
+ 
   requestPermissions,
   setupNotificationListeners,
   cancelDebtReminders,
@@ -240,17 +240,7 @@ function DebtTracker() {
     if (screen === "backup") setLastBackup(getLastBackupAt());
   }, [screen]);
 
-  useEffect(() => {
-    if (loaded) {
-      initNotifications();
-      // Safeguard: Wait for the initial rendering and focus cycle to settle
-      // before running heavy reconciliation logic.
-      const timer = setTimeout(() => {
-        reconcileDebtReminders(customers, notifSettings, profile, inAppNotifs, setInAppNotifs);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [loaded]);
+  
 
   // Handle notification actions
   useEffect(() => {
@@ -1493,15 +1483,7 @@ function DebtTracker() {
               </div>
             </div>
 
-            <button
-              onClick={() => {
-                reconcileDebtReminders(customers, notifSettings, profile, inAppNotifs, setInAppNotifs);
-                go("settings");
-              }}
-              className="btn-primary w-full rounded py-3 text-sm font-semibold mt-10 transition-transform active:scale-[0.99]"
-            >
-              Done
-            </button>
+          
           </div>
         )}
 
