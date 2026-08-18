@@ -196,6 +196,23 @@ function DebtTracker() {
   const [customers, setCustomers, customersLoaded] = usePersistentCustomers();
   const loaded = profileLoaded && customersLoaded;
 
+  useEffect(() => {
+    console.log("[TRACK-DEBT-DIAGNOSTIC] Heartbeat started");
+    const timer = setInterval(() => {
+      const info = {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        active: document.activeElement?.tagName,
+        activeId: document.activeElement?.id,
+      };
+      console.log("[TRACK-DEBT-HEARTBEAT] JS alive " + Date.now() + " " + JSON.stringify(info));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+
+
+
   const [screen, setScreen] = useState<Screen>("list");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingTxnId, setEditingTxnId] = useState<string | null>(null);
@@ -910,7 +927,23 @@ function DebtTracker() {
                   tone="debt"
                 />
               </div>
+              <div className="mt-4 p-4 border-2 border-dashed border-debt bg-white/50 rounded-lg z-[100] relative">
+                <p className="text-[10px] font-bold text-debt mb-2">DIAGNOSTIC TEST INPUT</p>
+                <input
+                  type="text"
+                  placeholder="Tap here to test input"
+                  className="w-full p-3 border-2 border-debt rounded bg-white text-ink text-base"
+                  style={{ caretColor: "red" }}
+                  onFocus={() => console.log("[TRACK-DEBT-DIAG] Focus")}
+                  onBlur={() => console.log("[TRACK-DEBT-DIAG] Blur")}
+                  onInput={(e) => console.log("[TRACK-DEBT-DIAG] Input: " + (e.target as HTMLInputElement).value)}
+                  onChange={(e) => console.log("[TRACK-DEBT-DIAG] Change: " + e.target.value)}
+                  onKeyDown={(e) => console.log("[TRACK-DEBT-DIAG] KeyDown: " + e.key)}
+                />
+              </div>
             </header>
+
+
 
             {!loaded ? (
               <div className="p-5 space-y-3">
@@ -925,25 +958,18 @@ function DebtTracker() {
                     <Search size={15} className="text-ink-soft" />
                     <input
                       value={query}
+                      onPointerDown={() => console.log("[TRACK-DEBT-INPUT] pointerdown")}
+                      onFocus={() => console.log("[TRACK-DEBT-INPUT] focus")}
+                      onBlur={() => console.log("[TRACK-DEBT-INPUT] blur")}
+                      onInput={(e) => console.log("[TRACK-DEBT-INPUT] input", (e.target as HTMLInputElement).value)}
+                      onBeforeInput={(e) => console.log("[TRACK-DEBT-INPUT] beforeinput", (e as any).data)}
+                      onKeyDown={(e) => console.log("[TRACK-DEBT-INPUT] keydown", e.key)}
                       onChange={(e) => {
-                        // TEMPORARY DEBUG — remove once confirmed fixed on device.
-                        // Check via chrome://inspect on the connected emulator.
                         console.log("SEARCH INPUT onChange:", JSON.stringify(e.target.value));
                         setQuery(e.target.value);
                       }}
-                      onCompositionEnd={(e) => {
-                        // Safety net for Android WebView IME composition: if an
-                        // intermediate onChange during composition didn't land
-                        // (or got raced by a re-render reasserting the stale
-                        // controlled value), this guarantees the final composed
-                        // text still reaches React state once composition ends.
-                        console.log(
-                          "SEARCH INPUT onCompositionEnd:",
-                          JSON.stringify(e.currentTarget.value),
-                        );
-                        setQuery(e.currentTarget.value);
-                      }}
                       placeholder="Search name, phone or note"
+
                       className="bg-transparent w-full text-sm outline-none text-ink"
                     />
                     {query && (

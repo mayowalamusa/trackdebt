@@ -21,7 +21,7 @@ import {
 import { toast } from "sonner";
 import { APP_NAME } from "@/lib/ledger";
 import { COMPARISON, PRICING, PLUS_BENEFITS, PREMIUM_BENEFITS } from "@/lib/app-config";
-import { paymentService, planLabel } from "@/lib/subscription";
+import { paymentService, planLabel, isPro } from "@/lib/subscription";
 import { useSubscription, usePromoEntitlements, useEntitlements } from "@/lib/use-ledger-storage";
 import { track } from "@/lib/analytics";
 
@@ -112,8 +112,20 @@ function UpgradePage() {
         </header>
 
         <div className="p-5">
+          {isPro(sub) && (
+            <div className="rounded-xl border border-paid bg-paid/5 px-4 py-5 text-center mb-8 animate-in fade-in zoom-in duration-300">
+              <p className="text-sm font-bold text-paid flex items-center justify-center gap-2">
+                <Check size={16} /> Active Plan: {planLabel(entitlements.plan)}
+              </p>
+              <p className="text-[12px] text-ink-soft mt-1.5 leading-relaxed">
+                Thanks for supporting {APP_NAME}. Your premium features are active on this device.
+              </p>
+            </div>
+          )}
+
           <div className="text-center mb-8 mt-2">
             <h2 className="text-2xl font-bold">Choose your plan</h2>
+
             <p className="mt-1.5 text-sm font-medium text-ink-soft">
               Select the best fit for your business.
             </p>
