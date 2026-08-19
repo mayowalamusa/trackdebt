@@ -1,4 +1,4 @@
-import { useState, type Dispatch, type SetStateAction } from "react";
+import { useState, useEffect, type Dispatch, type SetStateAction } from "react";
 import { Camera, Check } from "lucide-react";
 import {
   APP_NAME,
@@ -13,6 +13,27 @@ import {
 } from "@/lib/ledger";
 import { issueReceiptReference } from "@/lib/use-ledger-storage";
 import { Field } from "@/components/ui-kit";
+
+function LocalInput({
+  initialValue,
+  onBlur,
+  ...props
+}: {
+  initialValue: string;
+  onBlur: (val: string) => void;
+} & React.InputHTMLAttributes<HTMLInputElement>) {
+  const [val, setVal] = useState(initialValue);
+  useEffect(() => setVal(initialValue), [initialValue]);
+
+  return (
+    <input
+      {...props}
+      value={val}
+      onChange={(e) => setVal(e.target.value)}
+      onBlur={() => onBlur(val)}
+    />
+  );
+}
 
 type Step = "welcome" | "business" | "customer" | "sale" | "done";
 
@@ -205,17 +226,17 @@ export function Onboarding({
                   </div>
 
                   <Field label="BUSINESS NAME">
-                    <input
-                      value={biz.name}
-                      onChange={(e) => setBiz((b) => ({ ...b, name: e.target.value }))}
+                    <LocalInput
+                      initialValue={biz.name}
+                      onBlur={(val) => setBiz((b) => ({ ...b, name: val.trim() }))}
                       placeholder="e.g. Chidi Provisions Store"
                       className="input-field w-full rounded px-3 py-2.5 text-sm"
                     />
                   </Field>
                   <Field label="BUSINESS PHONE">
-                    <input
-                      value={biz.phone}
-                      onChange={(e) => setBiz((b) => ({ ...b, phone: e.target.value }))}
+                    <LocalInput
+                      initialValue={biz.phone}
+                      onBlur={(val) => setBiz((b) => ({ ...b, phone: val.trim() }))}
                       placeholder="080..."
                       inputMode="tel"
                       className="input-field w-full rounded px-3 py-2.5 text-sm"
@@ -240,17 +261,17 @@ export function Onboarding({
                     </div>
                   </Field>
                   <Field label="BUSINESS ADDRESS (OPTIONAL)">
-                    <input
-                      value={biz.address}
-                      onChange={(e) => setBiz((b) => ({ ...b, address: e.target.value }))}
+                    <LocalInput
+                      initialValue={biz.address}
+                      onBlur={(val) => setBiz((b) => ({ ...b, address: val.trim() }))}
                       placeholder="Shop address"
                       className="input-field w-full rounded px-3 py-2.5 text-sm"
                     />
                   </Field>
                   <Field label="BUSINESS EMAIL (OPTIONAL)">
-                    <input
-                      value={biz.email}
-                      onChange={(e) => setBiz((b) => ({ ...b, email: e.target.value }))}
+                    <LocalInput
+                      initialValue={biz.email}
+                      onBlur={(val) => setBiz((b) => ({ ...b, email: val.trim() }))}
                       placeholder="you@business.com"
                       inputMode="email"
                       className="input-field w-full rounded px-3 py-2.5 text-sm"
@@ -262,26 +283,26 @@ export function Onboarding({
               {step === "customer" && (
                 <>
                   <Field label="CUSTOMER NAME">
-                    <input
-                      value={custName}
-                      onChange={(e) => setCustName(e.target.value)}
+                    <LocalInput
+                      initialValue={custName}
+                      onBlur={(val) => setCustName(val.trim())}
                       placeholder="e.g. Ngozi Okafor"
                       className="input-field w-full rounded px-3 py-2.5 text-sm"
                     />
                   </Field>
                   <Field label="PHONE NUMBER">
-                    <input
-                      value={custPhone}
-                      onChange={(e) => setCustPhone(e.target.value)}
+                    <LocalInput
+                      initialValue={custPhone}
+                      onBlur={(val) => setCustPhone(val.trim())}
                       placeholder="080..."
                       inputMode="tel"
                       className="input-field w-full rounded px-3 py-2.5 text-sm"
                     />
                   </Field>
                   <Field label="CUSTOMER NOTES (OPTIONAL)">
-                    <input
-                      value={custNotes}
-                      onChange={(e) => setCustNotes(e.target.value)}
+                    <LocalInput
+                      initialValue={custNotes}
+                      onBlur={(val) => setCustNotes(val.trim())}
                       placeholder="e.g. regular customer"
                       className="input-field w-full rounded px-3 py-2.5 text-sm"
                     />
@@ -295,18 +316,18 @@ export function Onboarding({
               {step === "sale" && (
                 <>
                   <Field label="AMOUNT">
-                    <input
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
+                    <LocalInput
+                      initialValue={amount}
+                      onBlur={(val) => setAmount(val.trim())}
                       placeholder="0"
                       inputMode="decimal"
                       className="input-field w-full rounded px-3 py-2.5 text-sm mono"
                     />
                   </Field>
                   <Field label="DESCRIPTION (OPTIONAL)">
-                    <input
-                      value={desc}
-                      onChange={(e) => setDesc(e.target.value)}
+                    <LocalInput
+                      initialValue={desc}
+                      onBlur={(val) => setDesc(val.trim())}
                       placeholder="e.g. 2 bags cement"
                       className="input-field w-full rounded px-3 py-2.5 text-sm"
                     />

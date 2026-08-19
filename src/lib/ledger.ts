@@ -150,8 +150,10 @@ export const fmtDateLong = (iso: string) =>
     year: "numeric",
   });
 
-export const balanceOf = (c: Customer) =>
-  c.txns.reduce((sum, t) => sum + (t.type === "sale" ? t.amount : -t.amount), 0);
+export const balanceOf = (c: Customer) => {
+  const total = c.txns.reduce((sum, t) => sum + (t.type === "sale" ? t.amount : -t.amount), 0);
+  return Math.round(total * 100) / 100;
+};
 
 export const lastActivity = (c: Customer) =>
   c.txns.length ? c.txns[c.txns.length - 1]!.date : c.createdAt;

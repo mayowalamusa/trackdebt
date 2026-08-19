@@ -135,6 +135,90 @@ import {
   scheduleDailyReminder,
 } from "@/lib/notifications";
 
+/* ---------------- helpers ---------------- */
+
+function LocalInput({
+  initialValue,
+  onBlur,
+  transform,
+  ...props
+}: {
+  initialValue: string;
+  onBlur: (val: string) => void;
+  transform?: (val: string) => string;
+} & React.InputHTMLAttributes<HTMLInputElement>) {
+  const [val, setVal] = useState(initialValue);
+  useEffect(() => {
+    if (initialValue !== val) setVal(initialValue);
+  }, [initialValue]);
+
+  return (
+    <input
+      {...props}
+      value={val}
+      onChange={(e) => {
+        const next = transform ? transform(e.target.value) : e.target.value;
+        setVal(next);
+      }}
+      onBlur={() => onBlur(val)}
+    />
+  );
+}
+
+function LocalTextarea({
+  initialValue,
+  onBlur,
+  ...props
+}: {
+  initialValue: string;
+  onBlur: (val: string) => void;
+} & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const [val, setVal] = useState(initialValue);
+  useEffect(() => {
+    if (initialValue !== val) setVal(initialValue);
+  }, [initialValue]);
+
+  return (
+    <textarea
+      {...props}
+      value={val}
+      onChange={(e) => setVal(e.target.value)}
+      onBlur={() => onBlur(val)}
+    />
+  );
+}
+
+function DebouncedInput({
+  initialValue,
+  onChange,
+  delay = 300,
+  ...props
+}: {
+  initialValue: string;
+  onChange: (val: string) => void;
+  delay?: number;
+} & React.InputHTMLAttributes<HTMLInputElement>) {
+  const [val, setVal] = useState(initialValue);
+  useEffect(() => {
+    if (initialValue !== val) setVal(initialValue);
+  }, [initialValue]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (val !== initialValue) onChange(val);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [val, delay, onChange, initialValue]);
+
+  return (
+    <input
+      {...props}
+      value={val}
+      onChange={(e) => setVal(e.target.value)}
+    />
+  );
+}
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -942,19 +1026,13 @@ function DebtTracker() {
 
 
                     <Search size={15} className="text-ink-soft" />
-                    <input
-                      value={query}
-                      onFocus={() => {
-                        console.log("[TRACK-DEBT-DIAG] SEARCH FOCUS");
-                        console.log("[TRACK-DEBT-DIAG] Active Element:", document.activeElement?.tagName);
-                      }}
-                      onBlur={() => console.log("[TRACK-DEBT-DIAG] SEARCH BLUR")}
-                      onChange={(e) => {
-                        console.log("[TRACK-DEBT-DIAG] SEARCH CHANGE:", e.target.value);
-                        setQuery(e.target.value);
+                    <DebouncedInput
+                      initialValue={query}
+                      onChange={(val) => {
+                        console.log("[TRACK-DEBT-DIAG] SEARCH CHANGE (DEBOUNCED):", val);
+                        setQuery(val);
                       }}
                       placeholder="Search name, phone or note"
-
                       className="bg-transparent w-full text-sm outline-none text-ink"
                     />
                     {query && (
@@ -1127,9 +1205,9 @@ function DebtTracker() {
             </p>
 
             <Field label="PROMO CODE">
-              <input
-                value={promoCode}
-                onChange={(e) => setPromoCode(e.target.value)}
+              <LocalInput
+                initialValue={promoCode}
+                onBlur={(val) => setPromoCode(val.trim().toUpperCase())}
                 placeholder="e.g. PLUS30"
                 className="input-field w-full rounded px-3 py-2.5 text-sm mono uppercase"
               />
@@ -1200,35 +1278,35 @@ function DebtTracker() {
             </div>
 
             <Field label="BUSINESS NAME">
-              <input
-                value={profile.name}
-                onChange={(e) => setP({ name: e.target.value })}
+              <LocalInput
+                initialValue={profile.name}
+                onBlur={(val) => setP({ name: val.trim() })}
                 placeholder="e.g. Amaka Provisions"
                 className="input-field w-full rounded px-3 py-2.5 text-sm"
               />
             </Field>
             <Field label="PHONE">
-              <input
-                value={profile.phone}
-                onChange={(e) => setP({ phone: e.target.value })}
+              <LocalInput
+                initialValue={profile.phone}
+                onBlur={(val) => setP({ phone: val.trim() })}
                 inputMode="tel"
                 placeholder="080..."
                 className="input-field w-full rounded px-3 py-2.5 text-sm"
               />
             </Field>
             <Field label="EMAIL">
-              <input
-                value={profile.email}
-                onChange={(e) => setP({ email: e.target.value })}
+              <LocalInput
+                initialValue={profile.email}
+                onBlur={(val) => setP({ email: val.trim() })}
                 inputMode="email"
                 placeholder="you@business.com"
                 className="input-field w-full rounded px-3 py-2.5 text-sm"
               />
             </Field>
             <Field label="ADDRESS">
-              <textarea
-                value={profile.address}
-                onChange={(e) => setP({ address: e.target.value })}
+              <LocalTextarea
+                initialValue={profile.address}
+                onBlur={(val) => setP({ address: val.trim() })}
                 rows={2}
                 placeholder="Shop 12, Main Market..."
                 className="input-field w-full rounded px-3 py-2.5 text-sm resize-none"
@@ -1253,26 +1331,26 @@ function DebtTracker() {
               PAYMENT DETAILS (OPTIONAL)
             </p>
             <Field label="BANK NAME">
-              <input
-                value={profile.bankName}
-                onChange={(e) => setP({ bankName: e.target.value })}
+              <LocalInput
+                initialValue={profile.bankName}
+                onBlur={(val) => setP({ bankName: val.trim() })}
                 placeholder="e.g. GTBank"
                 className="input-field w-full rounded px-3 py-2.5 text-sm"
               />
             </Field>
             <Field label="ACCOUNT NUMBER">
-              <input
-                value={profile.accountNumber}
-                onChange={(e) => setP({ accountNumber: e.target.value })}
+              <LocalInput
+                initialValue={profile.accountNumber}
+                onBlur={(val) => setP({ accountNumber: val.trim() })}
                 inputMode="numeric"
                 placeholder="0123456789"
                 className="input-field w-full rounded px-3 py-2.5 text-sm mono"
               />
             </Field>
             <Field label="ACCOUNT NAME">
-              <input
-                value={profile.accountName}
-                onChange={(e) => setP({ accountName: e.target.value })}
+              <LocalInput
+                initialValue={profile.accountName}
+                onBlur={(val) => setP({ accountName: val.trim() })}
                 placeholder="e.g. Chidi Provisions Store"
                 className="input-field w-full rounded px-3 py-2.5 text-sm"
               />
@@ -1831,17 +1909,17 @@ function DebtTracker() {
             />
 
             <Field label="NAME">
-              <input
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
+              <LocalInput
+                initialValue={form.name}
+                onBlur={(val) => setForm({ ...form, name: val.trim() })}
                 placeholder="e.g. Chidi Electronics"
                 className="input-field w-full rounded px-3 py-2.5 text-sm"
               />
             </Field>
             <Field label="WHATSAPP NUMBER">
-              <input
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              <LocalInput
+                initialValue={form.phone}
+                onBlur={(val) => setForm({ ...form, phone: val.trim() })}
                 placeholder="080..."
                 inputMode="tel"
                 className="input-field w-full rounded px-3 py-2.5 text-sm"
@@ -1853,9 +1931,9 @@ function DebtTracker() {
               )}
             </Field>
             <Field label="NOTES (OPTIONAL)">
-              <textarea
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              <LocalTextarea
+                initialValue={form.notes}
+                onBlur={(val) => setForm({ ...form, notes: val.trim() })}
                 rows={3}
                 placeholder="e.g. Pays every Friday · Don't exceed ₦30,000"
                 className="input-field w-full rounded px-3 py-2.5 text-sm resize-none"
@@ -1965,20 +2043,19 @@ function DebtTracker() {
             )}
 
             <Field label="AMOUNT (₦)">
-              <input
-                value={form.amount}
-                onChange={(e) =>
-                  setForm({ ...form, amount: e.target.value.replace(/[^0-9.]/g, "") })
-                }
+              <LocalInput
+                initialValue={form.amount}
+                onBlur={(val) => setForm({ ...form, amount: val })}
+                transform={(val) => val.replace(/[^0-9.]/g, "")}
                 placeholder="0"
                 inputMode="decimal"
                 className="input-field mono w-full rounded px-3 py-3 text-2xl font-bold"
               />
             </Field>
             <Field label="NOTE (OPTIONAL)">
-              <input
-                value={form.note}
-                onChange={(e) => setForm({ ...form, note: e.target.value })}
+              <LocalInput
+                initialValue={form.note}
+                onBlur={(val) => setForm({ ...form, note: val.trim() })}
                 placeholder={txnType === "sale" ? "e.g. 2 bags cement" : "e.g. part payment"}
                 className="input-field w-full rounded px-3 py-2.5 text-sm"
               />

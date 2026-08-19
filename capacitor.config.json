@@ -4,5 +4,12 @@
   "webDir": "dist/capacitor",
   "android": {
     "captureInput": false
+  },
+  "plugins": {
+    "Keyboard": {
+      "resize": "body",
+      "style": "dark",
+      "resizeOnFullScreen": true
+    }
   }
 }

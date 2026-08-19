@@ -7,6 +7,13 @@ const config: CapacitorConfig = {
   android: {
     captureInput: false,
   },
+  plugins: {
+    Keyboard: {
+      resize: 'body',
+      style: 'dark',
+      resizeOnFullScreen: true,
+    },
+  },
 };
 
 export default config;
