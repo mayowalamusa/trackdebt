@@ -1,6 +1,6 @@
 import { ArrowLeft, ChevronRight, Crown, WifiOff, X, Bell, BellRing, Circle } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, memo, type ReactNode } from "react";
 
 import { showAds, type Subscription } from "@/lib/subscription";
 import { canShowAdIn, isNativePlatform, type AdSlot } from "@/lib/ads";
@@ -12,8 +12,8 @@ import { fmtDate } from "@/lib/ledger";
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
-    <main className="min-h-screen bg-background flex justify-center">
-      <div className="w-full max-w-[430px] min-h-screen bg-paper relative pb-64 shadow-sm">
+    <main className="min-h-screen bg-background flex justify-center selection:bg-ink selection:text-paper-raised">
+      <div className="w-full max-w-[430px] min-h-screen bg-paper relative shadow-sm pt-[env(safe-area-inset-top)] pb-[calc(2.5rem+env(safe-area-inset-bottom))]">
         <OfflineIndicator />
         {children}
       </div>
@@ -42,14 +42,14 @@ export function OfflineIndicator() {
       aria-live="polite"
       className="sticky top-0 z-30 flex items-center justify-center gap-2 bg-ink px-4 py-1.5 text-[12px] font-semibold text-paper-raised"
     >
-      <WifiOff size={13} aria-hidden="true" /> Offline — your ledger still works
+      <WifiOff size={13} aria-hidden="true" /> Offline — using saved data
     </div>
   );
 }
 
 /* ---------------- primitives ---------------- */
 
-export function Stat({
+export const Stat = memo(function Stat({
   icon,
   label,
   value,
@@ -80,9 +80,9 @@ export function Stat({
       </p>
     </div>
   );
-}
+});
 
-export function Chip({
+export const Chip = memo(function Chip({
   active,
   label,
   onClick,
@@ -103,7 +103,7 @@ export function Chip({
       {label}
     </button>
   );
-}
+});
 
 export function Field({
   label,

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, memo, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -188,6 +188,39 @@ function LocalTextarea({
   );
 }
 
+const CustomerItem = memo(function CustomerItem({
+  customer,
+  onClick,
+}: {
+  customer: Customer;
+  onClick: (id: string) => void;
+}) {
+  const bal = balanceOf(customer);
+  return (
+    <button
+      onClick={() => onClick(customer.id)}
+      className="ledger-row w-full flex items-center justify-between px-5 py-3.5 text-left gap-3 transition-colors active:bg-muted"
+    >
+      <span className="min-w-0">
+        <span className="block font-semibold text-[15px] text-ink truncate">
+          {customer.name}
+        </span>
+        <span className="text-[11px] text-ink-soft mt-1 flex items-center gap-2">
+          <span>last activity {fmtDate(lastActivity(customer))}</span>
+          <DueBadge info={dueInfoOf(customer)} />
+        </span>
+      </span>
+      <span
+        className={`mono text-sm font-bold shrink-0 ${
+          bal > 0 ? "text-debt" : bal < 0 ? "text-paid" : "text-ink-soft"
+        }`}
+      >
+        {bal === 0 ? "settled" : naira(Math.abs(bal))}
+      </span>
+    </button>
+  );
+});
+
 function DebouncedInput({
   initialValue,
   onChange,
@@ -275,14 +308,6 @@ const TEMPLATE_TONE: Record<TemplateId, Tone> = {
   vip: "friendly",
 };
 
-function LifecycleLogger({ name, children }: { name: string, children: React.ReactNode }) {
-  useEffect(() => {
-    console.log(`[TRACK-DEBT-DIAG] ${name} MOUNTED`);
-    return () => console.log(`[TRACK-DEBT-DIAG] ${name} UNMOUNTED`);
-  }, [name]);
-  return <>{children}</>;
-}
-
 function DebtTracker() {
 
   const [profile, setProfile, profileLoaded] = usePersistentProfile();
@@ -348,17 +373,14 @@ function DebtTracker() {
   */
 
 
-  // Handle notification actions
   useEffect(() => {
-    if (loaded) {
+    let initialized = false;
+    if (loaded && !initialized) {
       setupNotificationListeners((action) => {
         console.log("[TrackDebt Notifications] Action performed:", action);
         const { debtId, customerId, type } = action.notification.extra;
 
         if (type === "daily_record_reminder") {
-          // Open the list screen and show a tip?
-          // The prompt says "open directly to the existing screen/form used to create a new debt record".
-          // This requires a customer. Let's see if we can pick the most recent customer or just go to list.
           go("list");
           toast("Tap a customer to record a sale.");
           return;
@@ -367,7 +389,6 @@ function DebtTracker() {
         if (customerId) {
           setSelectedId(customerId);
           go("detail");
-          // Mark as read
           setInAppNotifs((prev) =>
             prev.map((n) =>
               n.debtId === debtId ? { ...n, read: true } : n
@@ -375,6 +396,7 @@ function DebtTracker() {
           );
         }
       });
+      initialized = true;
     }
   }, [loaded]);
 
@@ -918,7 +940,7 @@ function DebtTracker() {
       <>
         {/* ===== LIST / DASHBOARD ===== */}
         {screen === "list" && (
-          <div className="animate-in fade-in duration-200">
+          <div>
             <header className="px-5 pt-9 pb-6 border-b border-line bg-paper-raised">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -1021,17 +1043,11 @@ function DebtTracker() {
             ) : (
               <>
                 <div className="px-5 pt-5 pb-3 space-y-3">
-                  <LifecycleLogger name="SearchInputContainer">
-                    <div className="flex items-center gap-2 input-field rounded px-3 py-2.5">
-
-
+                  <div className="flex items-center gap-2 input-field rounded px-3 py-2.5">
                     <Search size={15} className="text-ink-soft" />
                     <DebouncedInput
                       initialValue={query}
-                      onChange={(val) => {
-                        console.log("[TRACK-DEBT-DIAG] SEARCH CHANGE (DEBOUNCED):", val);
-                        setQuery(val);
-                      }}
+                      onChange={setQuery}
                       placeholder="Search name, phone or note"
                       className="bg-transparent w-full text-sm outline-none text-ink"
                     />
@@ -1041,7 +1057,6 @@ function DebtTracker() {
                       </button>
                     )}
                   </div>
-                  </LifecycleLogger>
 
                   <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
 
@@ -1125,37 +1140,17 @@ function DebtTracker() {
                         </TipCallout>
                       </div>
                     )}
-                  {filtered.map((c) => {
-                    const bal = balanceOf(c);
-                    return (
-                      <button
-                        key={c.id}
-                        onClick={() => {
-                          setSelectedId(c.id);
-                          setOnboarding((o) => ({ ...o, tips: { ...o.tips, openCustomer: true } }));
-                          go("detail");
-                        }}
-                        className="ledger-row w-full flex items-center justify-between px-5 py-3.5 text-left gap-3 transition-colors active:bg-muted"
-                      >
-                        <span className="min-w-0">
-                          <span className="block font-semibold text-[15px] text-ink truncate">
-                            {c.name}
-                          </span>
-                          <span className="text-[11px] text-ink-soft mt-1 flex items-center gap-2">
-                            <span>last activity {fmtDate(lastActivity(c))}</span>
-                            <DueBadge info={dueInfoOf(c)} />
-                          </span>
-                        </span>
-                        <span
-                          className={`mono text-sm font-bold shrink-0 ${
-                            bal > 0 ? "text-debt" : bal < 0 ? "text-paid" : "text-ink-soft"
-                          }`}
-                        >
-                          {bal === 0 ? "settled" : naira(Math.abs(bal))}
-                        </span>
-                      </button>
-                    );
-                  })}
+                  {filtered.map((c) => (
+                    <CustomerItem
+                      key={c.id}
+                      customer={c}
+                      onClick={(id) => {
+                        setSelectedId(id);
+                        setOnboarding((o) => ({ ...o, tips: { ...o.tips, openCustomer: true } }));
+                        go("detail");
+                      }}
+                    />
+                  ))}
                 </section>
               </>
             )}
@@ -2152,7 +2147,7 @@ function DebtTracker() {
 
         {/* ===== DETAIL ===== */}
         {screen === "detail" && selected && (
-          <div className="animate-in fade-in duration-200">
+          <div>
             <header className="px-5 pt-9 pb-6 border-b border-line bg-paper-raised">
               <div className="flex items-center gap-3">
                 <button onClick={() => go("list")} aria-label="Back">
