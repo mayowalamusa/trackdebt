@@ -1,14 +1,5 @@
 {
   "appId": "com.trackdebt.app",
   "appName": "Track Debt",
-  "webDir": "dist/capacitor",
-  "android": {
-    "captureInput": false
-  },
-  "plugins": {
-    "Keyboard": {
-      "resize": "native",
-      "style": "dark"
-    }
-  }
+  "webDir": "dist/capacitor"
 }

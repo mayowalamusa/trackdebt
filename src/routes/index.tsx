@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState, memo, type ReactNode } from "react";
+import React, { useEffect, useMemo, useRef, useState, memo, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -148,19 +148,29 @@ function LocalInput({
   transform?: (val: string) => string;
 } & React.InputHTMLAttributes<HTMLInputElement>) {
   const [val, setVal] = useState(initialValue);
+  const isFocused = useRef(false);
+
   useEffect(() => {
-    if (initialValue !== val) setVal(initialValue);
-  }, [initialValue]);
+    if (!isFocused.current && initialValue !== val) setVal(initialValue);
+  }, [initialValue, val]);
 
   return (
     <input
       {...props}
       value={val}
+      onFocus={(e) => {
+        isFocused.current = true;
+        props.onFocus?.(e);
+      }}
       onChange={(e) => {
         const next = transform ? transform(e.target.value) : e.target.value;
         setVal(next);
       }}
-      onBlur={() => onBlur(val)}
+      onBlur={(e) => {
+        isFocused.current = false;
+        onBlur(val);
+        props.onBlur?.(e);
+      }}
     />
   );
 }
@@ -174,16 +184,26 @@ function LocalTextarea({
   onBlur: (val: string) => void;
 } & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   const [val, setVal] = useState(initialValue);
+  const isFocused = useRef(false);
+
   useEffect(() => {
-    if (initialValue !== val) setVal(initialValue);
-  }, [initialValue]);
+    if (!isFocused.current && initialValue !== val) setVal(initialValue);
+  }, [initialValue, val]);
 
   return (
     <textarea
       {...props}
       value={val}
+      onFocus={(e) => {
+        isFocused.current = true;
+        props.onFocus?.(e);
+      }}
       onChange={(e) => setVal(e.target.value)}
-      onBlur={() => onBlur(val)}
+      onBlur={(e) => {
+        isFocused.current = false;
+        onBlur(val);
+        props.onBlur?.(e);
+      }}
     />
   );
 }
@@ -232,9 +252,11 @@ function DebouncedInput({
   delay?: number;
 } & React.InputHTMLAttributes<HTMLInputElement>) {
   const [val, setVal] = useState(initialValue);
+  const isFocused = useRef(false);
+
   useEffect(() => {
-    if (initialValue !== val) setVal(initialValue);
-  }, [initialValue]);
+    if (!isFocused.current && initialValue !== val) setVal(initialValue);
+  }, [initialValue, val]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -247,7 +269,15 @@ function DebouncedInput({
     <input
       {...props}
       value={val}
+      onFocus={(e) => {
+        isFocused.current = true;
+        props.onFocus?.(e);
+      }}
       onChange={(e) => setVal(e.target.value)}
+      onBlur={(e) => {
+        isFocused.current = false;
+        props.onBlur?.(e);
+      }}
     />
   );
 }
@@ -373,9 +403,9 @@ function DebtTracker() {
   */
 
 
+  const notifInit = useRef(false);
   useEffect(() => {
-    let initialized = false;
-    if (loaded && !initialized) {
+    if (loaded && !notifInit.current) {
       setupNotificationListeners((action) => {
         console.log("[TrackDebt Notifications] Action performed:", action);
         const { debtId, customerId, type } = action.notification.extra;
@@ -396,7 +426,7 @@ function DebtTracker() {
           );
         }
       });
-      initialized = true;
+      notifInit.current = true;
     }
   }, [loaded]);
 
@@ -940,7 +970,7 @@ function DebtTracker() {
       <>
         {/* ===== LIST / DASHBOARD ===== */}
         {screen === "list" && (
-          <div>
+          <div className="animate-in fade-in duration-200">
             <header className="px-5 pt-9 pb-6 border-b border-line bg-paper-raised">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -2147,7 +2177,7 @@ function DebtTracker() {
 
         {/* ===== DETAIL ===== */}
         {screen === "detail" && selected && (
-          <div>
+          <div className="animate-in fade-in duration-200">
             <header className="px-5 pt-9 pb-6 border-b border-line bg-paper-raised">
               <div className="flex items-center gap-3">
                 <button onClick={() => go("list")} aria-label="Back">

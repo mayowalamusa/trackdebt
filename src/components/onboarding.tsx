@@ -1,4 +1,4 @@
-import { useState, useEffect, type Dispatch, type SetStateAction } from "react";
+import React, { useState, useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import { Camera, Check } from "lucide-react";
 import {
   APP_NAME,
@@ -23,14 +23,26 @@ function LocalInput({
   onBlur: (val: string) => void;
 } & React.InputHTMLAttributes<HTMLInputElement>) {
   const [val, setVal] = useState(initialValue);
-  useEffect(() => setVal(initialValue), [initialValue]);
+  const isFocused = useRef(false);
+
+  useEffect(() => {
+    if (!isFocused.current && initialValue !== val) setVal(initialValue);
+  }, [initialValue, val]);
 
   return (
     <input
       {...props}
       value={val}
+      onFocus={(e) => {
+        isFocused.current = true;
+        props.onFocus?.(e);
+      }}
       onChange={(e) => setVal(e.target.value)}
-      onBlur={() => onBlur(val)}
+      onBlur={(e) => {
+        isFocused.current = false;
+        onBlur(val);
+        props.onBlur?.(e);
+      }}
     />
   );
 }
