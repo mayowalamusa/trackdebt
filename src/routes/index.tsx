@@ -157,6 +157,7 @@ function LocalInput({
   return (
     <input
       {...props}
+      style={{ ...props.style, userSelect: "text", WebkitUserSelect: "text" }}
       value={val}
       onFocus={(e) => {
         isFocused.current = true;
@@ -193,6 +194,7 @@ function LocalTextarea({
   return (
     <textarea
       {...props}
+      style={{ ...props.style, userSelect: "text", WebkitUserSelect: "text" }}
       value={val}
       onFocus={(e) => {
         isFocused.current = true;

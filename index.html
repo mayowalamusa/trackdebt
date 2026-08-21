@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
     <title>Track Debt</title>
+    <style>
+      input:focus, textarea:focus {
+        outline: 2px solid #000 !important;
+        -webkit-user-select: text !important;
+        user-select: text !important;
+      }
+      body:has(input:focus), body:has(textarea:focus) {
+        * { animation: none !important; transition: none !important; }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

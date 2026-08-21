@@ -4,9 +4,12 @@ const config: CapacitorConfig = {
   appId: 'com.trackdebt.app',
   appName: 'Track Debt',
   webDir: 'dist/capacitor',
+  android: {
+    initialFocus: true,
+  },
   plugins: {
     Keyboard: {
-      resize: 'none',
+      resize: 'body',
       style: 'dark',
     },
   },
