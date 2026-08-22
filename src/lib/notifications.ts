@@ -1,14 +1,5 @@
 import { LocalNotifications, type ActionPerformed } from "@capacitor/local-notifications";
-import {
-  format,
-  addDays,
-  parseISO,
-  startOfDay,
-  setHours,
-  setMinutes,
-  isBefore,
-  differenceInDays,
-} from "date-fns";
+import { format, addDays, parseISO, startOfDay, setHours, setMinutes, isBefore, differenceInDays } from "date-fns";
 import type { Customer, Txn, BusinessProfile } from "./ledger";
 import { naira, todayISO, balanceOf } from "./ledger";
 import { effectiveDueDate, openSales } from "./due-dates";
@@ -52,6 +43,7 @@ export const defaultNotificationSettings: NotificationSettings = {
   weeklySummaryEnabled: true,
 };
 
+
 export type InAppNotification = {
   id: string;
   debtId: string;
@@ -91,16 +83,12 @@ export async function requestPermissions() {
 
 /** Generates a deterministic integer ID for Capacitor notifications.
  *  Capacitor local notifications require a number as ID. */
-function getDeterministicNotificationId(
-  idBase: string,
-  type: PaymentReminderType,
-  cycleDate?: string,
-): number {
+function getDeterministicNotificationId(idBase: string, type: PaymentReminderType, cycleDate?: string): number {
   const str = `${idBase}_${type}${cycleDate ? "_" + cycleDate : ""}`;
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
+    hash = ((hash << 5) - hash) + char;
     hash = hash & hash; // Convert to 32bit integer
   }
   return Math.abs(hash);
@@ -133,13 +121,16 @@ const DAILY_MESSAGES = [
   },
 ];
 
-export async function scheduleDailyReminder(customers: Customer[], settings: NotificationSettings) {
+export async function scheduleDailyReminder(
+  customers: Customer[],
+  settings: NotificationSettings
+) {
   if (!settings.enabled || !settings.dailyReminderEnabled) {
     // If disabled, cancel any pending daily reminders for today and tomorrow
     const pending = await LocalNotifications.getPending();
     const toCancel = pending.notifications
-      .filter((n) => n.extra?.type === "daily_record_reminder")
-      .map((n) => ({ id: n.id }));
+      .filter(n => n.extra?.type === "daily_record_reminder")
+      .map(n => ({ id: n.id }));
     if (toCancel.length > 0) {
       await LocalNotifications.cancel({ notifications: toCancel });
     }
@@ -147,8 +138,8 @@ export async function scheduleDailyReminder(customers: Customer[], settings: Not
   }
 
   const today = todayISO();
-  const hasRecordToday = customers.some((c) =>
-    c.txns.some((t) => t.type === "sale" && t.date === today),
+  const hasRecordToday = customers.some(c =>
+    c.txns.some(t => t.type === "sale" && t.date === today)
   );
 
   const [hours, minutes] = settings.dailyReminderTime.split(":").map(Number);
@@ -165,16 +156,10 @@ export async function scheduleDailyReminder(customers: Customer[], settings: Not
   }
 
   const targetDateStr = format(targetDate, "yyyy-MM-dd");
-  const notificationId = getDeterministicNotificationId(
-    "daily",
-    "daily_record_reminder",
-    targetDateStr,
-  );
+  const notificationId = getDeterministicNotificationId("daily", "daily_record_reminder", targetDateStr);
 
   // Choose a message based on the day
-  const msgIndex =
-    (targetDate.getFullYear() + targetDate.getMonth() + targetDate.getDate()) %
-    DAILY_MESSAGES.length;
+  const msgIndex = (targetDate.getFullYear() + targetDate.getMonth() + targetDate.getDate()) % DAILY_MESSAGES.length;
   const msg = DAILY_MESSAGES[msgIndex]!;
 
   await LocalNotifications.schedule({
@@ -187,14 +172,12 @@ export async function scheduleDailyReminder(customers: Customer[], settings: Not
         channelId: CHANNEL_ID,
         smallIcon: "ic_splash_logo",
         actionTypeId: "RECORD_DEBT",
-        extra: { type: "daily_record_reminder", date: targetDateStr },
-      },
-    ],
+        extra: { type: "daily_record_reminder", date: targetDateStr }
+      }
+    ]
   });
 
-  console.log(
-    `[TrackDebt Notifications] Scheduled daily reminder for ${targetDateStr} at ${format(scheduledTime, "HH:mm")}`,
-  );
+  console.log(`[TrackDebt Notifications] Scheduled daily reminder for ${targetDateStr} at ${format(scheduledTime, "HH:mm")}`);
 
   // If we scheduled for tomorrow, make sure today's reminder is cancelled if it was pending
   if (targetDateStr !== today) {
@@ -208,9 +191,7 @@ export async function scheduleDebtReminders(
   settings: NotificationSettings,
   profile: BusinessProfile,
   inAppNotifs: InAppNotification[],
-  setInAppNotifs: (
-    n: InAppNotification[] | ((prev: InAppNotification[]) => InAppNotification[]),
-  ) => void,
+  setInAppNotifs: (n: InAppNotification[] | ((prev: InAppNotification[]) => InAppNotification[])) => void
 ) {
   if (!settings.enabled) return;
 
@@ -229,22 +210,11 @@ export async function scheduleDebtReminders(
       title: string;
       body: string;
       schedule: { at: Date };
-      extra: {
-        debtId: string;
-        customerId: string;
-        type: PaymentReminderType;
-        cycleDate?: string | undefined;
-      };
+      extra: { debtId: string; customerId: string; type: PaymentReminderType; cycleDate?: string | undefined };
     }[] = [];
 
     // Helper to add a reminder
-    const addReminder = (
-      date: Date,
-      type: PaymentReminderType,
-      title: string,
-      body: string,
-      cycleDate?: string,
-    ) => {
+    const addReminder = (date: Date, type: PaymentReminderType, title: string, body: string, cycleDate?: string) => {
       const scheduledDate = setMinutes(setHours(startOfDay(date), hours || 9), minutes || 0);
       if (isBefore(now, scheduledDate)) {
         const id = getDeterministicNotificationId(txn.id, type, cycleDate);
@@ -253,7 +223,7 @@ export async function scheduleDebtReminders(
           title,
           body,
           schedule: { at: scheduledDate },
-          extra: { debtId: txn.id, customerId: customer.id, type, cycleDate },
+          extra: { debtId: txn.id, customerId: customer.id, type, cycleDate }
         });
 
         // Also prepare in-app notification
@@ -267,7 +237,7 @@ export async function scheduleDebtReminders(
           createdAt: now.toISOString(),
           scheduledFor: scheduledDate.toISOString(),
           read: false,
-          status: "scheduled",
+          status: "scheduled"
         });
       }
     };
@@ -279,7 +249,7 @@ export async function scheduleDebtReminders(
         addDays(dueDate, -7),
         "due_7_days",
         "Payment coming up",
-        `${customer.name} owes ${amountStr}. Payment is due in 7 days.`,
+        `${customer.name} owes ${amountStr}. Payment is due in 7 days.`
       );
     }
 
@@ -288,7 +258,7 @@ export async function scheduleDebtReminders(
         addDays(dueDate, -3),
         "due_3_days",
         "Payment due soon",
-        `${customer.name} owes ${amountStr}. Payment is due in 3 days.`,
+        `${customer.name} owes ${amountStr}. Payment is due in 3 days.`
       );
     }
 
@@ -297,7 +267,7 @@ export async function scheduleDebtReminders(
         addDays(dueDate, -1),
         "due_1_day",
         "Payment due tomorrow",
-        `${customer.name} owes ${amountStr}. Payment is due tomorrow.`,
+        `${customer.name} owes ${amountStr}. Payment is due tomorrow.`
       );
     }
 
@@ -306,7 +276,7 @@ export async function scheduleDebtReminders(
         dueDate,
         "due_today",
         "Payment due today",
-        `${customer.name} owes ${amountStr}. Payment is due today.`,
+        `${customer.name} owes ${amountStr}. Payment is due today.`
       );
     }
 
@@ -319,46 +289,43 @@ export async function scheduleDebtReminders(
           "overdue",
           "Payment overdue",
           `${customer.name}'s ${amountStr} payment is overdue.`,
-          dateStr,
+          dateStr
         );
       }
     }
 
     if (remindersToSchedule.length > 0) {
       await LocalNotifications.schedule({
-        notifications: remindersToSchedule.map((n) => ({
+        notifications: remindersToSchedule.map(n => ({
           ...n,
           channelId: CHANNEL_ID,
           smallIcon: "ic_splash_logo",
           actionTypeId: "OPEN_DEBT",
-        })),
+        }))
       });
-      console.log(
-        `[TrackDebt Notifications] Scheduled ${remindersToSchedule.length} reminders for debt ${txn.id}`,
-      );
+      console.log(`[TrackDebt Notifications] Scheduled ${remindersToSchedule.length} reminders for debt ${txn.id}`);
     }
   }
 
   // Update in-app notifications: merge new with old, avoiding duplicates based on debtId and type/cycleDate
   if (newInAppNotifs.length > 0) {
-    setInAppNotifs((prev) => {
-      const filtered = prev.filter((p) => !newInAppNotifs.some((n) => n.id === p.id));
+    setInAppNotifs(prev => {
+      const filtered = prev.filter(p => !newInAppNotifs.some(n => n.id === p.id));
       return [...newInAppNotifs, ...filtered].slice(0, 100);
     });
   }
 }
 
+
 export async function cancelDebtReminders(debtId: string) {
   const pending = await LocalNotifications.getPending();
   const toCancel = pending.notifications
-    .filter((n) => n.extra?.debtId === debtId)
-    .map((n) => ({ id: n.id }));
+    .filter(n => n.extra?.debtId === debtId)
+    .map(n => ({ id: n.id }));
 
   if (toCancel.length > 0) {
     await LocalNotifications.cancel({ notifications: toCancel });
-    console.log(
-      `[TrackDebt Notifications] Cancelled ${toCancel.length} reminders for debt ${debtId}`,
-    );
+    console.log(`[TrackDebt Notifications] Cancelled ${toCancel.length} reminders for debt ${debtId}`);
   }
 }
 
@@ -367,28 +334,26 @@ export async function reconcileDebtReminders(
   settings: NotificationSettings,
   profile: BusinessProfile,
   inAppNotifs: InAppNotification[],
-  setInAppNotifs: (
-    n: InAppNotification[] | ((prev: InAppNotification[]) => InAppNotification[]),
-  ) => void,
+  setInAppNotifs: (n: InAppNotification[] | ((prev: InAppNotification[]) => InAppNotification[])) => void
 ) {
   console.log("[TrackDebt Notifications] Reconciling reminders...");
   const pending = await LocalNotifications.getPending();
 
-  const activeDebtIds = new Set(customers.flatMap((c) => openSales(c).map((s) => s.txn.id)));
+  const activeDebtIds = new Set(
+    customers.flatMap(c => openSales(c).map(s => s.txn.id))
+  );
 
   const staleNotifications = pending.notifications
-    .filter((n) => !n.extra?.debtId || !activeDebtIds.has(n.extra.debtId))
-    .map((n) => ({ id: n.id }));
+    .filter(n => !n.extra?.debtId || !activeDebtIds.has(n.extra.debtId))
+    .map(n => ({ id: n.id }));
 
   if (staleNotifications.length > 0) {
     await LocalNotifications.cancel({ notifications: staleNotifications });
-    console.log(
-      `[TrackDebt Notifications] Cancelled ${staleNotifications.length} stale notifications.`,
-    );
+    console.log(`[TrackDebt Notifications] Cancelled ${staleNotifications.length} stale notifications.`);
   }
 
   // Also clean up in-app notifications for deleted/paid debts
-  setInAppNotifs((prev) => prev.filter((n) => activeDebtIds.has(n.debtId)));
+  setInAppNotifs(prev => prev.filter(n => activeDebtIds.has(n.debtId)));
 
   if (settings.enabled) {
     for (const customer of customers) {
@@ -399,12 +364,11 @@ export async function reconcileDebtReminders(
     await scheduleDailyReminder(customers, settings);
     await scheduleWeeklySummary(customers, settings);
   } else {
-    // If disabled globally, clear all — Track Debt is the only feature
-    // in this app that schedules local notifications, so everything
-    // currently pending belongs to us. (Not filtering by channelId here:
-    // that field isn't present on PendingLocalNotificationSchema in the
-    // @capacitor/local-notifications 7.x line this project uses.)
-    const allReminders = pending.notifications.map((n) => ({ id: n.id }));
+
+    // If disabled globally, clear all — Track Debt is the only thing
+    // scheduling local notifications, so everything pending is ours.
+    // (channelId is not available on PendingLocalNotificationSchema in 7.x)
+    const allReminders = pending.notifications.map(n => ({ id: n.id }));
     if (allReminders.length > 0) {
       await LocalNotifications.cancel({ notifications: allReminders });
     }
@@ -413,12 +377,11 @@ export async function reconcileDebtReminders(
   console.log("[TrackDebt Notifications] Reconciliation complete.");
 }
 
+
 export async function addInAppNotification(
   notifications: InAppNotification[],
-  setNotifications: (
-    n: InAppNotification[] | ((prev: InAppNotification[]) => InAppNotification[]),
-  ) => void,
-  newNotif: Omit<InAppNotification, "id" | "createdAt" | "read" | "status">,
+  setNotifications: (n: InAppNotification[] | ((prev: InAppNotification[]) => InAppNotification[])) => void,
+  newNotif: Omit<InAppNotification, "id" | "createdAt" | "read" | "status">
 ) {
   const notif: InAppNotification = {
     ...newNotif,
@@ -427,19 +390,25 @@ export async function addInAppNotification(
     read: false,
     status: "delivered",
   };
-  setNotifications((prev) => [notif, ...prev].slice(0, 50));
+  setNotifications(prev => [notif, ...prev].slice(0, 50));
 }
 
-export function setupNotificationListeners(onAction: (action: ActionPerformed) => void) {
+export function setupNotificationListeners(
+  onAction: (action: ActionPerformed) => void
+) {
   LocalNotifications.addListener("localNotificationActionPerformed", onAction);
 }
 
-export async function scheduleWeeklySummary(customers: Customer[], settings: NotificationSettings) {
+export async function scheduleWeeklySummary(
+
+  customers: Customer[],
+  settings: NotificationSettings
+) {
   if (!settings.enabled || !settings.weeklySummaryEnabled) {
     const pending = await LocalNotifications.getPending();
     const toCancel = pending.notifications
-      .filter((n) => n.extra?.type === "weekly_summary")
-      .map((n) => ({ id: n.id }));
+      .filter(n => n.extra?.type === "weekly_summary")
+      .map(n => ({ id: n.id }));
     if (toCancel.length > 0) {
       await LocalNotifications.cancel({ notifications: toCancel });
     }
@@ -478,8 +447,10 @@ export async function scheduleWeeklySummary(customers: Customer[], settings: Not
         schedule: { at: scheduledTime, repeats: true, every: "week" },
         channelId: CHANNEL_ID,
         smallIcon: "ic_splash_logo",
-        extra: { type: "weekly_summary" },
-      },
-    ],
+        extra: { type: "weekly_summary" }
+      }
+    ]
   });
 }
+
+

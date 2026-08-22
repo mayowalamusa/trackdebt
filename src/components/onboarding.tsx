@@ -21,7 +21,7 @@ function LocalInput({
 }: {
   initialValue: string;
   onBlur: (val: string) => void;
-} & React.InputHTMLAttributes<HTMLInputElement>) {
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, "onBlur">) {
   const [val, setVal] = useState(initialValue);
   const isFocused = useRef(false);
 
@@ -42,7 +42,6 @@ function LocalInput({
       onBlur={(e) => {
         isFocused.current = false;
         onBlur(val);
-        props.onBlur?.(e);
       }}
     />
   );

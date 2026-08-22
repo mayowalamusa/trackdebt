@@ -87,7 +87,7 @@ import { generateReminder } from "@/lib/reminders.functions";
 import { generateReceiptPdf, receiptSummary } from "@/lib/receipts";
 import { downloadFile } from "@/lib/download";
 import { isProbablyValidPhone, normalizeForStorage } from "@/lib/phone";
-import { isPro, paymentService, stateLabel } from "@/lib/subscription";
+import { isPro, paymentService, stateLabel, planLabel } from "@/lib/subscription";
 import { DEVELOPER, SUPPORT_EMAIL, WEBSITE_URL } from "@/lib/app-config";
 import { track } from "@/lib/analytics";
 import {
@@ -146,7 +146,7 @@ function LocalInput({
   initialValue: string;
   onBlur: (val: string) => void;
   transform?: (val: string) => string;
-} & React.InputHTMLAttributes<HTMLInputElement>) {
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, "onBlur">) {
   const [val, setVal] = useState(initialValue);
   const isFocused = useRef(false);
 
@@ -167,10 +167,9 @@ function LocalInput({
         const next = transform ? transform(e.target.value) : e.target.value;
         setVal(next);
       }}
-      onBlur={(e) => {
+      onBlur={(_e) => {
         isFocused.current = false;
         onBlur(val);
-        props.onBlur?.(e);
       }}
     />
   );
@@ -183,7 +182,7 @@ function LocalTextarea({
 }: {
   initialValue: string;
   onBlur: (val: string) => void;
-} & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+} & Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "onBlur">) {
   const [val, setVal] = useState(initialValue);
   const isFocused = useRef(false);
 
@@ -201,10 +200,9 @@ function LocalTextarea({
         props.onFocus?.(e);
       }}
       onChange={(e) => setVal(e.target.value)}
-      onBlur={(e) => {
+      onBlur={(_e) => {
         isFocused.current = false;
         onBlur(val);
-        props.onBlur?.(e);
       }}
     />
   );
@@ -252,7 +250,7 @@ function DebouncedInput({
   initialValue: string;
   onChange: (val: string) => void;
   delay?: number;
-} & React.InputHTMLAttributes<HTMLInputElement>) {
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange">) {
   const [val, setVal] = useState(initialValue);
   const isFocused = useRef(false);
 
@@ -807,7 +805,7 @@ function DebtTracker() {
     try {
       const restored = await paymentService.restore();
       setSub(restored);
-      if (restored.state === "pro_active") {
+      if (restored.state === "plus_active" || restored.state === "premium_active") {
         toast.success("Track Debt Pro restored.");
       } else {
         toast("No active purchase found on this device.");
@@ -1514,7 +1512,7 @@ function DebtTracker() {
                       <div key={key} className="flex items-center justify-between">
                         <p className="text-sm">{label}</p>
                         <button
-                          onClick={() => setNotifSettings((s) => ({ ...s, [key]: !s[key as keyof typeof s] }))}
+                          onClick={() => setNotifSettings((s) => ({ ...s, [key as keyof typeof s]: !s[key as keyof typeof s] }))}
                           className={`w-11 h-6 rounded-full transition-colors relative ${
                             notifSettings[key as keyof typeof notifSettings] ? "bg-debt" : "bg-line"
                           }`}

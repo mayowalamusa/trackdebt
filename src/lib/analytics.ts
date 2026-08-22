@@ -13,6 +13,7 @@ export type AnalyticsEvent =
   | "upgrade_page_viewed"
   | "upgrade_initiated"
   | "subscription_activated"
+  | "promo_redeemed"
   | "backup_created"
   | "backup_restored";
 
