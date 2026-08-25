@@ -1,8 +1,8 @@
 package com.trackdebt.app;
 
-import android.graphics.Rect;
 import android.os.Bundle;
 import android.view.View;
+import android.view.ViewGroup;
 import android.webkit.WebView;
 import androidx.annotation.NonNull;
 import androidx.core.view.ViewCompat;
@@ -16,133 +16,88 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        // Must call before super so the splash screen installs correctly.
         super.onCreate(savedInstanceState);
 
-        // Enable edge-to-edge: content draws under status bar and navigation
-        // bar. Without this, Android 15 still enforces its own edge-to-edge
-        // behavior but in a way we can't control.
+        // Edge-to-edge: let content draw behind status bar and nav bar.
+        // Mandatory on Android 15+ (targetSdk 35 enforces this regardless).
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 
         WebView webView = getBridge().getWebView();
         if (webView == null) return;
 
-        // Ensure the WebView can receive focus and input normally.
         webView.setFocusable(true);
         webView.setFocusableInTouchMode(true);
 
-        // Disable autofill on the WebView — it's handled inside the web
-        // layer and the native autofill framework causes input hangs on
-        // some Android 15+ builds.
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             webView.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
         }
 
-        // KEYBOARD FIX FOR ANDROID 15+
+        // KEYBOARD FIX FOR ANDROID 15+ (edge-to-edge mode)
         //
-        // On Android 15+, windowSoftInputMode="adjustPan/adjustResize" is
-        // a no-op once setDecorFitsSystemWindows(false) has been called.
-        // The IME simply opens over the content with no automatic resize or
-        // pan — which is exactly the symptom: keyboard appears, fields stop
-        // receiving visual input, app appears frozen.
+        // Problem: setDecorFitsSystemWindows(false) makes adjustResize and
+        // adjustPan silent no-ops on Android 15+. The keyboard opens over
+        // the content — nothing moves, inputs are hidden, and because the
+        // WebView touch coordinate map is misaligned, the app appears frozen.
         //
-        // The correct replacement is WindowInsetsAnimationCallback:
-        // as the keyboard animates in/out, we read the IME inset height and
-        // translate the WebView upward by the same amount, so the focused
-        // field is always above the keyboard. This is what Chrome does
-        // internally, which is why Chrome on the same device works fine.
+        // Previous attempt used setTranslationY on the WebView, which caused
+        // a white gap: the WebView slid up but its layout bounds stayed fixed,
+        // so the area between the WebView bottom and the keyboard top showed
+        // the window background. Also conflicted with Capacitor's own insets
+        // listener, causing the freeze-after-open symptom.
         //
-        // We use translationY rather than changing layout params because:
-        //   1. It animates in sync with the keyboard animation.
-        //   2. It doesn't trigger a layout pass, so there's no flicker.
-        //   3. It works on all API levels from 21+.
+        // Correct fix: apply bottom padding to the WebView's parent
+        // (Capacitor's CoordinatorLayout) equal to the IME height each frame.
+        // This genuinely resizes the usable area, exactly like adjustResize
+        // used to do. The WebView fills its parent, so it shrinks accordingly.
+        // The WebView's own "scroll focused element into view" logic then
+        // works normally within that resized area — no gap, no freeze.
+
+        ViewGroup parent = (ViewGroup) webView.getParent();
+        if (parent == null) return;
+
+        final int originalPaddingBottom = parent.getPaddingBottom();
 
         ViewCompat.setWindowInsetsAnimationCallback(
-            webView,
+            parent,
             new WindowInsetsAnimationCompat.Callback(
                 WindowInsetsAnimationCompat.Callback.DISPATCH_MODE_STOP
             ) {
-                private int startBottom = 0;
-                private int endBottom = 0;
-
-                @Override
-                public void onPrepare(@NonNull WindowInsetsAnimationCompat animation) {
-                    // Capture where we are before the animation starts.
-                    startBottom = ViewCompat
-                        .getRootWindowInsets(webView)
-                        .getInsets(WindowInsetsCompat.Type.ime())
-                        .bottom;
-                }
-
-                @NonNull
-                @Override
-                public WindowInsetsAnimationCompat.BoundsCompat onStart(
-                    @NonNull WindowInsetsAnimationCompat animation,
-                    @NonNull WindowInsetsAnimationCompat.BoundsCompat bounds
-                ) {
-                    // Capture where we'll end up after the animation.
-                    endBottom = ViewCompat
-                        .getRootWindowInsets(webView)
-                        .getInsets(WindowInsetsCompat.Type.ime())
-                        .bottom;
-                    return bounds;
-                }
-
                 @NonNull
                 @Override
                 public WindowInsetsCompat onProgress(
                     @NonNull WindowInsetsCompat insets,
                     @NonNull List<WindowInsetsAnimationCompat> runningAnimations
                 ) {
-                    // Called every frame during keyboard open/close.
-                    // Translate the WebView upward by the current IME height
-                    // so the content stays above the keyboard.
-                    int imeBottom = insets
-                        .getInsets(WindowInsetsCompat.Type.ime())
-                        .bottom;
-                    int navBottom = insets
-                        .getInsets(WindowInsetsCompat.Type.navigationBars())
-                        .bottom;
-                    // The translation we need is the IME height minus the
-                    // navigation bar height (already accounted for in layout).
-                    int translation = Math.max(0, imeBottom - navBottom);
-                    webView.setTranslationY(-translation);
+                    int imeInset = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom;
+                    int navInset = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
+                    int keyboardHeight = Math.max(0, imeInset - navInset);
+                    parent.setPadding(
+                        parent.getPaddingLeft(),
+                        parent.getPaddingTop(),
+                        parent.getPaddingRight(),
+                        originalPaddingBottom + keyboardHeight
+                    );
                     return insets;
                 }
 
                 @Override
                 public void onEnd(@NonNull WindowInsetsAnimationCompat animation) {
-                    // Snap to the final position in case onProgress frames
-                    // didn't cover the full distance (e.g. instant show).
-                    WindowInsetsCompat rootInsets =
-                        ViewCompat.getRootWindowInsets(webView);
+                    // Snap to final state for devices where onProgress is not
+                    // called (instant keyboard show with no animation frame).
+                    WindowInsetsCompat rootInsets = ViewCompat.getRootWindowInsets(parent);
                     if (rootInsets != null) {
-                        int imeBottom = rootInsets
-                            .getInsets(WindowInsetsCompat.Type.ime())
-                            .bottom;
-                        int navBottom = rootInsets
-                            .getInsets(WindowInsetsCompat.Type.navigationBars())
-                            .bottom;
-                        int translation = Math.max(0, imeBottom - navBottom);
-                        webView.setTranslationY(-translation);
+                        int imeInset = rootInsets.getInsets(WindowInsetsCompat.Type.ime()).bottom;
+                        int navInset = rootInsets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
+                        int keyboardHeight = Math.max(0, imeInset - navInset);
+                        parent.setPadding(
+                            parent.getPaddingLeft(),
+                            parent.getPaddingTop(),
+                            parent.getPaddingRight(),
+                            originalPaddingBottom + keyboardHeight
+                        );
                     }
                 }
             }
         );
-
-        // Also set a plain WindowInsets listener so the initial padding
-        // for status bar and navigation bar is applied without IME
-        // interfering — this keeps content from sliding under the nav bar
-        // when no keyboard is visible.
-        ViewCompat.setOnApplyWindowInsetsListener(webView, (v, insets) -> {
-            // When the IME is NOT animating (i.e. keyboard is fully hidden),
-            // snap translationY to zero so content sits at its natural position.
-            boolean imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime());
-            if (!imeVisible) {
-                v.setTranslationY(0);
-            }
-            // Return unmodified insets so children can read them.
-            return insets;
-        });
     }
 }
