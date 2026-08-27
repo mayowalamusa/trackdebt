@@ -10,6 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Client-only static build for Capacitor
 export default defineConfig({
   base: './',
+  root: path.resolve(__dirname, 'capacitor'),
   plugins: [tailwindcss(), react(), tsconfigPaths()],
   resolve: {
     alias: {
@@ -26,7 +27,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: 'dist/capacitor',
+    outDir: path.resolve(__dirname, 'dist/capacitor'),
     emptyOutDir: true,
   },
 });
