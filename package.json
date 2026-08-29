@@ -6,14 +6,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
+    "build": "vite build --config vite.web.config.ts && node scripts/prepare-pages.mjs",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "build:capacitor": "vite build --config vite.client.config.ts",
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "build:start": "vite build"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.25",
