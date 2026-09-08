@@ -16,7 +16,7 @@ export const getRouter = () => {
     context: { queryClient },
     scrollRestoration: true,
     defaultPreloadStaleTime: 0,
-    basepath: normalizedBasepath,
+    ...(normalizedBasepath ? { basepath: normalizedBasepath } : {}),
   });
 
   return router;
