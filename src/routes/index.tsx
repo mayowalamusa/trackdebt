@@ -83,7 +83,7 @@ import {
   type Tone,
 } from "@/lib/reminders";
 import { generateReminder } from "@/lib/reminders.functions.capacitor";
-import { redeemPromoCode } from "@/lib/promo.client";
+import { redeemPromoCode } from "@/lib/promo-redeem";
 import { generateReceiptPdf, receiptSummary } from "@/lib/receipts";
 import { downloadFile } from "@/lib/download";
 import { isProbablyValidPhone, normalizeForStorage } from "@/lib/phone";
