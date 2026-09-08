@@ -21,8 +21,10 @@ async function mount() {
     return;
   }
 
+  console.log('[TD] hydrating start');
   const { hydrateStart } = await import('@tanstack/react-start/client');
   await hydrateStart();
+  console.log('[TD] hydrated');
 }
 
 if (document.readyState === 'loading') {
