@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as UpgradeRouteImport } from './routes/upgrade'
+import { Route as ApiPublicPromoRedeemRouteImport } from './routes/api/public/promo-redeem'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +23,40 @@ const UpgradeRoute = UpgradeRouteImport.update({
   path: '/upgrade',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPromoRedeemRoute = ApiPublicPromoRedeemRouteImport.update({
+  id: '/api/public/promo-redeem',
+  path: '/api/public/promo-redeem',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/upgrade': typeof UpgradeRoute
+  '/api/public/promo-redeem': typeof ApiPublicPromoRedeemRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/upgrade': typeof UpgradeRoute
+  '/api/public/promo-redeem': typeof ApiPublicPromoRedeemRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/upgrade': typeof UpgradeRoute
+  '/api/public/promo-redeem': typeof ApiPublicPromoRedeemRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/upgrade'
+  fullPaths: '/' | '/upgrade' | '/api/public/promo-redeem'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/upgrade'
-  id: '__root__' | '/' | '/upgrade'
+  to: '/' | '/upgrade' | '/api/public/promo-redeem'
+  id: '__root__' | '/' | '/upgrade' | '/api/public/promo-redeem'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   UpgradeRoute: typeof UpgradeRoute
+  ApiPublicPromoRedeemRoute: typeof ApiPublicPromoRedeemRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UpgradeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/promo-redeem': {
+      id: '/api/public/promo-redeem'
+      path: '/api/public/promo-redeem'
+      fullPath: '/api/public/promo-redeem'
+      preLoaderRoute: typeof ApiPublicPromoRedeemRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   UpgradeRoute: UpgradeRoute,
+  ApiPublicPromoRedeemRoute: ApiPublicPromoRedeemRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
