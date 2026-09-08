@@ -83,7 +83,7 @@ import {
   type TemplateId,
   type Tone,
 } from "@/lib/reminders";
-import { generateReminder } from "@/lib/reminders.functions";
+import { generateReminder } from "@/lib/reminders.functions.capacitor";
 import { generateReceiptPdf, receiptSummary } from "@/lib/receipts";
 import { downloadFile } from "@/lib/download";
 import { isProbablyValidPhone, normalizeForStorage } from "@/lib/phone";
