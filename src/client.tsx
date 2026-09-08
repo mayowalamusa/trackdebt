@@ -6,22 +6,27 @@ import { createRoot } from 'react-dom/client';
 import { RouterProvider } from '@tanstack/react-router';
 import { getRouter } from './router';
 
-function mount() {
-  const router = getRouter();
+async function mount() {
   const rootEl = document.getElementById('root');
-  if (!rootEl) {
-    console.error('[Track Debt] #root element not found — cannot mount app.');
+
+  // Static/Capacitor builds ship an index.html with <div id="root">, so we
+  // mount a plain client-side router there. The TanStack Start server render
+  // has no #root element — in that case we hydrate the streamed document.
+  if (rootEl) {
+    createRoot(rootEl).render(
+      <React.StrictMode>
+        <RouterProvider router={getRouter()} />
+      </React.StrictMode>,
+    );
     return;
   }
-  createRoot(rootEl).render(
-    <React.StrictMode>
-      <RouterProvider router={router} />
-    </React.StrictMode>,
-  );
+
+  const { hydrateStart } = await import('@tanstack/react-start/client');
+  await hydrateStart();
 }
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', mount);
+  document.addEventListener('DOMContentLoaded', () => void mount());
 } else {
-  mount();
+  void mount();
 }
