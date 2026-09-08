@@ -948,9 +948,6 @@ function DebtTracker() {
 
   /* ---------- render ---------- */
 
-  useEffect(() => {
-    console.log("Main route rendered, onboardingLoaded:", onboardingLoaded);
-  }, [onboardingLoaded]);
 
   if (!onboardingLoaded) {
     return <main className="min-h-screen bg-background" />;

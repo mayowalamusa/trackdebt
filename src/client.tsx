@@ -1,23 +1,35 @@
 /// <reference types="vite/client" />
 import './styles.css';
 
-import React from 'react';
-import { createRoot } from 'react-dom/client';
+import React, { startTransition } from 'react';
+import { createRoot, hydrateRoot } from 'react-dom/client';
 import { RouterProvider } from '@tanstack/react-router';
+import { StartClient } from '@tanstack/react-start/client';
 import { getRouter } from './router';
 
 function mount() {
-  const router = getRouter();
   const rootEl = document.getElementById('root');
-  if (!rootEl) {
-    console.error('[Track Debt] #root element not found — cannot mount app.');
+
+  // Static / Capacitor builds ship an index.html containing <div id="root">,
+  // so they mount a plain client-side router there.
+  if (rootEl) {
+    createRoot(rootEl).render(
+      <React.StrictMode>
+        <RouterProvider router={getRouter()} />
+      </React.StrictMode>,
+    );
     return;
   }
-  createRoot(rootEl).render(
-    <React.StrictMode>
-      <RouterProvider router={router} />
-    </React.StrictMode>,
-  );
+
+  // Server-rendered web build: hydrate the streamed document.
+  startTransition(() => {
+    hydrateRoot(
+      document,
+      <React.StrictMode>
+        <StartClient />
+      </React.StrictMode>,
+    );
+  });
 }
 
 if (document.readyState === 'loading') {
