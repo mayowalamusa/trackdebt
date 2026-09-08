@@ -3,6 +3,7 @@ import { streamText } from "ai";
 import { z } from "zod";
 
 import { buildReminderPrompt, createLovableAiGatewayProvider } from "./ai-gateway.server";
+import { verifyEntitlementToken } from "./entitlement.server";
 
 const InputSchema = z.object({
   customerName: z.string().min(1),
@@ -13,11 +14,23 @@ const InputSchema = z.object({
   daysOverdue: z.number(),
   status: z.string(),
   tone: z.enum(["friendly", "professional", "firm"]),
+  /** Server-signed proof of a paid plan. UI flags are never trusted here. */
+  entitlementToken: z.string().min(1).optional(),
 });
 
 export const generateReminder = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data }) => {
+    // AI generation is a paid feature and costs money per call, so it is gated
+    // on a signed entitlement rather than on client-side plan state.
+    const claims = await verifyEntitlementToken(data.entitlementToken);
+    if (!claims) {
+      return {
+        ok: false as const,
+        error: "AI reminders are available on Track Debt Plus and Premium.",
+      };
+    }
+
     const key = process.env["LOVABLE_API_KEY"];
     if (!key) {
       return { ok: false as const, error: "AI is not configured yet." };

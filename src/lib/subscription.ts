@@ -22,6 +22,12 @@ export type PromoEntitlement = {
   plan: PlanId;
   expiresAt: string; // ISO
   code: string;
+  /**
+   * Server-signed entitlement proof. Local plan state only drives UI; any
+   * privileged server work re-verifies this token, so an edited localStorage
+   * entry cannot unlock paid server features.
+   */
+  token?: string;
 };
 
 export const freeSubscription: Subscription = { state: "free" };

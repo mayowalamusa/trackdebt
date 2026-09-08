@@ -47,7 +47,6 @@ import {
   APP_VERSION,
   BUSINESS_CATEGORIES,
   TERM_OPTIONS,
-  addDaysISO,
   balanceOf,
   fmtDate,
   lastActivity,
@@ -84,6 +83,7 @@ import {
   type Tone,
 } from "@/lib/reminders";
 import { generateReminder } from "@/lib/reminders.functions.capacitor";
+import { redeemPromoCode } from "@/lib/promo.client";
 import { generateReceiptPdf, receiptSummary } from "@/lib/receipts";
 import { downloadFile } from "@/lib/download";
 import { isProbablyValidPhone, normalizeForStorage } from "@/lib/phone";
@@ -723,6 +723,7 @@ function DebtTracker() {
           daysOverdue: ctx.daysOverdue,
           status: ctx.status,
           tone: reminderTone,
+          ...(promo?.token ? { entitlementToken: promo.token } : {}),
         },
       });
       if (res.ok) {
@@ -876,29 +877,24 @@ function DebtTracker() {
     if (!promoCode.trim()) return;
     setRedeeming(true);
 
-    // Simulate API call for code validation
-    setTimeout(() => {
-      const code = promoCode.trim().toUpperCase();
-      let newPromo = null;
+    // Codes are validated on the server: neither the valid codes nor the
+    // matching rules exist in this bundle, and the entitlement we store is a
+    // server-signed token that privileged endpoints re-verify.
+    const res = await redeemPromoCode(promoCode.trim());
 
-      if (code === "PLUS30") {
-        newPromo = { plan: "plus" as const, expiresAt: addDaysISO(30), code };
-      } else if (code === "PREMIUM30") {
-        newPromo = { plan: "premium" as const, expiresAt: addDaysISO(30), code };
-      }
+    if (res.ok) {
+      setPromo({ plan: res.plan, expiresAt: res.expiresAt, code: res.code, token: res.token });
+      toast.success(
+        `Congratulations! You've unlocked Track Debt ${res.plan === "plus" ? "Plus" : "Premium"}.`,
+      );
+      track("promo_redeemed", { code: res.code, plan: res.plan });
+      go("settings");
+    } else {
+      toast.error(res.error);
+    }
 
-      if (newPromo) {
-        setPromo(newPromo);
-        toast.success(`Congratulations! You've unlocked 30 days of Track Debt ${newPromo.plan === "plus" ? "Plus" : "Premium"}.`);
-        track("promo_redeemed", { code, plan: newPromo.plan });
-        go("settings");
-      } else {
-        toast.error("Invalid promo code. Please check and try again.");
-      }
-
-      setRedeeming(false);
-      setPromoCode("");
-    }, 1000);
+    setRedeeming(false);
+    setPromoCode("");
   };
 
   /* ---------- voice assistance ---------- */
@@ -1230,7 +1226,7 @@ function DebtTracker() {
               <LocalInput
                 initialValue={promoCode}
                 onBlur={(val) => setPromoCode(val.trim().toUpperCase())}
-                placeholder="e.g. PLUS30"
+                placeholder="Enter your promo code"
                 className="input-field w-full rounded px-3 py-2.5 text-sm mono uppercase"
               />
             </Field>

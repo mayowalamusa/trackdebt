@@ -33,6 +33,8 @@ const InputSchema = z.object({
   daysOverdue: z.number(),
   status: z.string(),
   tone: z.enum(["friendly", "professional", "firm"]),
+  /** Server-signed proof of a paid plan; the server re-verifies it. */
+  entitlementToken: z.string().min(1).optional(),
 });
 
 type ReminderInput = z.infer<typeof InputSchema>;
