@@ -47,7 +47,6 @@ import {
   APP_VERSION,
   BUSINESS_CATEGORIES,
   TERM_OPTIONS,
-  addDaysISO,
   balanceOf,
   fmtDate,
   lastActivity,
