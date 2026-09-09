@@ -82,7 +82,7 @@ import {
   type TemplateId,
   type Tone,
 } from "@/lib/reminders";
-import { generateReminder } from "@/lib/reminders.functions.capacitor";
+import { generateReminder } from "@/lib/reminders.functions";
 import { redeemPromoCode } from "@/lib/promo-redeem";
 import { generateReceiptPdf, receiptSummary } from "@/lib/receipts";
 import { downloadFile } from "@/lib/download";
@@ -408,7 +408,7 @@ function DebtTracker() {
     if (loaded && !notifInit.current) {
       setupNotificationListeners((action) => {
         console.log("[TrackDebt Notifications] Action performed:", action);
-        const { debtId, customerId, type } = action.notification.extra;
+        const { debtId, customerId, type } = action.notification.extra ?? {};
 
         if (type === "daily_record_reminder") {
           go("list");
