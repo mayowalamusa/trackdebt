@@ -408,7 +408,7 @@ function DebtTracker() {
     if (loaded && !notifInit.current) {
       setupNotificationListeners((action) => {
         console.log("[TrackDebt Notifications] Action performed:", action);
-        const { debtId, customerId, type } = action.notification.extra;
+        const { debtId, customerId, type } = action.notification.extra ?? {};
 
         if (type === "daily_record_reminder") {
           go("list");
