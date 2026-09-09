@@ -6,9 +6,9 @@
 // notifications; anything that required a native notification channel is a
 // graceful no-op.
 import { format, addDays, parseISO, startOfDay, setHours, setMinutes, isBefore } from "date-fns";
-import type { Customer, Txn, BusinessProfile } from "./ledger";
-import { naira, todayISO, balanceOf } from "./ledger";
-import { effectiveDueDate, openSales } from "./due-dates";
+import type { Customer, BusinessProfile } from "./ledger";
+import { naira, balanceOf } from "./ledger";
+import { openSales } from "./due-dates";
 
 export type PaymentReminderType =
   | "due_7_days"
