@@ -114,6 +114,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", href: `${import.meta.env.BASE_URL}favicon-16.png`, type: "image/png", sizes: "16x16" },
       { rel: "apple-touch-icon", href: `${import.meta.env.BASE_URL}apple-touch-icon.png`, sizes: "180x180" },
     ],
+    scripts: [
+      {
+        children: `(function(){var l=document.createElement('link');l.rel='stylesheet';l.href=${JSON.stringify(
+          FONT_CSS_URL,
+        )};document.head.appendChild(l);})();`,
+      },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
