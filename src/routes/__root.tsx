@@ -106,19 +106,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      // Non-blocking font load: fetched as a low-priority stylesheet, then applied.
-      {
-        rel: "stylesheet",
-        href: FONT_CSS_URL,
-        media: "print",
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        onLoad: "this.media='all'" as any,
-      },
+      // Non-blocking font load: preloaded, then swapped in by the script below.
+      { rel: "preload", as: "style", href: FONT_CSS_URL },
       { rel: "manifest", href: `${import.meta.env.BASE_URL}manifest.webmanifest` },
       { rel: "icon", href: `${import.meta.env.BASE_URL}favicon.svg`, type: "image/svg+xml" },
       { rel: "icon", href: `${import.meta.env.BASE_URL}favicon-32.png`, type: "image/png", sizes: "32x32" },
       { rel: "icon", href: `${import.meta.env.BASE_URL}favicon-16.png`, type: "image/png", sizes: "16x16" },
       { rel: "apple-touch-icon", href: `${import.meta.env.BASE_URL}apple-touch-icon.png`, sizes: "180x180" },
+    ],
+    scripts: [
+      {
+        children: `(function(){var l=document.createElement('link');l.rel='stylesheet';l.href=${JSON.stringify(
+          FONT_CSS_URL,
+        )};document.head.appendChild(l);})();`,
+      },
     ],
   }),
   shellComponent: RootShell,
