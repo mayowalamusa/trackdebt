@@ -20,6 +20,23 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
+alter table public.profiles add column if not exists business_name text not null default '';
+alter table public.profiles add column if not exists business_logo_path text;
+alter table public.profiles add column if not exists business_phone text not null default '';
+alter table public.profiles add column if not exists business_address text not null default '';
+alter table public.profiles add column if not exists business_email text not null default '';
+alter table public.profiles add column if not exists business_category text not null default '';
+alter table public.profiles add column if not exists bank_name text not null default '';
+alter table public.profiles add column if not exists account_number text not null default '';
+alter table public.profiles add column if not exists account_name text not null default '';
+alter table public.profiles add column if not exists onboarding_completed boolean not null default false;
+alter table public.profiles add column if not exists onboarding_tips jsonb not null default '{"addCustomer":false,"openCustomer":false,"reminder":false}'::jsonb;
+alter table public.profiles add column if not exists account_status text not null default 'active';
+alter table public.profiles add column if not exists deletion_requested_at timestamptz;
+alter table public.profiles add column if not exists restorable_until timestamptz;
+alter table public.profiles drop constraint if exists profiles_account_status_check;
+alter table public.profiles add constraint profiles_account_status_check check (account_status in ('active','deletion_pending','deleted'));
+
 create table if not exists public.customers (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
@@ -145,7 +162,8 @@ create table if not exists public.migration_batches (
   imported_transactions integer not null default 0,
   imported_reminders integer not null default 0,
   created_at timestamptz not null default now(),
-  completed_at timestamptz
+  completed_at timestamptz,
+  unique (user_id, source, source_version)
 );
 
 create or replace function public.trackdebt_updated_at()
@@ -184,6 +202,12 @@ returns boolean language sql stable security definer set search_path = public as
   );
 $$;
 
+drop policy if exists "Users can manage their own profile" on public.profiles;
+drop policy if exists "Admins can read all profiles" on public.profiles;
+drop policy if exists "users own profile" on public.profiles;
+drop policy if exists "users read own profile" on public.profiles;
+drop policy if exists "users create active profile" on public.profiles;
+drop policy if exists "users update active profile" on public.profiles;
 create policy "users read own profile" on public.profiles for select using (id = auth.uid());
 create policy "users create active profile" on public.profiles for insert with check (id = auth.uid() and account_status = 'active');
 create policy "users update active profile" on public.profiles for update using (id = auth.uid() and account_status = 'active') with check (id = auth.uid() and account_status = 'active');
@@ -195,5 +219,6 @@ create policy "users own notifications" on public.notifications for all using (u
 create policy "users own receipt sequence" on public.receipt_sequences for all using (user_id = auth.uid() and public.trackdebt_is_active_user()) with check (user_id = auth.uid());
 create policy "users read own subscription" on public.subscriptions for select using (user_id = auth.uid() and public.trackdebt_is_active_user());
 create policy "users read own migration batches" on public.migration_batches for select using (user_id = auth.uid());
+create policy "users create own migration batches" on public.migration_batches for insert with check (user_id = auth.uid());
 
 -- Writes to billing, webhook, event, and migration records use server-only service role code.

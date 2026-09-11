@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as UpgradeRouteImport } from './routes/upgrade'
+import { Route as ApiAccountDeleteRouteImport } from './routes/api/account/delete'
+import { Route as ApiAccountStatusRouteImport } from './routes/api/account/status'
 import { Route as ApiPaystackCancelRouteImport } from './routes/api/paystack/cancel'
 import { Route as ApiPaystackInitializeRouteImport } from './routes/api/paystack/initialize'
 import { Route as ApiPaystackStatusRouteImport } from './routes/api/paystack/status'
@@ -25,6 +27,16 @@ const IndexRoute = IndexRouteImport.update({
 const UpgradeRoute = UpgradeRouteImport.update({
   id: '/upgrade',
   path: '/upgrade',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAccountDeleteRoute = ApiAccountDeleteRouteImport.update({
+  id: '/api/account/delete',
+  path: '/api/account/delete',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAccountStatusRoute = ApiAccountStatusRouteImport.update({
+  id: '/api/account/status',
+  path: '/api/account/status',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPaystackCancelRoute = ApiPaystackCancelRouteImport.update({
@@ -56,6 +68,8 @@ const ApiPublicPromoRedeemRoute = ApiPublicPromoRedeemRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/upgrade': typeof UpgradeRoute
+  '/api/account/delete': typeof ApiAccountDeleteRoute
+  '/api/account/status': typeof ApiAccountStatusRoute
   '/api/paystack/cancel': typeof ApiPaystackCancelRoute
   '/api/paystack/initialize': typeof ApiPaystackInitializeRoute
   '/api/paystack/status': typeof ApiPaystackStatusRoute
@@ -65,6 +79,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/upgrade': typeof UpgradeRoute
+  '/api/account/delete': typeof ApiAccountDeleteRoute
+  '/api/account/status': typeof ApiAccountStatusRoute
   '/api/paystack/cancel': typeof ApiPaystackCancelRoute
   '/api/paystack/initialize': typeof ApiPaystackInitializeRoute
   '/api/paystack/status': typeof ApiPaystackStatusRoute
@@ -75,6 +91,8 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/upgrade': typeof UpgradeRoute
+  '/api/account/delete': typeof ApiAccountDeleteRoute
+  '/api/account/status': typeof ApiAccountStatusRoute
   '/api/paystack/cancel': typeof ApiPaystackCancelRoute
   '/api/paystack/initialize': typeof ApiPaystackInitializeRoute
   '/api/paystack/status': typeof ApiPaystackStatusRoute
@@ -86,6 +104,8 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/upgrade'
+    | '/api/account/delete'
+    | '/api/account/status'
     | '/api/paystack/cancel'
     | '/api/paystack/initialize'
     | '/api/paystack/status'
@@ -95,6 +115,8 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/upgrade'
+    | '/api/account/delete'
+    | '/api/account/status'
     | '/api/paystack/cancel'
     | '/api/paystack/initialize'
     | '/api/paystack/status'
@@ -104,6 +126,8 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/upgrade'
+    | '/api/account/delete'
+    | '/api/account/status'
     | '/api/paystack/cancel'
     | '/api/paystack/initialize'
     | '/api/paystack/status'
@@ -114,6 +138,8 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   UpgradeRoute: typeof UpgradeRoute
+  ApiAccountDeleteRoute: typeof ApiAccountDeleteRoute
+  ApiAccountStatusRoute: typeof ApiAccountStatusRoute
   ApiPaystackCancelRoute: typeof ApiPaystackCancelRoute
   ApiPaystackInitializeRoute: typeof ApiPaystackInitializeRoute
   ApiPaystackStatusRoute: typeof ApiPaystackStatusRoute
@@ -135,6 +161,20 @@ declare module '@tanstack/react-router' {
       path: '/upgrade'
       fullPath: '/upgrade'
       preLoaderRoute: typeof UpgradeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/account/delete': {
+      id: '/api/account/delete'
+      path: '/api/account/delete'
+      fullPath: '/api/account/delete'
+      preLoaderRoute: typeof ApiAccountDeleteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/account/status': {
+      id: '/api/account/status'
+      path: '/api/account/status'
+      fullPath: '/api/account/status'
+      preLoaderRoute: typeof ApiAccountStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/paystack/cancel': {
@@ -178,6 +218,8 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   UpgradeRoute: UpgradeRoute,
+  ApiAccountDeleteRoute: ApiAccountDeleteRoute,
+  ApiAccountStatusRoute: ApiAccountStatusRoute,
   ApiPaystackCancelRoute: ApiPaystackCancelRoute,
   ApiPaystackInitializeRoute: ApiPaystackInitializeRoute,
   ApiPaystackStatusRoute: ApiPaystackStatusRoute,

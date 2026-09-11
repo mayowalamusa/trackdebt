@@ -9,6 +9,7 @@ import { freeSubscription, normalize, resolvePlan, getEntitlements, type Subscri
 import { freeEntitlement, fetchServerEntitlement, type ServerEntitlement } from "./subscription-api";
 import { supabase } from "./supabase";
 import { loadCloudSnapshot, syncCloudCustomers, syncCloudNotifications, syncCloudOnboarding, syncCloudPreferences, syncCloudProfile, syncCloudReminders } from "./cloud-data";
+import { hasCompletedMigration } from "./local-migration";
 
 type PersistOptions<T> = {
   migrate?: (raw: T) => T;
@@ -70,6 +71,14 @@ function useCloudBacked<T>(
       const { data } = await client.auth.getSession();
       if (!data.session) {
         if (active) setCloudLoaded(true);
+        return;
+      }
+      const entitlement = await fetchServerEntitlement();
+      if (entitlement.plan !== "plus" || !hasCompletedMigration(data.session.user.id)) {
+        if (active) {
+          setCloudMode(false);
+          setCloudLoaded(true);
+        }
         return;
       }
       try {

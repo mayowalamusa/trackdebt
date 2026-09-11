@@ -201,3 +201,32 @@ export async function syncCloudOnboarding(onboarding: { completed: boolean; tips
   if (!supabase || !id) return;
   await supabase.from("profiles").update({ onboarding_completed: onboarding.completed, onboarding_tips: onboarding.tips }).eq("id", id);
 }
+
+export async function hasCloudMigration(userId: string): Promise<boolean> {
+  if (!supabase) return false;
+  const { data, error } = await supabase
+    .from("migration_batches")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("source", "localStorage")
+    .eq("source_version", 1)
+    .eq("status", "completed")
+    .maybeSingle();
+  if (error) throw error;
+  return !!data;
+}
+
+export async function recordCloudMigration(userId: string, counts: { customers: number; transactions: number; reminders: number }) {
+  if (!supabase) throw new Error("Cloud storage is not configured.");
+  const { error } = await supabase.from("migration_batches").upsert({
+    user_id: userId,
+    source: "localStorage",
+    source_version: 1,
+    status: "completed",
+    imported_customers: counts.customers,
+    imported_transactions: counts.transactions,
+    imported_reminders: counts.reminders,
+    completed_at: new Date().toISOString(),
+  }, { onConflict: "user_id,source,source_version" });
+  if (error) throw error;
+}

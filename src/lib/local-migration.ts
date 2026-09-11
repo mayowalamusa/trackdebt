@@ -3,7 +3,7 @@ import { defaultNotificationSettings, type InAppNotification, type NotificationS
 import type { BusinessProfile, Customer } from "./ledger";
 import type { ReminderRecord } from "./reminders";
 import { emptyProfile } from "./ledger";
-import { syncCloudCustomers, syncCloudNotifications, syncCloudPreferences, syncCloudProfile, syncCloudReminders, ensureCloudProfile } from "./cloud-data";
+import { hasCloudMigration, syncCloudCustomers, syncCloudNotifications, syncCloudPreferences, syncCloudProfile, syncCloudReminders, ensureCloudProfile, recordCloudMigration } from "./cloud-data";
 
 const MIGRATION_PREFIX = "trackdebt.v4.cloudMigration.";
 type OnboardingState = { completed: boolean; tips: { addCustomer: boolean; openCustomer: boolean; reminder: boolean } };
@@ -30,6 +30,10 @@ export function hasLocalBusinessData(): boolean {
 }
 
 export async function migrateLocalData(userId: string): Promise<void> {
+  if (hasCompletedMigration(userId) || await hasCloudMigration(userId)) {
+    window.localStorage.setItem(migrationKey(userId), "completed");
+    return;
+  }
   const profile = readJSON<BusinessProfile>("debtbook.v2.profile", emptyProfile, { validate: (value) => !!value && typeof value === "object" && !Array.isArray(value) }).value;
   const customers = readJSON<Customer[]>("debtbook.v2.customers", [], { validate: Array.isArray }).value;
   const reminders = readJSON<ReminderRecord[]>("trackdebt.v3.reminders", [], { validate: Array.isArray }).value;
@@ -43,6 +47,11 @@ export async function migrateLocalData(userId: string): Promise<void> {
   await syncCloudReminders(reminders);
   await syncCloudPreferences(notificationSettings);
   await syncCloudNotifications(notifications);
+  await recordCloudMigration(userId, {
+    customers: customers.length,
+    transactions: customers.reduce((count, customer) => count + customer.txns.length, 0),
+    reminders: reminders.length,
+  });
 
   window.localStorage.setItem(migrationKey(userId), "completed");
 }

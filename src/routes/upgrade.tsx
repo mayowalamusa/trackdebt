@@ -23,7 +23,7 @@ import { toast } from "sonner";
 import { APP_NAME } from "@/lib/ledger";
 import { COMPARISON, PLUS_BENEFITS, PREMIUM_BENEFITS } from "@/lib/app-config";
 import { planLabel } from "@/lib/subscription";
-import { cancelPlusSubscription, currentSession, startPlusCheckout } from "@/lib/subscription-api";
+import { cancelPlusSubscription, currentSession, deleteAccount, startPlusCheckout } from "@/lib/subscription-api";
 import { supabase } from "@/lib/supabase";
 import { useEntitlements } from "@/lib/use-ledger-storage";
 import { track } from "@/lib/analytics";
@@ -60,7 +60,7 @@ function UpgradePage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [authMode, setAuthMode] = useState<"sign-in" | "sign-up">("sign-in");
+  const [authMode, setAuthMode] = useState<"sign-in" | "sign-up" | "recovery">("sign-in");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -81,11 +81,19 @@ function UpgradePage() {
     setBusy(true);
     setMessage(null);
     try {
-      const result = authMode === "sign-in"
-        ? await supabase.auth.signInWithPassword({ email: email.trim(), password })
-        : await supabase.auth.signUp({ email: email.trim(), password });
-      if (result.error) throw result.error;
-      setMessage(authMode === "sign-up" && !result.data.session ? "Check your email to confirm your account." : "Signed in.");
+      if (authMode === "recovery") {
+        const result = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/upgrade` });
+        if (result.error) throw result.error;
+        setMessage("Check your email for a password recovery link.");
+      } else if (authMode === "sign-in") {
+        const result = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+        if (result.error) throw result.error;
+        setMessage("Signed in.");
+      } else {
+        const result = await supabase.auth.signUp({ email: email.trim(), password });
+        if (result.error) throw result.error;
+        setMessage(result.data.session ? "Signed in." : "Check your email to confirm your account.");
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not authenticate.");
     } finally {
@@ -118,6 +126,20 @@ function UpgradePage() {
       setMessage("Cancellation requested. Plus remains active until the paid period ends.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not cancel the subscription.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeAccount = async () => {
+    if (!window.confirm("Start the 30-day account deletion period? Your account can be restored during that period.")) return;
+    setBusy(true);
+    try {
+      await deleteAccount();
+      await supabase?.auth.signOut();
+      setMessage("Account deletion started. Contact support within 30 days to request restoration.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not start account deletion.");
     } finally {
       setBusy(false);
     }
@@ -178,12 +200,15 @@ function UpgradePage() {
               </div>
               <p className="text-xs text-ink-soft mb-4">Plus belongs to your Track Debt account and follows you across devices.</p>
               <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" required placeholder="Email address" className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm mb-2" />
-              <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" required minLength={6} placeholder="Password" className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm" />
+              {authMode !== "recovery" && <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" required minLength={6} placeholder="Password" className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm" />}
               <button type="submit" disabled={busy} className="w-full mt-3 rounded-lg bg-ink py-3 text-sm font-semibold text-paper disabled:opacity-50">
-                {busy ? "Please wait…" : authMode === "sign-in" ? "Sign in" : "Create account"}
+                {busy ? "Please wait…" : authMode === "recovery" ? "Send recovery link" : authMode === "sign-in" ? "Sign in" : "Create account"}
               </button>
-              <button type="button" onClick={() => setAuthMode(authMode === "sign-in" ? "sign-up" : "sign-in")} className="w-full mt-2 py-2 text-xs text-ink-soft">
-                {authMode === "sign-in" ? "Need an account? Create one" : "Already have an account? Sign in"}
+              <button type="button" onClick={() => setAuthMode(authMode === "sign-up" ? "sign-in" : "sign-up")} className="w-full mt-2 py-2 text-xs text-ink-soft">
+                {authMode === "sign-up" ? "Already have an account? Sign in" : "Need an account? Create one"}
+              </button>
+              <button type="button" onClick={() => setAuthMode(authMode === "recovery" ? "sign-in" : "recovery")} className="w-full py-2 text-xs text-ink-soft">
+                {authMode === "recovery" ? "Back to sign in" : "Forgot password?"}
               </button>
             </form>
           ) : (
@@ -192,6 +217,7 @@ function UpgradePage() {
               <button type="button" onClick={() => void signOut()} className="ml-3 inline-flex shrink-0 items-center gap-1 text-ink-soft"><LogOut size={13} /> Sign out</button>
             </div>
           )}
+          {userEmail && <button type="button" onClick={() => void removeAccount()} disabled={busy} className="mb-6 w-full text-xs text-debt disabled:opacity-50">Delete account</button>}
 
           <div className="space-y-4 mb-8">
             <div
