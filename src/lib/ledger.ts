@@ -100,8 +100,8 @@ export const todayLocalISO = () => {
 export const todayISO = todayLocalISO;
 
 export const addDaysISO = (days: number, from = todayISO()) => {
-  const d = new Date(from + "T00:00:00");
-  d.setDate(d.getDate() + days);
+  const d = new Date(`${from}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 };
 
@@ -131,7 +131,7 @@ export function termDueDate(key: TermKey, custom: string): string | undefined {
  *  comparison in the app goes through this or daysSince/daysUntil below. */
 export const daysBetween = (a: string, b: string) =>
   Math.round(
-    (new Date(b + "T00:00:00").getTime() - new Date(a + "T00:00:00").getTime()) / 86400000,
+    (new Date(`${b}T00:00:00Z`).getTime() - new Date(`${a}T00:00:00Z`).getTime()) / 86400000,
   );
 
 /** Whole days from `iso` until today. Positive = in the past. */
