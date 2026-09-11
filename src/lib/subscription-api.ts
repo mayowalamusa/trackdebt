@@ -53,15 +53,21 @@ export async function cancelPlusSubscription(): Promise<void> {
   if (!response.ok || !result.ok) throw new Error(result.error ?? "Cancellation failed.");
 }
 
-export async function fetchAccountStatus(): Promise<{ status: "active" | "deletion_pending" | "deleted" }> {
+export async function fetchAccountStatus(): Promise<{ status: "active" | "deletion_pending" | "deleted"; restorableUntil: string | null }> {
   const response = await authorizedFetch("/api/account/status");
-  const result = (await response.json()) as { ok?: boolean; status?: "active" | "deletion_pending" | "deleted"; error?: string };
+  const result = (await response.json()) as { ok?: boolean; status?: "active" | "deletion_pending" | "deleted"; restorableUntil?: string | null; error?: string };
   if (!response.ok || !result.ok || !result.status) throw new Error(result.error ?? "Could not load account status.");
-  return { status: result.status };
+  return { status: result.status, restorableUntil: result.restorableUntil ?? null };
 }
 
 export async function deleteAccount(): Promise<void> {
   const response = await authorizedFetch("/api/account/delete", { method: "POST" });
   const result = (await response.json()) as { ok?: boolean; error?: string };
   if (!response.ok || !result.ok) throw new Error(result.error ?? "Could not start account deletion.");
+}
+
+export async function restoreAccount(): Promise<void> {
+  const response = await authorizedFetch("/api/account/restore", { method: "POST" });
+  const result = (await response.json()) as { ok?: boolean; error?: string };
+  if (!response.ok || !result.ok) throw new Error(result.error ?? "Could not restore the account.");
 }
