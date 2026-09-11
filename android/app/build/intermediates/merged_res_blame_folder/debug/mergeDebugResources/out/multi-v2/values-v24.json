@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.trackdebt.app-mergeDebugResources-26:/values-v24/values-v24.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\User\\.gradle\\caches\\9.5.0\\transforms\\66dcf0812768217cb12410b465f9b320\\transformed\\appcompat-1.7.1\\res\\values-v24\\values-v24.xml",
+                    "from": {
+                        "startLines": "2,3",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,212",
+                        "endColumns": "156,134",
+                        "endOffsets": "207,342"
+                    }
+                }
+            ]
+        }
+    ]
+}

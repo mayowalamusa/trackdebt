@@ -1,0 +1,20 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.trackdebt.app-mergeDebugResources-26:/values-night-v33/values-night-v33.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\User\\.gradle\\caches\\9.5.0\\transforms\\d578c1121d336ecf05b712aa530e42d9\\transformed\\core-splashscreen-1.2.0\\res\\values-night-v33\\values-night-v33.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endLines": "4",
+                        "endColumns": "12",
+                        "endOffsets": "215"
+                    }
+                }
+            ]
+        }
+    ]
+}

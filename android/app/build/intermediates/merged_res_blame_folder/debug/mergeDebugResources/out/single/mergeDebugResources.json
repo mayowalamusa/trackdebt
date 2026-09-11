@@ -1,0 +1,22 @@
+[
+    {
+        "merged": "com.trackdebt.app-debug-28:/drawable-v24_ic_launcher_foreground.xml.flat",
+        "source": "com.trackdebt.app-main-30:/drawable-v24/ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "com.trackdebt.app-debug-28:/xml_config.xml.flat",
+        "source": "com.trackdebt.app-main-30:/xml/config.xml"
+    },
+    {
+        "merged": "com.trackdebt.app-debug-28:/drawable_ic_splash_logo.xml.flat",
+        "source": "com.trackdebt.app-main-30:/drawable/ic_splash_logo.xml"
+    },
+    {
+        "merged": "com.trackdebt.app-debug-28:/drawable_ic_splash.xml.flat",
+        "source": "com.trackdebt.app-main-30:/drawable/ic_splash.xml"
+    },
+    {
+        "merged": "com.trackdebt.app-debug-28:/xml_file_paths.xml.flat",
+        "source": "com.trackdebt.app-main-30:/xml/file_paths.xml"
+    }
+]
