@@ -7,16 +7,9 @@ export const adUnitId = (slot: AdSlot) => {
   return ADMOB.testMode ? unit.test : unit.production || unit.test;
 };
 
-/** Track Debt ships to Android through Capacitor; AdMob is a native SDK, not a
- *  web ad tag. On the web there is no ad surface at all, so ad components
- *  render nothing. On device, the native plugin is initialised here. */
-export const isNativePlatform = () =>
-  typeof window !== "undefined" &&
-  Boolean(
-    (
-      window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }
-    ).Capacitor?.isNativePlatform?.(),
-  );
+/** Track Debt is a web-only app; there is no native platform. Kept as a
+ *  stable seam so ad components render nothing on the web. */
+export const isNativePlatform = () => false;
 
 export type AdService = {
   initialize(): Promise<void>;
@@ -25,8 +18,7 @@ export type AdService = {
   loadNative(): Promise<void>;
 };
 
-/** No-op service for the web build. Replaced by the Capacitor AdMob plugin
- *  in the native Android build without touching any UI code. */
+/** No-op service: the web build has no ad surface. */
 export const adService: AdService = {
   async initialize() {},
   async showBanner() {},
