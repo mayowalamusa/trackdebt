@@ -87,7 +87,8 @@ import { redeemPromoCode } from "@/lib/promo-redeem";
 import { generateReceiptPdf, receiptSummary } from "@/lib/receipts";
 import { downloadFile } from "@/lib/download";
 import { isProbablyValidPhone, normalizeForStorage } from "@/lib/phone";
-import { isPro, paymentService, stateLabel, planLabel } from "@/lib/subscription";
+import { paymentService, stateLabel, planLabel } from "@/lib/subscription";
+import { currentSession } from "@/lib/subscription-api";
 import { DEVELOPER, SUPPORT_EMAIL, WEBSITE_URL } from "@/lib/app-config";
 import { track } from "@/lib/analytics";
 import {
@@ -686,7 +687,7 @@ function DebtTracker() {
 
   const selectTemplate = (tpl: ReminderTemplate) => {
     if (!selected) return;
-    if (tpl.tier === "pro" && !isPro(sub)) {
+    if (tpl.tier === "pro" && entitlements.plan === "free") {
       setGateFeature({
         title: tpl.name,
         description: `Unlock ${tpl.name.toLowerCase()} and the rest of the premium reminder library with Track Debt Pro.`,
@@ -713,6 +714,7 @@ function DebtTracker() {
     setAiError(null);
     try {
       const ctx = buildContext(selected, profile);
+      const session = await currentSession();
       const res = await generateReminder({
         data: {
           customerName: ctx.customerName,
@@ -723,7 +725,7 @@ function DebtTracker() {
           daysOverdue: ctx.daysOverdue,
           status: ctx.status,
           tone: reminderTone,
-          ...(promo?.token ? { entitlementToken: promo.token } : {}),
+          ...(session?.access_token ? { accessToken: session.access_token } : {}),
         },
       });
       if (res.ok) {
@@ -1636,10 +1638,10 @@ function DebtTracker() {
               icon={<Crown size={17} />}
               label="Current Plan"
               value={stateLabel(sub)}
-              tone={isPro(sub) ? "paid" : undefined}
+              tone={entitlements.plan !== "free" ? "paid" : undefined}
               onClick={() => {}}
             />
-            {!isPro(sub) && (
+            {entitlements.plan === "free" && (
               <Link
                 to="/upgrade"
                 className="ledger-row w-full flex items-center justify-between px-5 py-3.5 text-left transition-colors active:bg-muted"

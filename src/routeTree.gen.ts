@@ -11,6 +11,10 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as UpgradeRouteImport } from './routes/upgrade'
+import { Route as ApiPaystackCancelRouteImport } from './routes/api/paystack/cancel'
+import { Route as ApiPaystackInitializeRouteImport } from './routes/api/paystack/initialize'
+import { Route as ApiPaystackStatusRouteImport } from './routes/api/paystack/status'
+import { Route as ApiPaystackWebhookRouteImport } from './routes/api/paystack/webhook'
 import { Route as ApiPublicPromoRedeemRouteImport } from './routes/api/public/promo-redeem'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +27,26 @@ const UpgradeRoute = UpgradeRouteImport.update({
   path: '/upgrade',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPaystackCancelRoute = ApiPaystackCancelRouteImport.update({
+  id: '/api/paystack/cancel',
+  path: '/api/paystack/cancel',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPaystackInitializeRoute = ApiPaystackInitializeRouteImport.update({
+  id: '/api/paystack/initialize',
+  path: '/api/paystack/initialize',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPaystackStatusRoute = ApiPaystackStatusRouteImport.update({
+  id: '/api/paystack/status',
+  path: '/api/paystack/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPaystackWebhookRoute = ApiPaystackWebhookRouteImport.update({
+  id: '/api/paystack/webhook',
+  path: '/api/paystack/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicPromoRedeemRoute = ApiPublicPromoRedeemRouteImport.update({
   id: '/api/public/promo-redeem',
   path: '/api/public/promo-redeem',
@@ -32,30 +56,68 @@ const ApiPublicPromoRedeemRoute = ApiPublicPromoRedeemRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/upgrade': typeof UpgradeRoute
+  '/api/paystack/cancel': typeof ApiPaystackCancelRoute
+  '/api/paystack/initialize': typeof ApiPaystackInitializeRoute
+  '/api/paystack/status': typeof ApiPaystackStatusRoute
+  '/api/paystack/webhook': typeof ApiPaystackWebhookRoute
   '/api/public/promo-redeem': typeof ApiPublicPromoRedeemRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/upgrade': typeof UpgradeRoute
+  '/api/paystack/cancel': typeof ApiPaystackCancelRoute
+  '/api/paystack/initialize': typeof ApiPaystackInitializeRoute
+  '/api/paystack/status': typeof ApiPaystackStatusRoute
+  '/api/paystack/webhook': typeof ApiPaystackWebhookRoute
   '/api/public/promo-redeem': typeof ApiPublicPromoRedeemRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/upgrade': typeof UpgradeRoute
+  '/api/paystack/cancel': typeof ApiPaystackCancelRoute
+  '/api/paystack/initialize': typeof ApiPaystackInitializeRoute
+  '/api/paystack/status': typeof ApiPaystackStatusRoute
+  '/api/paystack/webhook': typeof ApiPaystackWebhookRoute
   '/api/public/promo-redeem': typeof ApiPublicPromoRedeemRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/upgrade' | '/api/public/promo-redeem'
+  fullPaths:
+    | '/'
+    | '/upgrade'
+    | '/api/paystack/cancel'
+    | '/api/paystack/initialize'
+    | '/api/paystack/status'
+    | '/api/paystack/webhook'
+    | '/api/public/promo-redeem'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/upgrade' | '/api/public/promo-redeem'
-  id: '__root__' | '/' | '/upgrade' | '/api/public/promo-redeem'
+  to:
+    | '/'
+    | '/upgrade'
+    | '/api/paystack/cancel'
+    | '/api/paystack/initialize'
+    | '/api/paystack/status'
+    | '/api/paystack/webhook'
+    | '/api/public/promo-redeem'
+  id:
+    | '__root__'
+    | '/'
+    | '/upgrade'
+    | '/api/paystack/cancel'
+    | '/api/paystack/initialize'
+    | '/api/paystack/status'
+    | '/api/paystack/webhook'
+    | '/api/public/promo-redeem'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   UpgradeRoute: typeof UpgradeRoute
+  ApiPaystackCancelRoute: typeof ApiPaystackCancelRoute
+  ApiPaystackInitializeRoute: typeof ApiPaystackInitializeRoute
+  ApiPaystackStatusRoute: typeof ApiPaystackStatusRoute
+  ApiPaystackWebhookRoute: typeof ApiPaystackWebhookRoute
   ApiPublicPromoRedeemRoute: typeof ApiPublicPromoRedeemRoute
 }
 
@@ -75,6 +137,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UpgradeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/paystack/cancel': {
+      id: '/api/paystack/cancel'
+      path: '/api/paystack/cancel'
+      fullPath: '/api/paystack/cancel'
+      preLoaderRoute: typeof ApiPaystackCancelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/paystack/initialize': {
+      id: '/api/paystack/initialize'
+      path: '/api/paystack/initialize'
+      fullPath: '/api/paystack/initialize'
+      preLoaderRoute: typeof ApiPaystackInitializeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/paystack/status': {
+      id: '/api/paystack/status'
+      path: '/api/paystack/status'
+      fullPath: '/api/paystack/status'
+      preLoaderRoute: typeof ApiPaystackStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/paystack/webhook': {
+      id: '/api/paystack/webhook'
+      path: '/api/paystack/webhook'
+      fullPath: '/api/paystack/webhook'
+      preLoaderRoute: typeof ApiPaystackWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/promo-redeem': {
       id: '/api/public/promo-redeem'
       path: '/api/public/promo-redeem'
@@ -88,6 +178,10 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   UpgradeRoute: UpgradeRoute,
+  ApiPaystackCancelRoute: ApiPaystackCancelRoute,
+  ApiPaystackInitializeRoute: ApiPaystackInitializeRoute,
+  ApiPaystackStatusRoute: ApiPaystackStatusRoute,
+  ApiPaystackWebhookRoute: ApiPaystackWebhookRoute,
   ApiPublicPromoRedeemRoute: ApiPublicPromoRedeemRoute,
 }
 export const routeTree = rootRouteImport

@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthGate } from "@/components/auth-gate";
 
 const FONT_CSS_URL =
   "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap";
@@ -148,7 +149,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <AuthGate><Outlet /></AuthGate>
       <Toaster />
     </QueryClientProvider>
   );
