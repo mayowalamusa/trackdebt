@@ -35,6 +35,7 @@ async function authorizedFetch(path: string, init?: RequestInit): Promise<Respon
 export async function fetchServerEntitlement(): Promise<ServerEntitlement> {
   if (!supabase) return freeEntitlement;
   const response = await authorizedFetch("/api/paystack/status");
+  if (response.status === 401 || response.status === 503) return freeEntitlement;
   if (!response.ok) throw new Error("Could not load subscription status.");
   const result = (await response.json()) as { ok?: boolean; entitlement?: ServerEntitlement };
   return result.ok && result.entitlement ? result.entitlement : freeEntitlement;
