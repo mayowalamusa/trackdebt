@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient, type User } from "@supabase/supabase
 
 function config() {
   const url = process.env["SUPABASE_URL"];
-  const anonKey = process.env["SUPABASE_ANON_KEY"];
+  const anonKey = process.env["SUPABASE_ANON_KEY"] ?? process.env["SUPABASE_PUBLISHABLE_KEY"];
   const serviceRoleKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
   if (!url || !anonKey || !serviceRoleKey) return null;
   return { url, anonKey, serviceRoleKey };
