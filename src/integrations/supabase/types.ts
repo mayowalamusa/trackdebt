@@ -94,21 +94,30 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_status: string
           created_at: string
+          deletion_requested_at: string | null
           display_name: string | null
           id: string
+          restorable_until: string | null
           updated_at: string
         }
         Insert: {
+          account_status?: string
           created_at?: string
+          deletion_requested_at?: string | null
           display_name?: string | null
           id: string
+          restorable_until?: string | null
           updated_at?: string
         }
         Update: {
+          account_status?: string
           created_at?: string
+          deletion_requested_at?: string | null
           display_name?: string | null
           id?: string
+          restorable_until?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -186,6 +195,90 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      subscription_events: {
+        Row: {
+          created_at: string
+          event_id: string
+          event_name: string
+          reference: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          event_name: string
+          reference?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          event_name?: string
+          reference?: string | null
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          amount: number | null
+          cancellation_at: string | null
+          created_at: string
+          currency: string | null
+          current_period_end: string | null
+          current_period_start: string | null
+          last_successful_payment_at: string | null
+          last_transaction_reference: string | null
+          next_expected_payment_at: string | null
+          paystack_authorization: Json | null
+          paystack_customer_code: string | null
+          paystack_email_token: string | null
+          paystack_subscription_code: string | null
+          plan: string
+          status: string
+          subscription_start_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number | null
+          cancellation_at?: string | null
+          created_at?: string
+          currency?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          last_successful_payment_at?: string | null
+          last_transaction_reference?: string | null
+          next_expected_payment_at?: string | null
+          paystack_authorization?: Json | null
+          paystack_customer_code?: string | null
+          paystack_email_token?: string | null
+          paystack_subscription_code?: string | null
+          plan?: string
+          status?: string
+          subscription_start_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number | null
+          cancellation_at?: string | null
+          created_at?: string
+          currency?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          last_successful_payment_at?: string | null
+          last_transaction_reference?: string | null
+          next_expected_payment_at?: string | null
+          paystack_authorization?: Json | null
+          paystack_customer_code?: string | null
+          paystack_email_token?: string | null
+          paystack_subscription_code?: string | null
+          plan?: string
+          status?: string
+          subscription_start_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
