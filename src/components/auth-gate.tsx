@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { hasCompletedMigration, hasLocalBusinessData, migrateLocalData } from "@/lib/local-migration";
 import { ensureCloudProfile } from "@/lib/cloud-data";
