@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { hasCompletedMigration, hasLocalBusinessData, migrateLocalData } from "@/lib/local-migration";
 import { ensureCloudProfile } from "@/lib/cloud-data";
@@ -22,20 +23,18 @@ function RestoreAccountPrompt({ deadline }: { deadline: string | null }) {
   return <main className="min-h-screen bg-background flex justify-center"><div className="w-full max-w-[430px] min-h-screen bg-paper p-6 pt-20"><h1 className="text-2xl font-bold">Restore your account</h1><p className="mt-3 text-sm text-ink-soft">This account is scheduled for deletion, but it can still be restored before the server deadline.</p><p className="mt-2 text-xs text-ink-soft">Restoration deadline: {deadline ? new Date(deadline).toLocaleDateString("en-NG", { dateStyle: "medium" }) : "Unavailable"}</p><button onClick={() => void restore()} disabled={busy} className="btn-primary w-full rounded py-3 mt-8 text-sm font-semibold disabled:opacity-50">{busy ? "Restoring…" : "Restore Account"}</button>{message && <p className="mt-4 text-sm text-debt">{message}</p>}</div></main>;
 }
 
-function MigrationPrompt({ userId }: { userId: string }) {
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const migrate = async () => {
-    setBusy(true);
-    try {
-      await migrateLocalData(userId);
-      window.location.reload();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not import local data.");
-      setBusy(false);
-    }
-  };
-  return <main className="min-h-screen bg-background flex justify-center"><div className="w-full max-w-[430px] min-h-screen bg-paper p-6 pt-20"><h1 className="text-2xl font-bold">Import your existing data</h1><p className="mt-3 text-sm text-ink-soft">This device has Track Debt records. Import them into your account before continuing. Local data is kept until the import succeeds.</p><button onClick={() => void migrate()} disabled={busy} className="btn-primary w-full rounded py-3 mt-8 text-sm font-semibold disabled:opacity-50">{busy ? "Importing…" : "Import and continue"}</button>{message && <p className="mt-4 text-sm text-debt">{message}</p>}</div></main>;
+// Backing up local records into the paid account happens silently in the
+// background; the user is never blocked by an import screen.
+function useBackgroundBackup(userId: string | null, ready: boolean) {
+  const started = useRef<string | null>(null);
+  useEffect(() => {
+    if (!ready || !userId || started.current === userId) return;
+    if (hasCompletedMigration(userId) || !hasLocalBusinessData()) return;
+    started.current = userId;
+    void migrateLocalData(userId)
+      .then(() => toast.success("Your records are now backed up to your account."))
+      .catch(() => toast.error("Backup didn't finish — we'll retry next time you open the app."));
+  }, [userId, ready]);
 }
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
@@ -77,6 +76,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     });
   }, [session]);
 
+  useBackgroundBackup(session?.user.id ?? null, plusReady && accountStatus === "active");
+
   if (!supabase) return <>{children}</>;
   if (!loaded || !entitlementLoaded) return <main className="min-h-screen bg-background" />;
   // Anonymous users stay in the existing local Free mode. Authentication is
@@ -84,7 +85,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (!session) return <>{children}</>;
   if (accountStatus === "deletion_pending") return <RestoreAccountPrompt deadline={restorableUntil} />;
   if (accountStatus === "deleted") return <main className="min-h-screen bg-background flex items-center justify-center p-6"><p className="max-w-sm text-center text-sm text-ink-soft">This account is no longer available.</p></main>;
-  if (plusReady && !hasCompletedMigration(session.user.id) && hasLocalBusinessData()) return <MigrationPrompt userId={session.user.id} />;
   if (plusReady && !hasCompletedMigration(session.user.id) && !hasLocalBusinessData()) {
     try { window.localStorage.setItem(`trackdebt.v4.cloudMigration.${session.user.id}`, "completed"); } catch { /* storage is optional */ }
   }
