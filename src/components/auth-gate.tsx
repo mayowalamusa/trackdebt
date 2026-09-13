@@ -85,7 +85,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (!session) return <>{children}</>;
   if (accountStatus === "deletion_pending") return <RestoreAccountPrompt deadline={restorableUntil} />;
   if (accountStatus === "deleted") return <main className="min-h-screen bg-background flex items-center justify-center p-6"><p className="max-w-sm text-center text-sm text-ink-soft">This account is no longer available.</p></main>;
-  if (plusReady && !hasCompletedMigration(session.user.id) && hasLocalBusinessData()) return <MigrationPrompt userId={session.user.id} />;
   if (plusReady && !hasCompletedMigration(session.user.id) && !hasLocalBusinessData()) {
     try { window.localStorage.setItem(`trackdebt.v4.cloudMigration.${session.user.id}`, "completed"); } catch { /* storage is optional */ }
   }
