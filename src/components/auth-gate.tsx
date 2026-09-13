@@ -76,6 +76,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     });
   }, [session]);
 
+  useBackgroundBackup(session?.user.id ?? null, plusReady && accountStatus === "active");
+
   if (!supabase) return <>{children}</>;
   if (!loaded || !entitlementLoaded) return <main className="min-h-screen bg-background" />;
   // Anonymous users stay in the existing local Free mode. Authentication is
