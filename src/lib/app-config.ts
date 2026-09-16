@@ -1,6 +1,9 @@
 /** Centralized product configuration: pricing, plans and ad units.
  *  Change values here only — never hard-code pricing or ad ids in components. */
 
+/** Set to false when Plus payments are ready to go live. */
+export const PLUS_COMING_SOON = true;
+
 export type PlanId = "free" | "plus" | "premium";
 
 export const PRICING = {

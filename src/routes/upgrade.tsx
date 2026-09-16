@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { APP_NAME } from "@/lib/ledger";
-import { COMPARISON, PLUS_BENEFITS, PREMIUM_BENEFITS } from "@/lib/app-config";
+import { COMPARISON, PLUS_BENEFITS, PREMIUM_BENEFITS, PLUS_COMING_SOON } from "@/lib/app-config";
 import { planLabel } from "@/lib/subscription";
 import { cancelPlusSubscription, currentSession, deleteAccount, startPlusCheckout } from "@/lib/subscription-api";
 import { supabase } from "@/lib/supabase";
@@ -187,6 +187,14 @@ function UpgradePage() {
           {message && <p className="mb-5 rounded-lg border border-line bg-paper-raised px-3 py-2 text-xs text-ink-soft">{message}</p>}
 
           {!userEmail ? (
+            PLUS_COMING_SOON ? (
+              <div className="mb-8 rounded-xl border border-line bg-paper-raised p-4 text-center">
+                <p className="text-sm font-semibold mb-1">Track Debt Plus — Coming Soon</p>
+                <p className="text-xs text-ink-soft leading-relaxed">
+                  We're putting the finishing touches on Plus. Sign-up will be available shortly — check back soon!
+                </p>
+              </div>
+            ) : (
             <form
               onSubmit={(event) => {
                 event.preventDefault();
@@ -211,6 +219,7 @@ function UpgradePage() {
                 {authMode === "recovery" ? "Back to sign in" : "Forgot password?"}
               </button>
             </form>
+            )
           ) : (
             <div className="mb-8 flex items-center justify-between rounded-lg border border-line bg-paper-raised px-3 py-2 text-xs">
               <span className="truncate">Signed in as {userEmail}</span>
@@ -257,9 +266,15 @@ function UpgradePage() {
               <p className="text-xs text-ink-soft mb-4">
                 AI reminders, premium templates, voice entry, PDF receipts and additional business tools.
               </p>
-              {userEmail && entitlements.plan === "free" && <button onClick={() => void upgrade()} disabled={busy} className="w-full rounded-lg bg-ink py-3 text-[11px] font-bold text-paper disabled:opacity-50">START PLUS CHECKOUT</button>}
-              {!userEmail && <div className="text-center py-2 px-4 rounded-lg border border-line text-ink-soft text-[11px] font-bold">SIGN IN TO START</div>}
-              {entitlements.plan === "plus" && <button onClick={() => void cancel()} disabled={busy || !!subscription.cancelledAt} className="w-full rounded-lg border border-line py-3 text-[11px] font-bold text-ink-soft disabled:opacity-50">{subscription.cancelledAt ? "CANCELLATION REQUESTED" : "CANCEL RENEWAL"}</button>}
+              {PLUS_COMING_SOON ? (
+                <div className="text-center py-2 px-4 rounded-lg border border-line text-ink-soft text-[11px] font-bold">COMING SOON</div>
+              ) : (
+                <>
+                  {userEmail && entitlements.plan === "free" && <button onClick={() => void upgrade()} disabled={busy} className="w-full rounded-lg bg-ink py-3 text-[11px] font-bold text-paper disabled:opacity-50">START PLUS CHECKOUT</button>}
+                  {!userEmail && <div className="text-center py-2 px-4 rounded-lg border border-line text-ink-soft text-[11px] font-bold">SIGN IN TO START</div>}
+                  {entitlements.plan === "plus" && <button onClick={() => void cancel()} disabled={busy || !!subscription.cancelledAt} className="w-full rounded-lg border border-line py-3 text-[11px] font-bold text-ink-soft disabled:opacity-50">{subscription.cancelledAt ? "CANCELLATION REQUESTED" : "CANCEL RENEWAL"}</button>}
+                </>
+              )}
             </div>
 
             <div className="rounded-xl border border-dashed border-line p-4 bg-paper-raised opacity-80">
