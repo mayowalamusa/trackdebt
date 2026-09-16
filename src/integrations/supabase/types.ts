@@ -92,23 +92,276 @@ export type Database = {
         }
         Relationships: []
       }
-      profiles: {
+      customers: {
         Row: {
           created_at: string
-          display_name: string | null
           id: string
+          legacy_id: string | null
+          name: string
+          notes: string
+          phone: string
           updated_at: string
+          user_id: string
         }
         Insert: {
           created_at?: string
-          display_name?: string | null
-          id: string
+          id?: string
+          legacy_id?: string | null
+          name: string
+          notes?: string
+          phone?: string
           updated_at?: string
+          user_id: string
         }
         Update: {
           created_at?: string
+          id?: string
+          legacy_id?: string | null
+          name?: string
+          notes?: string
+          phone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      migration_batches: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          imported_customers: number
+          imported_reminders: number
+          imported_transactions: number
+          source: string
+          source_version: number
+          status: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          imported_customers?: number
+          imported_reminders?: number
+          imported_transactions?: number
+          source?: string
+          source_version?: number
+          status?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          imported_customers?: number
+          imported_reminders?: number
+          imported_transactions?: number
+          source?: string
+          source_version?: number
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "migration_batches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_preferences: {
+        Row: {
+          daily_reminder_enabled: boolean
+          daily_reminder_time: string
+          enabled: boolean
+          overdue_interval_days: number
+          remind_1_day_before: boolean
+          remind_3_days_before: boolean
+          remind_7_days_before: boolean
+          remind_on_due_date: boolean
+          remind_overdue: boolean
+          reminder_time: string
+          updated_at: string
+          user_id: string
+          weekly_summary_enabled: boolean
+        }
+        Insert: {
+          daily_reminder_enabled?: boolean
+          daily_reminder_time?: string
+          enabled?: boolean
+          overdue_interval_days?: number
+          remind_1_day_before?: boolean
+          remind_3_days_before?: boolean
+          remind_7_days_before?: boolean
+          remind_on_due_date?: boolean
+          remind_overdue?: boolean
+          reminder_time?: string
+          updated_at?: string
+          user_id: string
+          weekly_summary_enabled?: boolean
+        }
+        Update: {
+          daily_reminder_enabled?: boolean
+          daily_reminder_time?: string
+          enabled?: boolean
+          overdue_interval_days?: number
+          remind_1_day_before?: boolean
+          remind_3_days_before?: boolean
+          remind_7_days_before?: boolean
+          remind_on_due_date?: boolean
+          remind_overdue?: boolean
+          reminder_time?: string
+          updated_at?: string
+          user_id?: string
+          weekly_summary_enabled?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          body: string
+          created_at: string
+          customer_id: string | null
+          id: string
+          legacy_id: string | null
+          read: boolean
+          scheduled_for: string
+          status: string
+          title: string
+          transaction_id: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body?: string
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          legacy_id?: string | null
+          read?: boolean
+          scheduled_for?: string
+          status?: string
+          title?: string
+          transaction_id?: string | null
+          type?: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          legacy_id?: string | null
+          read?: boolean
+          scheduled_for?: string
+          status?: string
+          title?: string
+          transaction_id?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          account_name: string
+          account_number: string
+          account_status: string
+          bank_name: string
+          business_address: string
+          business_category: string
+          business_email: string
+          business_logo_path: string | null
+          business_name: string
+          business_phone: string
+          created_at: string
+          deletion_requested_at: string | null
+          display_name: string | null
+          id: string
+          onboarding_completed: boolean
+          onboarding_tips: Json
+          restorable_until: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_name?: string
+          account_number?: string
+          account_status?: string
+          bank_name?: string
+          business_address?: string
+          business_category?: string
+          business_email?: string
+          business_logo_path?: string | null
+          business_name?: string
+          business_phone?: string
+          created_at?: string
+          deletion_requested_at?: string | null
+          display_name?: string | null
+          id: string
+          onboarding_completed?: boolean
+          onboarding_tips?: Json
+          restorable_until?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_name?: string
+          account_number?: string
+          account_status?: string
+          bank_name?: string
+          business_address?: string
+          business_category?: string
+          business_email?: string
+          business_logo_path?: string | null
+          business_name?: string
+          business_phone?: string
+          created_at?: string
+          deletion_requested_at?: string | null
           display_name?: string | null
           id?: string
+          onboarding_completed?: boolean
+          onboarding_tips?: Json
+          restorable_until?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -183,6 +436,252 @@ export type Database = {
             columns: ["promo_code_id"]
             isOneToOne: false
             referencedRelation: "promo_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      receipt_sequences: {
+        Row: {
+          next_number: number
+          user_id: string
+          year: number
+        }
+        Insert: {
+          next_number?: number
+          user_id: string
+          year: number
+        }
+        Update: {
+          next_number?: number
+          user_id?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipt_sequences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reminders: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          customer_name: string
+          id: string
+          legacy_id: string | null
+          message: string
+          sent_at: string | null
+          status: string
+          template_id: string
+          tone: string | null
+          transaction_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          customer_name?: string
+          id?: string
+          legacy_id?: string | null
+          message?: string
+          sent_at?: string | null
+          status?: string
+          template_id?: string
+          tone?: string | null
+          transaction_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          customer_name?: string
+          id?: string
+          legacy_id?: string | null
+          message?: string
+          sent_at?: string | null
+          status?: string
+          template_id?: string
+          tone?: string | null
+          transaction_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminders_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscription_events: {
+        Row: {
+          created_at: string
+          event_id: string
+          event_name: string
+          reference: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          event_name: string
+          reference?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          event_name?: string
+          reference?: string | null
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          amount: number | null
+          cancellation_at: string | null
+          created_at: string
+          currency: string | null
+          current_period_end: string | null
+          current_period_start: string | null
+          last_successful_payment_at: string | null
+          last_transaction_reference: string | null
+          next_expected_payment_at: string | null
+          paystack_authorization: Json | null
+          paystack_customer_code: string | null
+          paystack_email_token: string | null
+          paystack_subscription_code: string | null
+          plan: string
+          status: string
+          subscription_start_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number | null
+          cancellation_at?: string | null
+          created_at?: string
+          currency?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          last_successful_payment_at?: string | null
+          last_transaction_reference?: string | null
+          next_expected_payment_at?: string | null
+          paystack_authorization?: Json | null
+          paystack_customer_code?: string | null
+          paystack_email_token?: string | null
+          paystack_subscription_code?: string | null
+          plan?: string
+          status?: string
+          subscription_start_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number | null
+          cancellation_at?: string | null
+          created_at?: string
+          currency?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          last_successful_payment_at?: string | null
+          last_transaction_reference?: string | null
+          next_expected_payment_at?: string | null
+          paystack_authorization?: Json | null
+          paystack_customer_code?: string | null
+          paystack_email_token?: string | null
+          paystack_subscription_code?: string | null
+          plan?: string
+          status?: string
+          subscription_start_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          customer_id: string
+          due_date: string | null
+          id: string
+          kind: string | null
+          legacy_id: string | null
+          note: string
+          reference: string | null
+          term_key: string | null
+          term_set_at: string | null
+          transaction_date: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          customer_id: string
+          due_date?: string | null
+          id?: string
+          kind?: string | null
+          legacy_id?: string | null
+          note?: string
+          reference?: string | null
+          term_key?: string | null
+          term_set_at?: string | null
+          transaction_date: string
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          customer_id?: string
+          due_date?: string | null
+          id?: string
+          kind?: string | null
+          legacy_id?: string | null
+          note?: string
+          reference?: string | null
+          term_key?: string | null
+          term_set_at?: string | null
+          transaction_date?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
