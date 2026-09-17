@@ -1,162 +1,3 @@
-// Track Debt Service Worker
-// Handles background notification delivery.
-//
-// The main app schedules reminders by writing them to localStorage.
-// This service worker wakes up periodically, reads those scheduled
-// reminders, and fires any that are now due — even when the app tab
-// is closed or the phone screen is off.
-//
-// Storage key: "trackdebt.v3.notificationRecords"
-// Each record: { id, title, body, scheduledFor (ISO), status, read }
-
-const STORAGE_KEY = "trackdebt.v3.notificationRecords";
-const CHECK_TAG = "trackdebt-notification-check";
-const ICON = "/icons/icon-192.png";
-const BADGE = "/icons/icon-192.png";
-
-// ── Install & activate ──────────────────────────────────────────────
-self.addEventListener("install", () => {
-  self.skipWaiting();
-});
-
-self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
-});
-
-// ── Periodic background sync (Chrome/Android) ───────────────────────
-// Fires roughly every 12 hours when the browser allows it.
-self.addEventListener("periodicsync", (event) => {
-  if (event.tag === CHECK_TAG) {
-    event.waitUntil(fireScheduledNotifications());
-  }
-});
-
-// ── Message from the main app ───────────────────────────────────────
-// The app sends a "CHECK_NOTIFICATIONS" message on load and on
-// visibility change so reminders fire promptly while the tab is open.
-self.addEventListener("message", (event) => {
-  if (event.data?.type === "CHECK_NOTIFICATIONS") {
-    event.waitUntil(fireScheduledNotifications());
-  }
-  if (event.data?.type === "SCHEDULE_PERIODIC_SYNC") {
-    // Register periodic background sync when the app asks for it.
-    event.waitUntil(registerPeriodicSync());
-  }
-});
-
-// ── Notification click ──────────────────────────────────────────────
-self.addEventListener("notificationclick", (event) => {
-  event.notification.close();
-  const customerId = event.notification.data?.customerId;
-  const notifId = event.notification.data?.notifId;
-
-  event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-      // Store the pending deep-link so the app can pick it up on open.
-      if (customerId || notifId) {
-        // We can't write to localStorage from a SW — we'll send a message
-        // instead, or let the app read from notification data on focus.
-        const target = clients.find((c) => c.url.includes(self.location.origin));
-        if (target) {
-          target.focus();
-          target.postMessage({ type: "NOTIFICATION_TAP", customerId, notifId });
-          return;
-        }
-      }
-      // Open a new tab if none is open.
-      return self.clients.openWindow("/");
-    })
-  );
-});
-
-// ── Core: fire scheduled reminders ─────────────────────────────────
-async function fireScheduledNotifications() {
-  const permission = self.Notification?.permission;
-  if (permission !== "granted") return;
-
-  let records = [];
-  try {
-    // Read from the shared localStorage via the IDB-backed client cache.
-    // SWs can't access localStorage directly, so we ask an open client.
-    const clients = await self.clients.matchAll({ type: "window" });
-    if (clients.length > 0) {
-      // Ask a live tab to read and return the records.
-      const result = await new Promise((resolve) => {
-        const channel = new MessageChannel();
-        channel.port1.onmessage = (e) => resolve(e.data);
-        clients[0].postMessage({ type: "GET_NOTIFICATION_RECORDS" }, [channel.port2]);
-        // Timeout after 2 seconds.
-        setTimeout(() => resolve(null), 2000);
-      });
-      if (result?.records) records = result.records;
-    } else {
-      // No live tab — we can't read localStorage. Skip this cycle.
-      return;
-    }
-  } catch {
-    return;
-  }
-
-  const now = new Date();
-  const toFire = records.filter(
-    (r) =>
-      r.status === "scheduled" &&
-      !r.read &&
-      new Date(r.scheduledFor) <= now
-  );
-
-  for (const record of toFire) {
-    try {
-      await self.registration.showNotification(record.title, {
-        body: record.body,
-        icon: ICON,
-        badge: BADGE,
-        tag: record.id,
-        renotify: false,
-        data: {
-          customerId: record.customerId,
-          notifId: record.id,
-        },
-      });
-    } catch {
-      // Notification failed — continue with others.
-    }
-  }
-
-  // Ask the live tab to mark these as delivered.
-  if (toFire.length > 0) {
-    const clients = await self.clients.matchAll({ type: "window" });
-    if (clients.length > 0) {
-      clients[0].postMessage({
-        type: "MARK_NOTIFICATIONS_DELIVERED",
-        ids: toFire.map((r) => r.id),
-      });
-    }
-  }
-}
-
-// ── Register periodic background sync ──────────────────────────────
-async function registerPeriodicSync() {
-  if (!self.registration.periodicSync) return;
-  try {
-    const tags = await self.registration.periodicSync.getTags();
-    if (!tags.includes(CHECK_TAG)) {
-      await self.registration.periodicSync.register(CHECK_TAG, {
-        minInterval: 60 * 60 * 1000, // 1 hour minimum (browser may throttle)
-      });
-    }
-  } catch {
-    // periodicSync not available or permission denied — silent fallback.
-  }
-}
-
-// Web-only notifications module.
-//
-// Track Debt is a web app. Device push notifications are not available, so
-// reminders live in the in-app notification centre. Scheduling functions
-// below compute the same reminders as before and record them as in-app
-// notifications; anything that required a native notification channel is a
-// graceful no-op.
 import { format, addDays, parseISO, startOfDay, setHours, setMinutes, isBefore } from "date-fns";
 import type { Customer, BusinessProfile } from "./ledger";
 import { naira, balanceOf } from "./ledger";
@@ -179,11 +20,9 @@ export type NotificationSettings = {
   remindOnDueDate: boolean;
   remindOverdue: boolean;
   overdueIntervalDays: number;
-  reminderTime: string; // HH:mm format
-  // Daily record reminders
+  reminderTime: string;
   dailyReminderEnabled: boolean;
-  dailyReminderTime: string; // HH:mm format
-  // Weekly summary
+  dailyReminderTime: string;
   weeklySummaryEnabled: boolean;
 };
 
@@ -201,7 +40,6 @@ export const defaultNotificationSettings: NotificationSettings = {
   weeklySummaryEnabled: true,
 };
 
-
 export type InAppNotification = {
   id: string;
   debtId: string;
@@ -209,22 +47,36 @@ export type InAppNotification = {
   type: PaymentReminderType;
   title: string;
   body: string;
-  createdAt: string; // ISO
-  scheduledFor: string; // ISO
+  createdAt: string;
+  scheduledFor: string;
   read: boolean;
   status: "scheduled" | "delivered" | "cancelled";
 };
 
-export async function initNotifications() {
-  // No native notification channel on the web.
-}
-
 type PermissionState = "granted" | "denied" | "prompt";
+
+const NOTIFIED_STORAGE_KEY = "trackdebt.v3.web_notified_ids";
+const SERVICE_WORKER_PATH = "/notification-sw.js";
 
 function browserPermission(): PermissionState | null {
   if (typeof window === "undefined" || !("Notification" in window)) return null;
-  const p = Notification.permission;
-  return p === "default" ? "prompt" : p;
+  const permission = Notification.permission;
+  return permission === "default" ? "prompt" : permission;
+}
+
+export async function initNotifications() {
+  // Web notifications require HTTPS (except localhost) and a user-granted
+  // permission. Do not request permission automatically on page load because
+  // browsers increasingly require a user gesture for permission prompts.
+  if (typeof window === "undefined") return;
+
+  if ("serviceWorker" in navigator && window.isSecureContext) {
+    try {
+      await navigator.serviceWorker.register(SERVICE_WORKER_PATH, { scope: "/" });
+    } catch (error) {
+      console.warn("[TrackDebt Notifications] Service worker registration failed", error);
+    }
+  }
 }
 
 export async function checkPermissions(): Promise<PermissionState> {
@@ -232,32 +84,141 @@ export async function checkPermissions(): Promise<PermissionState> {
 }
 
 export async function requestPermissions(): Promise<PermissionState> {
-  if (browserPermission() === null) {
-    // Browser has no Notification API — in-app reminders still work.
-    return "granted";
+  const current = browserPermission();
+  if (current === null) return "granted";
+  if (current === "granted" || current === "denied") return current;
+
+  try {
+    const result = await Notification.requestPermission();
+    return result === "default" ? "prompt" : result;
+  } catch {
+    return "denied";
   }
-  const result = await Notification.requestPermission();
-  return result === "default" ? "prompt" : result;
 }
 
-/** Generates a deterministic integer ID for a scheduled reminder. */
 function getDeterministicNotificationId(idBase: string, type: PaymentReminderType, cycleDate?: string): number {
   const str = `${idBase}_${type}${cycleDate ? "_" + cycleDate : ""}`;
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
   }
   return Math.abs(hash);
 }
 
-export async function scheduleDailyReminder(
-  _customers: Customer[],
-  _settings: NotificationSettings
+function getNotifiedIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(NOTIFIED_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(parsed) ? parsed.map(String) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveNotifiedIds(ids: Set<string>) {
+  try {
+    // Keep this bounded so the local storage entry cannot grow forever.
+    localStorage.setItem(NOTIFIED_STORAGE_KEY, JSON.stringify(Array.from(ids).slice(-500)));
+  } catch {
+    // Notification delivery should never break the app if storage is unavailable.
+  }
+}
+
+async function showWebNotification(
+  title: string,
+  body: string,
+  data: { debtId?: string; customerId?: string; notifId?: string }
 ) {
-  // Daily record reminders need background delivery, which the web build
-  // doesn't have. The in-app notification centre covers due-date reminders.
+  if (typeof window === "undefined" || !("Notification" in window)) return false;
+  if (Notification.permission !== "granted") return false;
+
+  const options: NotificationOptions = {
+    body,
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    tag: data.notifId ?? `trackdebt-${Date.now()}`,
+    data,
+  };
+
+  try {
+    // Service-worker notifications work on mobile browsers where
+    // new Notification() commonly throws. Use an active registration first.
+    if ("serviceWorker" in navigator) {
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (registration?.active) {
+        await registration.showNotification(title, options);
+        return true;
+      }
+    }
+
+    // Desktop fallback when no service worker is active.
+    const notification = new Notification(title, options);
+    notification.onclick = () => {
+      window.focus();
+    };
+    return true;
+  } catch (error) {
+    console.warn("[TrackDebt Notifications] Could not show notification", error);
+    return false;
+  }
+}
+
+async function deliverDueWebNotifications(records: InAppNotification[]) {
+  if (typeof window === "undefined") return;
+  if (browserPermission() !== "granted") return;
+
+  const now = Date.now();
+  const notified = getNotifiedIds();
+  let changed = false;
+
+  for (const record of records) {
+    if (record.status !== "scheduled" || record.read) continue;
+    if (new Date(record.scheduledFor).getTime() > now) continue;
+    if (notified.has(record.id)) continue;
+
+    const shown = await showWebNotification(record.title, record.body, {
+      debtId: record.debtId,
+      customerId: record.customerId,
+      notifId: record.id,
+    });
+
+    if (shown) {
+      notified.add(record.id);
+      changed = true;
+    }
+  }
+
+  if (changed) saveNotifiedIds(notified);
+}
+
+export async function scheduleDailyReminder(
+  customers: Customer[],
+  settings: NotificationSettings
+) {
+  if (!settings.enabled || !settings.dailyReminderEnabled) return;
+  if (browserPermission() !== "granted") return;
+
+  const [hours, minutes] = settings.dailyReminderTime.split(":").map(Number);
+  const now = new Date();
+  const scheduledDate = setMinutes(setHours(startOfDay(now), hours || 19), minutes || 0);
+
+  if (now < scheduledDate) return;
+  if (customers.length === 0) return;
+
+  const id = `daily_${now.toISOString().slice(0, 10)}`;
+  const notified = getNotifiedIds();
+  if (notified.has(id)) return;
+
+  const shown = await showWebNotification(
+    "Track Debt",
+    "Don't forget to record today's debts and payments.",
+    { notifId: id }
+  );
+  if (shown) {
+    notified.add(id);
+    saveNotifiedIds(notified);
+  }
 }
 
 export async function scheduleDebtReminders(
@@ -281,10 +242,12 @@ export async function scheduleDebtReminders(
 
     const addReminder = (date: Date, type: PaymentReminderType, title: string, body: string, cycleDate?: string) => {
       const scheduledDate = setMinutes(setHours(startOfDay(date), hours || 9), minutes || 0);
+      const id = String(getDeterministicNotificationId(txn.id, type, cycleDate));
+
+      // Keep reminders scheduled for the future in the in-app centre.
       if (isBefore(now, scheduledDate)) {
-        const id = getDeterministicNotificationId(txn.id, type, cycleDate);
         newInAppNotifs.push({
-          id: String(id),
+          id,
           debtId: txn.id,
           customerId: customer.id,
           type,
@@ -293,8 +256,27 @@ export async function scheduleDebtReminders(
           createdAt: now.toISOString(),
           scheduledFor: scheduledDate.toISOString(),
           read: false,
-          status: "scheduled"
+          status: "scheduled",
         });
+      }
+
+      // If the reminder time has already arrived, deliver it immediately
+      // when the app is open/resumed. This is what makes web notifications
+      // actually fire instead of only appearing in the in-app centre.
+      if (!isBefore(now, scheduledDate)) {
+        const notified = getNotifiedIds();
+        if (!notified.has(id)) {
+          void showWebNotification(title, body, {
+            debtId: txn.id,
+            customerId: customer.id,
+            notifId: id,
+          }).then((shown) => {
+            if (shown) {
+              notified.add(id);
+              saveNotifiedIds(notified);
+            }
+          });
+        }
       }
     };
 
@@ -326,17 +308,18 @@ export async function scheduleDebtReminders(
     }
   }
 
-  // Merge new reminders with old, avoiding duplicates by id
   if (newInAppNotifs.length > 0) {
     setInAppNotifs(prev => {
       const filtered = prev.filter(p => !newInAppNotifs.some(n => n.id === p.id));
       return [...newInAppNotifs, ...filtered].slice(0, 100);
     });
   }
+
+  await deliverDueWebNotifications(newInAppNotifs);
 }
 
 export async function cancelDebtReminders(_debtId: string) {
-  // Nothing to cancel without a native scheduler.
+  // Scheduled reminders are reconciled from current debt state.
 }
 
 export async function reconcileDebtReminders(
@@ -350,7 +333,6 @@ export async function reconcileDebtReminders(
     customers.flatMap(c => openSales(c).map(s => s.txn.id))
   );
 
-  // Clean up in-app notifications for deleted/paid debts
   setInAppNotifs(prev => prev.filter(n => activeDebtIds.has(n.debtId)));
 
   if (settings.enabled) {
@@ -359,7 +341,11 @@ export async function reconcileDebtReminders(
         await scheduleDebtReminders(customer, settings, profile, inAppNotifs, setInAppNotifs);
       }
     }
+    await scheduleDailyReminder(customers, settings);
   }
+
+  // Deliver any reminders that became due while the tab was asleep or hidden.
+  await deliverDueWebNotifications(inAppNotifs);
 }
 
 export async function addInAppNotification(
@@ -377,20 +363,36 @@ export async function addInAppNotification(
   setNotifications(prev => [notif, ...prev].slice(0, 50));
 }
 
-/** Kept for API compatibility; no notification taps exist on the web. */
 export type NotificationAction = {
   notification: { extra?: { debtId?: string; customerId?: string; type?: PaymentReminderType } };
 };
 
 export function setupNotificationListeners(
-  _onAction: (action: NotificationAction) => void
+  onAction: (action: NotificationAction) => void
 ) {
-  // No-op on the web.
+  if (typeof window === "undefined" || !("serviceWorker" in navigator)) return () => {};
+
+  const handler = (event: MessageEvent) => {
+    if (event.data?.type !== "NOTIFICATION_TAP") return;
+    onAction({
+      notification: {
+        extra: {
+          debtId: event.data.debtId,
+          customerId: event.data.customerId,
+          type: event.data.type,
+        },
+      },
+    });
+  };
+
+  navigator.serviceWorker.addEventListener("message", handler);
+  return () => navigator.serviceWorker.removeEventListener("message", handler);
 }
 
 export async function scheduleWeeklySummary(
   _customers: Customer[],
   _settings: NotificationSettings
 ) {
-  // Weekly summaries need background delivery; not available on the web.
+  // Weekly summaries can use the same web notification mechanism when the
+  // app is active; true closed-app delivery requires Web Push + a server.
 }
