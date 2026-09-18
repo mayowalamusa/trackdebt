@@ -1,4 +1,5 @@
- Web notification system for Track Debt.
+/**
+ * Web notification system for Track Debt.
  *
  * Two layers:
  *   1. In-app notification centre — records stored in localStorage, shown
@@ -193,7 +194,6 @@ async function showBrowserNotification(
         icon: ICON,
         badge: BADGE,
         tag: record.id,
-        renotify: false,
         data: { customerId: record.customerId, notifId: record.id },
       });
       return true;
@@ -323,35 +323,35 @@ export async function scheduleDebtReminders(
   const [hours, minutes] = settings.reminderTime.split(":").map(Number);
   const now = new Date();
 
-  const addReminder = (
-    date: Date,
-    type: PaymentReminderType,
-    title: string,
-    body: string,
-    cycleDate?: string
-  ) => {
-    const scheduledDate = setMinutes(setHours(startOfDay(date), hours || 9), minutes || 0);
-    if (isBefore(now, scheduledDate)) {
-      const id = String(getDeterministicNotificationId(txn.id, type, cycleDate));
-      newInAppNotifs.push({
-        id,
-        debtId: txn.id,
-        customerId: customer.id,
-        type,
-        title,
-        body,
-        createdAt: now.toISOString(),
-        scheduledFor: scheduledDate.toISOString(),
-        read: false,
-        status: "scheduled",
-      });
-    }
-  };
-
   for (const { txn, outstanding } of openDebts) {
     if (!txn.term?.dueDate) continue;
     const dueDate = parseISO(txn.term.dueDate);
     const amountStr = naira(outstanding);
+
+    const addReminder = (
+      date: Date,
+      type: PaymentReminderType,
+      title: string,
+      body: string,
+      cycleDate?: string
+    ) => {
+      const scheduledDate = setMinutes(setHours(startOfDay(date), hours || 9), minutes || 0);
+      if (isBefore(now, scheduledDate)) {
+        const id = String(getDeterministicNotificationId(txn.id, type, cycleDate));
+        newInAppNotifs.push({
+          id,
+          debtId: txn.id,
+          customerId: customer.id,
+          type,
+          title,
+          body,
+          createdAt: now.toISOString(),
+          scheduledFor: scheduledDate.toISOString(),
+          read: false,
+          status: "scheduled",
+        });
+      }
+    };
 
     if (settings.remind7DaysBefore)
       addReminder(addDays(dueDate, -7), "due_7_days", "Payment coming up",
@@ -436,7 +436,7 @@ export function setupNotificationListeners(
   if (typeof window === "undefined") return;
   window.addEventListener("trackdebt:notification-tap", ((e: Event) => {
     const { customerId } = (e as CustomEvent<{ customerId?: string }>).detail;
-    onAction({ notification: { extra: { customerId } } });
+    onAction({ notification: { extra: { ...(customerId ? { customerId } : {}) } } });
   }) as EventListener);
 }
 
@@ -446,5 +446,3 @@ export async function scheduleWeeklySummary(
 ): Promise<void> {
   // Weekly summaries use the same polling/SW mechanism as payment reminders.
 }
-TSEOF
-echo "written"
