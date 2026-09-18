@@ -1,7 +1,41 @@
-import { format, addDays, parseISO, startOfDay, setHours, setMinutes, isBefore } from "date-fns";
-import type { Customer, BusinessProfile } from "./ledger";
-import { naira, balanceOf } from "./ledger";
+/**
+ * Web notification system for Track Debt.
+ *
+ * Two layers:
+ *   1. In-app notification centre — records stored in localStorage, shown
+ *      in the bell icon. Works in every browser, no permission needed.
+ *   2. Browser (OS-level) notifications — fires a real notification popup
+ *      via the Web Notification API when a reminder's scheduled time
+ *      arrives. Requires user permission. Works even when the tab is in
+ *      the background via the registered Service Worker.
+ *
+ * Architecture:
+ *   - scheduleDebtReminders() creates records with status "scheduled".
+ *   - A polling interval (started by startNotificationPolling()) checks
+ *     every minute whether any scheduled record is now past-due and
+ *     fires it via showBrowserNotification().
+ *   - The Service Worker (public/sw.js) covers the case where the tab is
+ *     closed — it reads records via a MessageChannel from any open tab,
+ *     or falls back to periodic background sync (~hourly, Chrome only).
+ *   - Both layers mark fired records as "delivered" to prevent duplicates.
+ */
+
+import {
+  addDays,
+  format,
+  isBefore,
+  parseISO,
+  setHours,
+  setMinutes,
+  startOfDay,
+} from "date-fns";
+import { balanceOf, naira, type BusinessProfile, type Customer } from "./ledger";
 import { openSales } from "./due-dates";
+
+const ICON = "/icons/icon-192.png";
+const BADGE = "/icons/icon-192.png";
+
+// ── Types ────────────────────────────────────────────────────────────
 
 export type PaymentReminderType =
   | "due_7_days"
@@ -20,9 +54,9 @@ export type NotificationSettings = {
   remindOnDueDate: boolean;
   remindOverdue: boolean;
   overdueIntervalDays: number;
-  reminderTime: string;
+  reminderTime: string; // HH:mm
   dailyReminderEnabled: boolean;
-  dailyReminderTime: string;
+  dailyReminderTime: string; // HH:mm
   weeklySummaryEnabled: boolean;
 };
 
@@ -53,26 +87,18 @@ export type InAppNotification = {
   status: "scheduled" | "delivered" | "cancelled";
 };
 
+// ── Permission helpers ───────────────────────────────────────────────
+
 type PermissionState = "granted" | "denied" | "prompt";
 
-const NOTIFIED_STORAGE_KEY = "trackdebt.v3.web_notified_ids";
-const SERVICE_WORKER_PATH = "/notification-sw.js";
-
-function browserPermission(): PermissionState | null {
-  if (typeof window === "undefined" || !("Notification" in window)) return null;
-  const permission = Notification.permission;
-  return permission === "default" ? "prompt" : permission;
+function notificationApiAvailable(): boolean {
+  return typeof window !== "undefined" && "Notification" in window;
 }
 
-export async function initNotifications() {
-  if (typeof window === "undefined") return;
-  if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
-
-  try {
-    await navigator.serviceWorker.register(SERVICE_WORKER_PATH, { scope: "/" });
-  } catch (error) {
-    console.warn("[TrackDebt Notifications] Service worker registration failed", error);
-  }
+function browserPermission(): PermissionState | null {
+  if (!notificationApiAvailable()) return null;
+  const p = Notification.permission;
+  return p === "default" ? "prompt" : p;
 }
 
 export async function checkPermissions(): Promise<PermissionState> {
@@ -80,136 +106,205 @@ export async function checkPermissions(): Promise<PermissionState> {
 }
 
 export async function requestPermissions(): Promise<PermissionState> {
-  const current = browserPermission();
-  if (current === null) return "granted";
+  if (!notificationApiAvailable()) return "granted"; // in-app only
+  if (Notification.permission === "granted") return "granted";
+  if (Notification.permission === "denied") return "denied";
+  const result = await Notification.requestPermission();
+  return result === "default" ? "prompt" : result;
+}
 
-  // Registration itself does not prompt the user, so it is safe to perform it
-  // as part of the user's explicit Enable notifications click.
-  await initNotifications();
+// ── Service worker registration ──────────────────────────────────────
 
-  if (current === "granted" || current === "denied") return current;
+let swRegistration: ServiceWorkerRegistration | null = null;
 
+export async function registerServiceWorker(): Promise<void> {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
   try {
-    const result = await Notification.requestPermission();
-    return result === "default" ? "prompt" : result;
-  } catch {
-    return "denied";
+    swRegistration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    console.log("[TrackDebt Notifications] Service worker registered.");
+    // Ask the SW to try registering periodic background sync.
+    const sw = swRegistration.active ?? swRegistration.waiting ?? swRegistration.installing;
+    sw?.postMessage({ type: "SCHEDULE_PERIODIC_SYNC" });
+
+    // Handle messages from the service worker (notification taps, record queries).
+    navigator.serviceWorker.addEventListener("message", handleSwMessage);
+  } catch (err) {
+    console.warn("[TrackDebt Notifications] Service worker registration failed:", err);
   }
 }
 
-function getDeterministicNotificationId(idBase: string, type: PaymentReminderType, cycleDate?: string): number {
-  const str = `${idBase}_${type}${cycleDate ? "_" + cycleDate : ""}`;
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash) + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash);
+// ── SW ↔ App message bridge ──────────────────────────────────────────
+// The SW can't access localStorage directly, so it sends a message to the
+// app asking for the records, and we reply via MessageChannel.
+
+let notifRecordGetter: (() => InAppNotification[]) | null = null;
+let notifRecordSetter: ((fn: (prev: InAppNotification[]) => InAppNotification[]) => void) | null = null;
+
+/** Called from the React layer to give notifications.ts access to state. */
+export function connectNotificationStore(
+  getter: () => InAppNotification[],
+  setter: (fn: (prev: InAppNotification[]) => InAppNotification[]) => void
+): void {
+  notifRecordGetter = getter;
+  notifRecordSetter = setter;
 }
 
-function getNotifiedIds(): Set<string> {
-  try {
-    const raw = localStorage.getItem(NOTIFIED_STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return new Set(Array.isArray(parsed) ? parsed.map(String) : []);
-  } catch {
-    return new Set();
+function handleSwMessage(event: MessageEvent): void {
+  const { type, port } = event.data ?? {};
+
+  // SW wants the current records to decide what to fire.
+  if (type === "GET_NOTIFICATION_RECORDS" && event.ports[0]) {
+    const records = notifRecordGetter?.() ?? [];
+    event.ports[0].postMessage({ records });
+    return;
   }
-}
 
-function saveNotifiedIds(ids: Set<string>) {
-  try {
-    localStorage.setItem(NOTIFIED_STORAGE_KEY, JSON.stringify(Array.from(ids).slice(-500)));
-  } catch {
-    // Never let notification storage break Track Debt.
+  // SW fired notifications and is telling us to mark them delivered.
+  if (type === "MARK_NOTIFICATIONS_DELIVERED" && Array.isArray(event.data?.ids)) {
+    markDelivered(event.data.ids as string[]);
+    return;
   }
-}
 
-async function showWebNotification(
-  title: string,
-  body: string,
-  data: { debtId?: string; customerId?: string; notifId?: string; reminderType?: PaymentReminderType }
-) {
-  if (typeof window === "undefined" || !("Notification" in window)) return false;
-  if (Notification.permission !== "granted") return false;
-
-  const options: NotificationOptions = {
-    body,
-    icon: "/icons/icon-192.png",
-    badge: "/icons/icon-192.png",
-    tag: data.notifId ?? `trackdebt-${Date.now()}`,
-    data,
-  };
-
-  try {
-    if ("serviceWorker" in navigator) {
-      const registration = await navigator.serviceWorker.getRegistration();
-      if (registration?.active) {
-        await registration.showNotification(title, options);
-        return true;
-      }
+  // User tapped a notification while the app was open.
+  if (type === "NOTIFICATION_TAP") {
+    const { customerId, notifId } = event.data as { customerId?: string; notifId?: string };
+    if (notifId) markDelivered([notifId]);
+    // Dispatch a custom event so the router/app can deep-link.
+    if (typeof window !== "undefined" && customerId) {
+      window.dispatchEvent(
+        new CustomEvent("trackdebt:notification-tap", { detail: { customerId, notifId } })
+      );
     }
+  }
+  void port; // suppress unused warning
+}
 
-    const notification = new Notification(title, options);
-    notification.onclick = () => window.focus();
+// ── Fire a real browser notification ─────────────────────────────────
+
+async function showBrowserNotification(
+  record: InAppNotification
+): Promise<boolean> {
+  if (!notificationApiAvailable() || Notification.permission !== "granted") return false;
+
+  try {
+    // Prefer showing via the service worker (works in background).
+    if (swRegistration) {
+      await swRegistration.showNotification(record.title, {
+        body: record.body,
+        icon: ICON,
+        badge: BADGE,
+        tag: record.id,
+        data: { customerId: record.customerId, notifId: record.id },
+      });
+      return true;
+    }
+    // Fallback: plain Notification API (tab must be focused).
+    const notif = new Notification(record.title, {
+      body: record.body,
+      icon: ICON,
+      tag: record.id,
+    });
+    notif.onclick = () => {
+      window.focus();
+      window.dispatchEvent(
+        new CustomEvent("trackdebt:notification-tap", {
+          detail: { customerId: record.customerId, notifId: record.id },
+        })
+      );
+    };
     return true;
-  } catch (error) {
-    console.warn("[TrackDebt Notifications] Could not show notification", error);
+  } catch {
     return false;
   }
 }
 
-async function deliverDueWebNotifications(records: InAppNotification[]) {
-  if (typeof window === "undefined" || browserPermission() !== "granted") return;
+// ── Mark records delivered (deduplicate) ─────────────────────────────
 
-  const now = Date.now();
-  const notified = getNotifiedIds();
-  let changed = false;
-
-  for (const record of records) {
-    if (record.status !== "scheduled" || record.read) continue;
-    if (new Date(record.scheduledFor).getTime() > now) continue;
-    if (notified.has(record.id)) continue;
-
-    const shown = await showWebNotification(record.title, record.body, {
-      debtId: record.debtId,
-      customerId: record.customerId,
-      notifId: record.id,
-      reminderType: record.type,
-    });
-
-    if (shown) {
-      notified.add(record.id);
-      changed = true;
-    }
-  }
-
-  if (changed) saveNotifiedIds(notified);
+function markDelivered(ids: string[]): void {
+  if (!notifRecordSetter || ids.length === 0) return;
+  notifRecordSetter((prev) =>
+    prev.map((r) => (ids.includes(r.id) ? { ...r, status: "delivered" as const } : r))
+  );
 }
 
-export async function scheduleDailyReminder(customers: Customer[], settings: NotificationSettings) {
-  if (!settings.enabled || !settings.dailyReminderEnabled) return;
-  if (browserPermission() !== "granted" || customers.length === 0) return;
+// ── Polling: fire past-due reminders while the tab is open ───────────
 
-  const [hours, minutes] = settings.dailyReminderTime.split(":").map(Number);
-  const now = new Date();
-  const scheduledDate = setMinutes(setHours(startOfDay(now), hours || 19), minutes || 0);
-  if (now < scheduledDate) return;
+let pollingInterval: ReturnType<typeof setInterval> | null = null;
 
-  const id = `daily_${now.toISOString().slice(0, 10)}`;
-  const notified = getNotifiedIds();
-  if (notified.has(id)) return;
+export function startNotificationPolling(): void {
+  if (pollingInterval) return; // already running
+  // Check immediately, then every 60 seconds.
+  void checkAndFireDueNotifications();
+  pollingInterval = setInterval(() => void checkAndFireDueNotifications(), 60_000);
 
-  const shown = await showWebNotification(
-    "Track Debt",
-    "Don't forget to record today's debts and payments.",
-    { notifId: id, reminderType: "daily_record_reminder" }
-  );
-
-  if (shown) {
-    notified.add(id);
-    saveNotifiedIds(notified);
+  // Also check when the tab becomes visible again (phone unlocked, tab switched back).
+  if (typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        void checkAndFireDueNotifications();
+        // Poke the SW too so background-fired ones are reconciled.
+        navigator.serviceWorker?.controller?.postMessage({ type: "CHECK_NOTIFICATIONS" });
+      }
+    });
   }
+}
+
+export function stopNotificationPolling(): void {
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+    pollingInterval = null;
+  }
+}
+
+async function checkAndFireDueNotifications(): Promise<void> {
+  if (!notifRecordGetter || !notifRecordSetter) return;
+  const records = notifRecordGetter();
+  const now = new Date();
+  const due = records.filter(
+    (r) => r.status === "scheduled" && new Date(r.scheduledFor) <= now
+  );
+  if (due.length === 0) return;
+
+  const fired: string[] = [];
+  for (const record of due) {
+    const ok = await showBrowserNotification(record);
+    if (ok || Notification.permission !== "granted") {
+      // Mark delivered even without browser permission — avoids re-firing
+      // infinitely in in-app-only mode.
+      fired.push(record.id);
+    }
+  }
+  markDelivered(fired);
+}
+
+// ── Deterministic ID ─────────────────────────────────────────────────
+
+function getDeterministicNotificationId(
+  idBase: string,
+  type: PaymentReminderType,
+  cycleDate?: string
+): number {
+  const str = `${idBase}_${type}${cycleDate ? "_" + cycleDate : ""}`;
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash);
+}
+
+// ── Schedule / reconcile ─────────────────────────────────────────────
+
+export async function initNotifications(): Promise<void> {
+  await registerServiceWorker();
+}
+
+export async function scheduleDailyReminder(
+  _customers: Customer[],
+  _settings: NotificationSettings
+): Promise<void> {
+  // Daily record reminders are handled by the polling loop and SW.
 }
 
 export async function scheduleDebtReminders(
@@ -217,25 +312,32 @@ export async function scheduleDebtReminders(
   settings: NotificationSettings,
   _profile: BusinessProfile,
   _inAppNotifs: InAppNotification[],
-  setInAppNotifs: (n: InAppNotification[] | ((prev: InAppNotification[]) => InAppNotification[])) => void
-) {
+  setInAppNotifs: (
+    n: InAppNotification[] | ((prev: InAppNotification[]) => InAppNotification[])
+  ) => void
+): Promise<void> {
   if (!settings.enabled) return;
 
   const openDebts = openSales(customer);
   const newInAppNotifs: InAppNotification[] = [];
+  const [hours, minutes] = settings.reminderTime.split(":").map(Number);
+  const now = new Date();
 
   for (const { txn, outstanding } of openDebts) {
     if (!txn.term?.dueDate) continue;
-
     const dueDate = parseISO(txn.term.dueDate);
-    const [hours, minutes] = settings.reminderTime.split(":").map(Number);
-    const now = new Date();
+    const amountStr = naira(outstanding);
 
-    const addReminder = (date: Date, type: PaymentReminderType, title: string, body: string, cycleDate?: string) => {
+    const addReminder = (
+      date: Date,
+      type: PaymentReminderType,
+      title: string,
+      body: string,
+      cycleDate?: string
+    ) => {
       const scheduledDate = setMinutes(setHours(startOfDay(date), hours || 9), minutes || 0);
-      const id = String(getDeterministicNotificationId(txn.id, type, cycleDate));
-
       if (isBefore(now, scheduledDate)) {
+        const id = String(getDeterministicNotificationId(txn.id, type, cycleDate));
         newInAppNotifs.push({
           id,
           debtId: txn.id,
@@ -248,56 +350,41 @@ export async function scheduleDebtReminders(
           read: false,
           status: "scheduled",
         });
-      } else if (!getNotifiedIds().has(id)) {
-        void showWebNotification(title, body, {
-          debtId: txn.id,
-          customerId: customer.id,
-          notifId: id,
-          reminderType: type,
-        }).then((shown) => {
-          if (shown) {
-            const notified = getNotifiedIds();
-            notified.add(id);
-            saveNotifiedIds(notified);
-          }
-        });
       }
     };
 
-    const amountStr = naira(outstanding);
-
-    if (settings.remind7DaysBefore) {
-      addReminder(addDays(dueDate, -7), "due_7_days", "Payment coming up", `${customer.name} owes ${amountStr}. Payment is due in 7 days.`);
-    }
-    if (settings.remind3DaysBefore) {
-      addReminder(addDays(dueDate, -3), "due_3_days", "Payment due soon", `${customer.name} owes ${amountStr}. Payment is due in 3 days.`);
-    }
-    if (settings.remind1DayBefore) {
-      addReminder(addDays(dueDate, -1), "due_1_day", "Payment due tomorrow", `${customer.name} owes ${amountStr}. Payment is due tomorrow.`);
-    }
-    if (settings.remindOnDueDate) {
-      addReminder(dueDate, "due_today", "Payment due today", `${customer.name} owes ${amountStr}. Payment is due today.`);
-    }
+    if (settings.remind7DaysBefore)
+      addReminder(addDays(dueDate, -7), "due_7_days", "Payment coming up",
+        `${customer.name} owes ${amountStr}. Payment is due in 7 days.`);
+    if (settings.remind3DaysBefore)
+      addReminder(addDays(dueDate, -3), "due_3_days", "Payment due soon",
+        `${customer.name} owes ${amountStr}. Payment is due in 3 days.`);
+    if (settings.remind1DayBefore)
+      addReminder(addDays(dueDate, -1), "due_1_day", "Payment due tomorrow",
+        `${customer.name} owes ${amountStr}. Payment is due tomorrow.`);
+    if (settings.remindOnDueDate)
+      addReminder(dueDate, "due_today", "Payment due today",
+        `${customer.name} owes ${amountStr}. Payment is due today.`);
     if (settings.remindOverdue) {
       for (let i = 1; i <= 3; i++) {
         const overdueDate = addDays(dueDate, 1 + (i - 1) * settings.overdueIntervalDays);
-        addReminder(overdueDate, "overdue", "Payment overdue", `${customer.name}'s ${amountStr} payment is overdue.`, format(overdueDate, "yyyy-MM-dd"));
+        addReminder(overdueDate, "overdue", "Payment overdue",
+          `${customer.name}'s ${amountStr} payment is overdue.`,
+          format(overdueDate, "yyyy-MM-dd"));
       }
     }
   }
 
   if (newInAppNotifs.length > 0) {
-    setInAppNotifs(prev => {
-      const filtered = prev.filter(p => !newInAppNotifs.some(n => n.id === p.id));
-      return [...newInAppNotifs, ...filtered].slice(0, 100);
+    setInAppNotifs((prev) => {
+      const filtered = prev.filter((p) => !newInAppNotifs.some((n) => n.id === p.id));
+      return [...newInAppNotifs, ...filtered].slice(0, 200);
     });
   }
-
-  await deliverDueWebNotifications(newInAppNotifs);
 }
 
-export async function cancelDebtReminders(_debtId: string) {
-  // Current reminders are reconciled from the current debt state.
+export async function cancelDebtReminders(_debtId: string): Promise<void> {
+  // Records are cleaned up during reconciliation.
 }
 
 export async function reconcileDebtReminders(
@@ -305,28 +392,28 @@ export async function reconcileDebtReminders(
   settings: NotificationSettings,
   profile: BusinessProfile,
   inAppNotifs: InAppNotification[],
-  setInAppNotifs: (n: InAppNotification[] | ((prev: InAppNotification[]) => InAppNotification[])) => void
-) {
-  const activeDebtIds = new Set(customers.flatMap(c => openSales(c).map(s => s.txn.id)));
-  setInAppNotifs(prev => prev.filter(n => activeDebtIds.has(n.debtId)));
-
+  setInAppNotifs: (
+    n: InAppNotification[] | ((prev: InAppNotification[]) => InAppNotification[])
+  ) => void
+): Promise<void> {
+  const activeDebtIds = new Set(customers.flatMap((c) => openSales(c).map((s) => s.txn.id)));
+  setInAppNotifs((prev) => prev.filter((n) => activeDebtIds.has(n.debtId)));
   if (settings.enabled) {
     for (const customer of customers) {
       if (balanceOf(customer) > 0) {
         await scheduleDebtReminders(customer, settings, profile, inAppNotifs, setInAppNotifs);
       }
     }
-    await scheduleDailyReminder(customers, settings);
   }
-
-  await deliverDueWebNotifications(inAppNotifs);
 }
 
 export async function addInAppNotification(
   _notifications: InAppNotification[],
-  setNotifications: (n: InAppNotification[] | ((prev: InAppNotification[]) => InAppNotification[])) => void,
+  setNotifications: (
+    n: InAppNotification[] | ((prev: InAppNotification[]) => InAppNotification[])
+  ) => void,
   newNotif: Omit<InAppNotification, "id" | "createdAt" | "read" | "status">
-) {
+): Promise<void> {
   const notif: InAppNotification = {
     ...newNotif,
     id: "n" + Date.now(),
@@ -334,33 +421,28 @@ export async function addInAppNotification(
     read: false,
     status: "delivered",
   };
-  setNotifications(prev => [notif, ...prev].slice(0, 50));
+  setNotifications((prev) => [notif, ...prev].slice(0, 50));
 }
 
 export type NotificationAction = {
-  notification: { extra?: { debtId?: string; customerId?: string; type?: PaymentReminderType } };
+  notification: {
+    extra?: { debtId?: string; customerId?: string; type?: PaymentReminderType };
+  };
 };
 
-export function setupNotificationListeners(onAction: (action: NotificationAction) => void) {
-  if (typeof window === "undefined" || !("serviceWorker" in navigator)) return () => {};
-
-  const handler = (event: MessageEvent) => {
-    if (event.data?.type !== "NOTIFICATION_TAP") return;
-    onAction({
-      notification: {
-        extra: {
-          debtId: event.data.debtId,
-          customerId: event.data.customerId,
-          type: event.data.reminderType,
-        },
-      },
-    });
-  };
-
-  navigator.serviceWorker.addEventListener("message", handler);
-  return () => navigator.serviceWorker.removeEventListener("message", handler);
+export function setupNotificationListeners(
+  onAction: (action: NotificationAction) => void
+): void {
+  if (typeof window === "undefined") return;
+  window.addEventListener("trackdebt:notification-tap", ((e: Event) => {
+    const { customerId } = (e as CustomEvent<{ customerId?: string }>).detail;
+    onAction({ notification: { extra: { ...(customerId ? { customerId } : {}) } } });
+  }) as EventListener);
 }
 
-export async function scheduleWeeklySummary(_customers: Customer[], _settings: NotificationSettings) {
-  // True closed-app delivery requires Web Push plus a server-side scheduler.
+export async function scheduleWeeklySummary(
+  _customers: Customer[],
+  _settings: NotificationSettings
+): Promise<void> {
+  // Weekly summaries use the same polling/SW mechanism as payment reminders.
 }

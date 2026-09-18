@@ -127,10 +127,12 @@ import {
 } from "@/lib/backup";
 import {
   checkPermissions,
+  connectNotificationStore,
   initNotifications,
   reconcileDebtReminders,
   requestPermissions,
   setupNotificationListeners,
+  startNotificationPolling,
   cancelDebtReminders,
   scheduleDebtReminders,
   scheduleDailyReminder,
@@ -364,6 +366,8 @@ function DebtTracker() {
   const [onboarding, setOnboarding, onboardingLoaded] = useOnboardingState();
   const [notifSettings, setNotifSettings] = useNotificationSettings();
   const [inAppNotifs, setInAppNotifs] = useInAppNotifications();
+  const inAppNotifsRef = useRef(inAppNotifs);
+  useEffect(() => { inAppNotifsRef.current = inAppNotifs; }, [inAppNotifs]);
   const { entitlements, loaded: entitlementsLoaded } = useEntitlements();
   const [promo, setPromo] = usePromoEntitlements();
   const [promoCode, setPromoCode] = useState("");
@@ -389,46 +393,56 @@ function DebtTracker() {
     if (screen === "backup") setLastBackup(getLastBackupAt());
   }, [screen]);
 
-  /*
-  useEffect(() => {
-    if (loaded) {
-      initNotifications();
-      // Safeguard: Wait for the initial rendering and focus cycle to settle
-      // before running heavy reconciliation logic.
-      const timer = setTimeout(() => {
-        reconcileDebtReminders(customers, notifSettings, profile, inAppNotifs, setInAppNotifs);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [loaded]);
-  */
-
-
   const notifInit = useRef(false);
   useEffect(() => {
-    if (loaded && !notifInit.current) {
-      setupNotificationListeners((action) => {
-        console.log("[TrackDebt Notifications] Action performed:", action);
-        const { debtId, customerId, type } = action.notification.extra ?? {};
+    if (!loaded || notifInit.current) return;
+    notifInit.current = true;
 
-        if (type === "daily_record_reminder") {
-          go("list");
-          toast("Tap a customer to record a sale.");
-          return;
-        }
+    // 1. Give the notification module access to our React state so it can
+    //    read and update records without going through React hooks.
+    connectNotificationStore(
+      () => inAppNotifsRef.current,
+      setInAppNotifs
+    );
 
-        if (customerId) {
-          setSelectedId(customerId);
-          go("detail");
-          setInAppNotifs((prev) =>
-            prev.map((n) =>
-              n.debtId === debtId ? { ...n, read: true } : n
-            )
-          );
-        }
-      });
-      notifInit.current = true;
+    // 2. Register the service worker and request permission if notifications
+    //    are enabled. initNotifications() handles SW registration.
+    if (notifSettings.enabled) {
+      void initNotifications();
     }
+
+    // 3. Start the polling loop — fires any past-due reminders every 60s
+    //    and on visibility change (tab switch, phone wake).
+    startNotificationPolling();
+
+    // 4. Handle notification taps (from SW or plain Notification API).
+    setupNotificationListeners((action) => {
+      console.log("[TrackDebt Notifications] Action performed:", action);
+      const { debtId, customerId, type } = action.notification.extra ?? {};
+
+      if (type === "daily_record_reminder") {
+        go("list");
+        toast("Tap a customer to record a sale.");
+        return;
+      }
+
+      if (customerId) {
+        setSelectedId(customerId);
+        go("detail");
+        setInAppNotifs((prev) =>
+          prev.map((n) =>
+            n.debtId === debtId ? { ...n, read: true } : n
+          )
+        );
+      }
+    });
+
+    // 5. Reconcile scheduled reminders against the current ledger state.
+    const timer = setTimeout(() => {
+      void reconcileDebtReminders(customers, notifSettings, profile, inAppNotifs, setInAppNotifs);
+    }, 1000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded]);
 
   const selected = customers.find((c) => c.id === selectedId) ?? null;
