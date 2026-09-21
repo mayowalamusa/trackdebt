@@ -131,6 +131,7 @@ import {
   initNotifications,
   reconcileDebtReminders,
   requestPermissions,
+  setNotificationSoundEnabled,
   setupNotificationListeners,
   startNotificationPolling,
   cancelDebtReminders,
@@ -1584,6 +1585,33 @@ function DebtTracker() {
                 </div>
 
                 <div className="pt-2 border-t border-line mt-6 pt-6">
+                  <p className="mono text-[10px] tracking-widest text-ink-soft mb-4">SOUND</p>
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium">Play notification sound</p>
+                      <p className="text-[12px] text-ink-soft mt-0.5">A short tone when a reminder arrives.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !notifSettings.soundEnabled;
+                        setNotifSettings((s) => ({ ...s, soundEnabled: next }));
+                        setNotificationSoundEnabled(next);
+                      }}
+                      className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${
+                        notifSettings.soundEnabled ? "bg-debt" : "bg-line"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                          notifSettings.soundEnabled ? "translate-x-5" : ""
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-line mt-6 pt-6">
                   <p className="mono text-[10px] tracking-widest text-ink-soft mb-4">DAILY RECORD REMINDER</p>
                   <div className="flex items-center justify-between">
                     <div>
@@ -1725,9 +1753,9 @@ function DebtTracker() {
               ADVANCED
             </p>
             <SettingsRow
-              icon={<RotateCcw size={17} />}
-              label="Restart Onboarding"
-              onClick={restartOnboarding}
+              icon={<Mail size={17} />}
+              label="Feedback"
+              href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Track Debt Feedback")}`}
             />
 
             <p className="px-5 pt-6 pb-8 text-center text-[11px] text-ink-soft">

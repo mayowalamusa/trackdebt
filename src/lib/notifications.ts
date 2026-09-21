@@ -48,6 +48,7 @@ export type PaymentReminderType =
 
 export type NotificationSettings = {
   enabled: boolean;
+  soundEnabled: boolean;
   remind7DaysBefore: boolean;
   remind3DaysBefore: boolean;
   remind1DayBefore: boolean;
@@ -62,6 +63,7 @@ export type NotificationSettings = {
 
 export const defaultNotificationSettings: NotificationSettings = {
   enabled: true,
+  soundEnabled: true,
   remind7DaysBefore: false,
   remind3DaysBefore: true,
   remind1DayBefore: true,
@@ -73,6 +75,12 @@ export const defaultNotificationSettings: NotificationSettings = {
   dailyReminderTime: "19:00",
   weeklySummaryEnabled: true,
 };
+
+let notificationSoundEnabled = defaultNotificationSettings.soundEnabled;
+
+export function setNotificationSoundEnabled(enabled: boolean): void {
+  notificationSoundEnabled = enabled;
+}
 
 export type InAppNotification = {
   id: string;
@@ -181,6 +189,40 @@ function handleSwMessage(event: MessageEvent): void {
 
 // ── Fire a real browser notification ─────────────────────────────────
 
+function playNotificationSound(): void {
+  if (!notificationSoundEnabled || typeof window === "undefined") return;
+
+  const AudioCtor = (
+    window as Window & {
+      webkitAudioContext?: typeof AudioContext;
+    }
+  ).AudioContext ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+
+  if (!AudioCtor) return;
+
+  try {
+    const context = new AudioCtor();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+
+    oscillator.type = "triangle";
+    oscillator.frequency.value = 880;
+    gain.gain.setValueAtTime(0.0001, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.08, context.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.22);
+
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.25);
+
+    void context.close().catch(() => undefined);
+  } catch {
+    // Ignore audio failures — notifications still work without sound.
+  }
+}
+
 async function showBrowserNotification(
   record: InAppNotification
 ): Promise<boolean> {
@@ -196,6 +238,7 @@ async function showBrowserNotification(
         tag: record.id,
         data: { customerId: record.customerId, notifId: record.id },
       });
+      playNotificationSound();
       return true;
     }
     // Fallback: plain Notification API (tab must be focused).
@@ -212,6 +255,7 @@ async function showBrowserNotification(
         })
       );
     };
+    playNotificationSound();
     return true;
   } catch {
     return false;

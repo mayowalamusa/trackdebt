@@ -64,6 +64,6 @@ export const ADMOB = {
   },
 } as const;
 
-export const SUPPORT_EMAIL = "support@trackdebt.app";
+export const SUPPORT_EMAIL = "mytrackdebt@gmail.com";
 export const WEBSITE_URL = "https://trackdebt.lovable.app";
 export const DEVELOPER = "Izick Creations Media";
