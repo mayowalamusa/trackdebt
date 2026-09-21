@@ -93,7 +93,21 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (!supabase) return <>{children}</>;
   // Only block rendering on the very first cold load.
-  if (!loaded || (!entitlementLoaded && !everLoaded.current)) return <main className="min-h-screen bg-background" />;
+  if (!loaded || (!entitlementLoaded && !everLoaded.current)) return (
+    <main className="min-h-screen bg-paper flex flex-col items-center justify-center gap-5">
+      <div className="h-20 w-20 rounded-[22px] bg-debt grid place-items-center shadow-sm">
+        <svg viewBox="0 0 512 512" className="h-12 w-12" aria-hidden="true">
+          <path d="M 110,300 A 146,146 0 0 1 402,300" fill="none" stroke="#ffffff" strokeWidth="30" strokeLinecap="round" />
+          <path d="M 241,304 L 256,176 L 271,304 Z" fill="#ffffff" />
+          <circle cx="256" cy="304" r="20" fill="#ffffff" />
+          <rect x="196" y="330" width="120" height="32" rx="16" fill="#ffffff" />
+          <rect x="166" y="370" width="180" height="32" rx="16" fill="#ffffff" />
+          <rect x="136" y="410" width="240" height="32" rx="16" fill="#ffffff" />
+        </svg>
+      </div>
+      <p className="text-sm font-semibold text-ink-soft tracking-wide">Track Debt</p>
+    </main>
+  );
   if (!session) return <>{children}</>;
   if (accountStatus === "deletion_pending") return <RestoreAccountPrompt deadline={restorableUntil} />;
   if (accountStatus === "deleted") return <main className="min-h-screen bg-background flex items-center justify-center p-6"><p className="max-w-sm text-center text-sm text-ink-soft">This account is no longer available.</p></main>;

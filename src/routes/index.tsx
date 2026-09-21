@@ -1942,6 +1942,44 @@ function DebtTracker() {
               }}
             />
 
+            {screen === "addCustomer" && "contacts" in navigator && (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    // Web Contact Picker API — works on Android Chrome + iOS Safari.
+                    // Prompts the user's native contact picker; no special app
+                    // permission beyond the OS prompt is required.
+                    const contacts = await (
+                      navigator as unknown as {
+                        contacts: {
+                          select: (
+                            props: string[],
+                            opts: { multiple: boolean }
+                          ) => Promise<Array<{ name?: string[]; tel?: string[] }>>;
+                        };
+                      }
+                    ).contacts.select(["name", "tel"], { multiple: false });
+                    if (!contacts?.length) return;
+                    const contact = contacts[0];
+                    if (!contact) return;
+                    const name = contact.name?.[0]?.trim() ?? "";
+                    const phone = contact.tel?.[0]?.replace(/\s+/g, "").trim() ?? "";
+                    setForm((f) => ({
+                      ...f,
+                      name: name || f.name,
+                      phone: phone ? normalizeForStorage(phone) : f.phone,
+                    }));
+                  } catch {
+                    toast.error("Could not open contacts. Try entering details manually.");
+                  }
+                }}
+                className="w-full flex items-center justify-center gap-2 rounded border border-line bg-paper-raised py-2.5 text-sm font-semibold text-ink mb-5 transition-transform active:scale-[0.99]"
+              >
+                <Users size={15} /> Import from Contacts
+              </button>
+            )}
+
             <Field label="NAME">
               <LocalInput
                 initialValue={form.name}
