@@ -117,6 +117,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     scripts: [
       {
+        src: "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6552337940885926",
+        async: true,
+        crossOrigin: "anonymous",
+      },
+      {
         children: `(function(){var l=document.createElement('link');l.rel='stylesheet';l.href=${JSON.stringify(
           FONT_CSS_URL,
         )};document.head.appendChild(l);})();`,
