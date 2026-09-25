@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthGate } from "@/components/auth-gate";
+import { trackSiteVisit } from "@/lib/site-analytics";
 
 const FONT_CSS_URL =
   "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap";
@@ -150,6 +151,10 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    trackSiteVisit();
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
