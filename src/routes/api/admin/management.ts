@@ -86,6 +86,21 @@ export const Route = createFileRoute("/api/admin/management")({
             if (logError) return Response.json({ error: logError.message }, { status: 500 });
             return Response.json({ ok: true, recipientCount: recipients.length });
           }
+          if (body.action === 'admin_role') {
+            const userId = String(body.userId ?? '');
+            const makeAdmin = Boolean(body.makeAdmin);
+            if (!userId) return Response.json({ error: 'User is required.' }, { status: 400 });
+            if (userId === user.id && !makeAdmin) return Response.json({ error: 'You cannot remove your own admin access.' }, { status: 400 });
+            if (makeAdmin) {
+              const { error } = await admin.from('user_roles').upsert({ user_id: userId, role: 'admin' }, { onConflict: 'user_id,role' });
+              if (error) return Response.json({ error: error.message }, { status: 500 });
+            } else {
+              const { error } = await admin.from('user_roles').delete().eq('user_id', userId).eq('role', 'admin');
+              if (error) return Response.json({ error: error.message }, { status: 500 });
+            }
+            return Response.json({ ok: true });
+          }
+
           if (body.action === 'account_status') {
             const userId = String(body.userId ?? '');
             const status = body.status === 'active' ? 'active' : body.status === 'deleted' ? 'deleted' : 'deletion_pending';
