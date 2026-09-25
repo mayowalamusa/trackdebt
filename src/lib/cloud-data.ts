@@ -206,6 +206,7 @@ export async function loadCloudNotifications(): Promise<InAppNotification[]> {
     scheduledFor: String(row["scheduled_for"]),
     read: Boolean(row["read"]),
     status: row["status"] as InAppNotification["status"],
+    link: row["link"] ? String(row["link"]) : null,
   }));
 }
 export async function syncCloudNotifications(notifications: InAppNotification[]) {
