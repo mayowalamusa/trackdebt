@@ -190,6 +190,14 @@ export async function syncCloudPreferences(settings: NotificationSettings) {
   await supabase.from("notification_preferences").upsert({ user_id: id, enabled: settings.enabled, remind_7_days_before: settings.remind7DaysBefore, remind_3_days_before: settings.remind3DaysBefore, remind_1_day_before: settings.remind1DayBefore, remind_on_due_date: settings.remindOnDueDate, remind_overdue: settings.remindOverdue, overdue_interval_days: settings.overdueIntervalDays, reminder_time: settings.reminderTime, daily_reminder_enabled: settings.dailyReminderEnabled, daily_reminder_time: settings.dailyReminderTime, weekly_summary_enabled: settings.weeklySummaryEnabled }, { onConflict: "user_id" });
 }
 
+export async function loadCloudNotifications(): Promise<InAppNotification[]> {
+  const id = await userId();
+  if (!supabase || !id) return [];
+  const { data, error } = await supabase.from("notifications").select("*").eq("user_id", id).order("scheduled_for", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as InAppNotification[];
+}
+
 export async function syncCloudNotifications(notifications: InAppNotification[]) {
   const id = await userId();
   if (!supabase || !id || !notifications.length) return;
