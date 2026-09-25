@@ -152,7 +152,7 @@ function AdminDashboard() {
             <p className="text-sm font-medium text-primary">Track Debt</p>
             <h1 className="text-xl font-bold">Admin</h1>
           </div>
-          <button onClick={signOut} className="rounded-lg border px-3 py-2 text-sm">Sign out</button>
+          <div className="flex items-center gap-2"><Link to="/admin/manage" className="rounded-lg border px-3 py-2 text-sm">Management</Link><button onClick={signOut} className="rounded-lg border px-3 py-2 text-sm">Sign out</button></div>
         </div>
       </header>
 
