@@ -63,9 +63,11 @@ function UpgradePage() {
   const [authMode, setAuthMode] = useState<"sign-in" | "sign-up" | "recovery">("sign-in");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [registrationEnabled, setRegistrationEnabled] = useState(false);
 
   useEffect(() => {
     track("upgrade_page_viewed");
+    void supabase?.from("app_feature_flags").select("enabled").eq("key", "registration").maybeSingle().then(({ data }) => setRegistrationEnabled(Boolean(data?.enabled)));
     void currentSession().then((session) => setUserEmail(session?.user.email ?? null));
     const listener = supabase?.auth.onAuthStateChange((_event, session) => {
       setUserEmail(session?.user.email ?? null);
