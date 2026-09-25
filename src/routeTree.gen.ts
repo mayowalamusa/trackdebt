@@ -11,6 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as UpgradeRouteImport } from './routes/upgrade'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminLoginRouteImport } from './routes/admin/login'
+import { Route as ApiAdminUsersRouteImport } from './routes/api/admin/users'
 import { Route as ApiAccountDeleteRouteImport } from './routes/api/account/delete'
 import { Route as ApiAccountRestoreRouteImport } from './routes/api/account/restore'
 import { Route as ApiAccountStatusRouteImport } from './routes/api/account/status'
@@ -28,6 +31,21 @@ const IndexRoute = IndexRouteImport.update({
 const UpgradeRoute = UpgradeRouteImport.update({
   id: '/upgrade',
   path: '/upgrade',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/admin/login',
+  path: '/admin/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminUsersRoute = ApiAdminUsersRouteImport.update({
+  id: '/api/admin/users',
+  path: '/api/admin/users',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAccountDeleteRoute = ApiAccountDeleteRouteImport.update({
@@ -74,6 +92,9 @@ const ApiPublicPromoRedeemRoute = ApiPublicPromoRedeemRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/upgrade': typeof UpgradeRoute
+  '/admin/': typeof AdminIndexRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/api/admin/users': typeof ApiAdminUsersRoute
   '/api/account/delete': typeof ApiAccountDeleteRoute
   '/api/account/restore': typeof ApiAccountRestoreRoute
   '/api/account/status': typeof ApiAccountStatusRoute
@@ -86,6 +107,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/upgrade': typeof UpgradeRoute
+  '/admin/': typeof AdminIndexRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/api/admin/users': typeof ApiAdminUsersRoute
   '/api/account/delete': typeof ApiAccountDeleteRoute
   '/api/account/restore': typeof ApiAccountRestoreRoute
   '/api/account/status': typeof ApiAccountStatusRoute
@@ -150,6 +174,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   UpgradeRoute: typeof UpgradeRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+  AdminLoginRoute: typeof AdminLoginRoute
+  ApiAdminUsersRoute: typeof ApiAdminUsersRoute
   ApiAccountDeleteRoute: typeof ApiAccountDeleteRoute
   ApiAccountRestoreRoute: typeof ApiAccountRestoreRoute
   ApiAccountStatusRoute: typeof ApiAccountStatusRoute
@@ -167,6 +194,27 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/login': {
+      id: '/admin/login'
+      path: '/admin/login'
+      fullPath: '/admin/login'
+      preLoaderRoute: typeof AdminLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/users': {
+      id: '/api/admin/users'
+      path: '/api/admin/users'
+      fullPath: '/api/admin/users'
+      preLoaderRoute: typeof ApiAdminUsersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/upgrade': {
@@ -238,6 +286,9 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   UpgradeRoute: UpgradeRoute,
+  AdminIndexRoute: AdminIndexRoute,
+  AdminLoginRoute: AdminLoginRoute,
+  ApiAdminUsersRoute: ApiAdminUsersRoute,
   ApiAccountDeleteRoute: ApiAccountDeleteRoute,
   ApiAccountRestoreRoute: ApiAccountRestoreRoute,
   ApiAccountStatusRoute: ApiAccountStatusRoute,
