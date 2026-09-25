@@ -103,7 +103,7 @@ export const Route = createFileRoute("/api/admin/management")({
 
           if (body.action === 'account_status') {
             const userId = String(body.userId ?? '');
-            const status = body.status === 'active' ? 'active' : body.status === 'deleted' ? 'deleted' : 'deletion_pending';
+            const status = body.status === 'active' ? 'active' : body.status === 'deleted' ? 'deleted' : 'suspended';
             if (!userId) return Response.json({ error: "User is required." }, { status: 400 });
             if (userId === user.id && status !== "active") return Response.json({ error: "You cannot suspend your own admin account." }, { status: 400 });
             const { error } = await admin.from('profiles').update({ account_status: status }).eq('id', userId);
