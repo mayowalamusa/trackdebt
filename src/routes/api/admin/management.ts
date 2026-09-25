@@ -78,7 +78,7 @@ export const Route = createFileRoute("/api/admin/management")({
             const recipients = ids.filter((id) => audience === 'all' || (audience === 'free' && (planMap.get(id)?.plan ?? 'free') === 'free') || (audience === 'plus' && planMap.get(id)?.plan === 'plus' && planMap.get(id)?.status === 'active'));
             const broadcastId = crypto.randomUUID();
             if (recipients.length) {
-              const rows = recipients.map((id) => ({ user_id: id, legacy_id: 'admin-broadcast:' + broadcastId + ':' + id, customer_id: null, transaction_id: null, type: 'admin_broadcast', title, body: message, created_at: new Date().toISOString(), scheduled_for: new Date().toISOString(), read: false, status: 'delivered' }));
+              const rows = recipients.map((id) => ({ user_id: id, legacy_id: 'admin-broadcast:' + broadcastId + ':' + id, customer_id: null, transaction_id: null, type: 'admin_broadcast', title, body: message, link, created_at: new Date().toISOString(), scheduled_for: new Date().toISOString(), read: false, status: 'delivered' }));
               const { error } = await admin.from('notifications').insert(rows);
               if (error) return Response.json({ error: error.message }, { status: 500 });
             }
