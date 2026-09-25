@@ -215,10 +215,9 @@ export function useInAppNotifications() {
   const loadingCloud = useRef(false);
   useEffect(() => {
     if (!supabase) return;
+    const client = supabase;
     let active = true;
     const load = async () => {
-      const client = supabase;
-      if (!client) return;
       const { data } = await client.auth.getSession();
       signedIn.current = !!data.session;
       if (!data.session) { if (active) setCloudLoaded(true); return; }
