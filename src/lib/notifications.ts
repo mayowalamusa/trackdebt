@@ -94,6 +94,7 @@ export type InAppNotification = {
   scheduledFor: string;
   read: boolean;
   status: "scheduled" | "delivered" | "cancelled";
+  link?: string | null;
 };
 
 // ── Permission helpers ───────────────────────────────────────────────
