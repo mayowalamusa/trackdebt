@@ -1460,6 +1460,10 @@ function DebtTracker() {
                         setInAppNotifs((prev) =>
                           prev.map((item) => (item.id === n.id ? { ...item, read: true } : item))
                         );
+                        if (n.type === "admin_broadcast") {
+                          if (n.link) window.location.assign(n.link);
+                          return;
+                        }
                         setSelectedId(n.customerId);
                         go("detail");
                       }}
