@@ -44,7 +44,8 @@ export type PaymentReminderType =
   | "due_today"
   | "overdue"
   | "daily_record_reminder"
-  | "weekly_summary";
+  | "weekly_summary"
+  | "admin_broadcast";
 
 export type NotificationSettings = {
   enabled: boolean;
