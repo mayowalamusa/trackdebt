@@ -2,8 +2,8 @@
 
 ## In progress
 - [x] Admin backend database schema (config, promo codes, announcements, roles, profiles)
-- [ ] Admin login + protected admin area
-- [ ] Admin screens: Brand, Promo Codes, Announcements, Users
+- [x] Admin login + protected admin area
+- [x] Admin screens: Overview, Brand, Promo Codes, Announcements, Users
 - [ ] Database-backed promo redemption + active announcements in the app
 - [ ] Seed first admin account (blocked: need the user's admin email)
 
