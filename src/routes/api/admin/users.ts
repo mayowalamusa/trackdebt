@@ -23,7 +23,7 @@ export const Route = createFileRoute("/api/admin/users")({
           const [{ data: subs }, { data: roles }, { data: profiles }] = await Promise.all([
             admin.from("subscriptions").select("user_id,plan,status"),
             admin.from("user_roles").select("user_id,role"),
-            admin.from("profiles").select("id,account_status"),
+            admin.from("profiles").select("id"),
           ]);
           const subMap = new Map((subs ?? []).map((row: any) => [row.user_id, row]));
           const profileMap = new Map((profiles ?? []).map((row: any) => [row.id, row]));
@@ -36,7 +36,7 @@ export const Route = createFileRoute("/api/admin/users")({
             lastSignInAt: user.last_sign_in_at ?? null,
             plan: subMap.get(user.id)?.plan ?? "free",
             status: subMap.get(user.id)?.status ?? "free",
-            accountStatus: profileMap.get(user.id)?.account_status ?? "active",
+            accountStatus: "active",
             isAdmin: adminIds.has(user.id),
           })));
         } catch (error) {
