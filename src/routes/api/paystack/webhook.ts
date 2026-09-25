@@ -33,6 +33,9 @@ export const Route = createFileRoute("/api/paystack/webhook")({
           event_id: eventId,
           event_name: event,
           reference: data.reference ?? null,
+          amount: data.amount ?? null,
+          currency: data.currency ?? null,
+          metadata: data.metadata ?? {},
         });
         if (eventError) {
           if (eventError.code === "23505") return Response.json({ ok: true, duplicate: true });
