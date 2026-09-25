@@ -195,9 +195,19 @@ export async function loadCloudNotifications(): Promise<InAppNotification[]> {
   if (!supabase || !id) return [];
   const { data, error } = await supabase.from("notifications").select("*").eq("user_id", id).order("scheduled_for", { ascending: false });
   if (error) throw error;
-  return (data ?? []) as InAppNotification[];
+  return (data ?? []).map((row: Record<string, unknown>) => ({
+    id: String(row["id"]),
+    debtId: String(row["transaction_id"] ?? ""),
+    customerId: String(row["customer_id"] ?? ""),
+    type: row["type"] as InAppNotification["type"],
+    title: String(row["title"] ?? ""),
+    body: String(row["body"] ?? ""),
+    createdAt: String(row["created_at"]),
+    scheduledFor: String(row["scheduled_for"]),
+    read: Boolean(row["read"]),
+    status: row["status"] as InAppNotification["status"],
+  }));
 }
-
 export async function syncCloudNotifications(notifications: InAppNotification[]) {
   const id = await userId();
   if (!supabase || !id || !notifications.length) return;
