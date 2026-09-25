@@ -209,14 +209,35 @@ export function useNotificationSettings() {
 }
 
 export function useInAppNotifications() {
-  const local = usePersisted<InAppNotification[]>(
-    "trackdebt.v3.in_app_notifications",
-    [],
-    { validate: Array.isArray }
-  );
-  return useCloudBacked(local, (snapshot) => snapshot?.notifications ?? [], syncCloudNotifications);
+  const local = usePersisted<InAppNotification[]>("trackdebt.v3.in_app_notifications", [], { validate: Array.isArray });
+  const [notifications, setNotifications, localLoaded] = local;
+  const [cloudLoaded, setCloudLoaded] = useState(!supabase);
+  const signedIn = useRef(false);
+  const loadingCloud = useRef(false);
+  useEffect(() => {
+    if (!supabase) return;
+    let active = true;
+    const load = async () => {
+      const client = supabase;
+      if (!client) return;
+      const { data } = await client.auth.getSession();
+      signedIn.current = !!data.session;
+      if (!data.session) { if (active) setCloudLoaded(true); return; }
+      loadingCloud.current = true;
+      try { const cloud = await loadCloudNotifications(); if (active && cloud.length) setNotifications(cloud); }
+      catch { /* keep local notifications usable */ }
+      finally { loadingCloud.current = false; if (active) setCloudLoaded(true); }
+    };
+    void load();
+    const listener = client.auth.onAuthStateChange(() => { setCloudLoaded(false); void load(); });
+    return () => { active = false; listener.data.subscription.unsubscribe(); };
+  }, []);
+  useEffect(() => {
+    if (!localLoaded || !cloudLoaded || loadingCloud.current || !signedIn.current) return;
+    void syncCloudNotifications(notifications);
+  }, [cloudLoaded, localLoaded, notifications]);
+  return [notifications, setNotifications, localLoaded && cloudLoaded] as const;
 }
-
 export type OnboardingTips = {
   addCustomer: boolean;
   openCustomer: boolean;
