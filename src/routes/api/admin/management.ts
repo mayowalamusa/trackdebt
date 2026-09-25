@@ -17,10 +17,11 @@ export const Route = createFileRoute("/api/admin/management")({
       GET: async ({ request }) => {
         try {
           const { admin } = await assertAdmin(request);
-          const [usersResult, profilesResult, subsResult, eventsResult, broadcastsResult, flagsResult] = await Promise.all([
+          const [usersResult, profilesResult, subsResult, rolesResult, eventsResult, broadcastsResult, flagsResult] = await Promise.all([
             admin.auth.admin.listUsers({ page: 1, perPage: 200 }),
             admin.from("profiles").select("id,account_status,created_at"),
             admin.from("subscriptions").select("user_id,plan,status,amount,currency,current_period_end,last_successful_payment_at,next_expected_payment_at,cancellation_at,last_transaction_reference"),
+            admin.from("user_roles").select("user_id,role"),
             admin.from("subscription_events").select("event_id,event_name,reference,created_at,user_id,amount,currency").order("created_at", { ascending: false }).limit(100),
             admin.from("admin_broadcasts").select("*").order("created_at", { ascending: false }).limit(50),
             admin.from("app_feature_flags").select("*").order("key"),
@@ -30,6 +31,7 @@ export const Route = createFileRoute("/api/admin/management")({
           const subscriptions = subsResult.data ?? [];
           const subMap = new Map(subscriptions.map((s: any) => [s.user_id, s]));
           const profileMap = new Map((profilesResult.data ?? []).map((p: any) => [p.id, p]));
+          const adminIds = new Set((rolesResult.data ?? []).filter((r: any) => r.role === "admin").map((r: any) => r.user_id));
           const now = Date.now();
           const thirtyDaysAgo = now - 30 * 86400000;
           const registered = users.length;
@@ -47,7 +49,7 @@ export const Route = createFileRoute("/api/admin/management")({
           const recordedRevenue = events.filter((e: any) => e.event_name === 'charge.success' && Number(e.amount) > 0).reduce((sum: number, e: any) => sum + Number(e.amount) / 100, 0);
           return Response.json({
             stats: { registered, free, plus, newUsers30d, visitorsToday: visitorsToday ?? 0, visitorsMonth: visitorsMonth ?? 0, customers: customerCount ?? 0, transactions: transactionCount ?? 0, recordedRevenue },
-            users: users.map((u) => ({ id: u.id, email: u.email ?? '', createdAt: u.created_at, lastSignInAt: u.last_sign_in_at ?? null, plan: subMap.get(u.id)?.plan ?? 'free', status: subMap.get(u.id)?.status ?? 'free', accountStatus: profileMap.get(u.id)?.account_status ?? 'active', isAdmin: false })),
+            users: users.map((u) => ({ id: u.id, email: u.email ?? '', createdAt: u.created_at, lastSignInAt: u.last_sign_in_at ?? null, plan: subMap.get(u.id)?.plan ?? 'free', status: subMap.get(u.id)?.status ?? 'free', accountStatus: profileMap.get(u.id)?.account_status ?? 'active', isAdmin: adminIds.has(u.id) })),
             subscriptions,
             events,
             broadcasts: broadcastsResult.data ?? [],
