@@ -58,3 +58,6 @@ ALTER TABLE public.subscription_events ADD COLUMN IF NOT EXISTS metadata jsonb N
 CREATE INDEX IF NOT EXISTS subscription_events_user_id_idx ON public.subscription_events(user_id);
 CREATE INDEX IF NOT EXISTS subscription_events_created_at_idx ON public.subscription_events(created_at DESC);
 ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS link text;
+
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_account_status_check;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_account_status_check CHECK (account_status IN ('active','suspended','deletion_pending','deleted'));
