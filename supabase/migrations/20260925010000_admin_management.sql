@@ -57,3 +57,4 @@ ALTER TABLE public.subscription_events ADD COLUMN IF NOT EXISTS currency text;
 ALTER TABLE public.subscription_events ADD COLUMN IF NOT EXISTS metadata jsonb NOT NULL DEFAULT '{}'::jsonb;
 CREATE INDEX IF NOT EXISTS subscription_events_user_id_idx ON public.subscription_events(user_id);
 CREATE INDEX IF NOT EXISTS subscription_events_created_at_idx ON public.subscription_events(created_at DESC);
+ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS link text;
