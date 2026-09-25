@@ -64,10 +64,9 @@ function useCloudBacked<T>(
 
   useEffect(() => {
     if (!supabase) return;
+    const client = supabase;
     let active = true;
     const load = async () => {
-      const client = supabase;
-      if (!client) return;
       const { data } = await client.auth.getSession();
       if (!data.session) {
         if (active) setCloudLoaded(true);
