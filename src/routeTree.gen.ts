@@ -13,7 +13,10 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as UpgradeRouteImport } from './routes/upgrade'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
+import { Route as AdminManageRouteImport } from './routes/admin/manage'
 import { Route as ApiAdminUsersRouteImport } from './routes/api/admin/users'
+import { Route as ApiAdminManagementRouteImport } from './routes/api/admin/management'
+import { Route as ApiTrackVisitRouteImport } from './routes/api/track-visit'
 import { Route as ApiAccountDeleteRouteImport } from './routes/api/account/delete'
 import { Route as ApiAccountRestoreRouteImport } from './routes/api/account/restore'
 import { Route as ApiAccountStatusRouteImport } from './routes/api/account/status'
@@ -43,9 +46,24 @@ const AdminLoginRoute = AdminLoginRouteImport.update({
   path: '/admin/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminManageRoute = AdminManageRouteImport.update({
+  id: '/admin/manage',
+  path: '/admin/manage',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAdminUsersRoute = ApiAdminUsersRouteImport.update({
   id: '/api/admin/users',
   path: '/api/admin/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminManagementRoute = ApiAdminManagementRouteImport.update({
+  id: '/api/admin/management',
+  path: '/api/admin/management',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTrackVisitRoute = ApiTrackVisitRouteImport.update({
+  id: '/api/track-visit',
+  path: '/api/track-visit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAccountDeleteRoute = ApiAccountDeleteRouteImport.update({
@@ -94,7 +112,13 @@ export interface FileRoutesByFullPath {
   '/upgrade': typeof UpgradeRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/manage': typeof AdminManageRoute
+  '/admin/manage': typeof AdminManageRoute
   '/api/admin/users': typeof ApiAdminUsersRoute
+  '/api/admin/management': typeof ApiAdminManagementRoute
+  '/api/track-visit': typeof ApiTrackVisitRoute
+  '/api/admin/management': typeof ApiAdminManagementRoute
+  '/api/track-visit': typeof ApiTrackVisitRoute
   '/api/account/delete': typeof ApiAccountDeleteRoute
   '/api/account/restore': typeof ApiAccountRestoreRoute
   '/api/account/status': typeof ApiAccountStatusRoute
@@ -176,7 +200,10 @@ export interface RootRouteChildren {
   UpgradeRoute: typeof UpgradeRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminLoginRoute: typeof AdminLoginRoute
+  AdminManageRoute: typeof AdminManageRoute
   ApiAdminUsersRoute: typeof ApiAdminUsersRoute
+  ApiAdminManagementRoute: typeof ApiAdminManagementRoute
+  ApiTrackVisitRoute: typeof ApiTrackVisitRoute
   ApiAccountDeleteRoute: typeof ApiAccountDeleteRoute
   ApiAccountRestoreRoute: typeof ApiAccountRestoreRoute
   ApiAccountStatusRoute: typeof ApiAccountStatusRoute
@@ -288,7 +315,10 @@ const rootRouteChildren: RootRouteChildren = {
   UpgradeRoute: UpgradeRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminLoginRoute: AdminLoginRoute,
+  AdminManageRoute: AdminManageRoute,
   ApiAdminUsersRoute: ApiAdminUsersRoute,
+  ApiAdminManagementRoute: ApiAdminManagementRoute,
+  ApiTrackVisitRoute: ApiTrackVisitRoute,
   ApiAccountDeleteRoute: ApiAccountDeleteRoute,
   ApiAccountRestoreRoute: ApiAccountRestoreRoute,
   ApiAccountStatusRoute: ApiAccountStatusRoute,
