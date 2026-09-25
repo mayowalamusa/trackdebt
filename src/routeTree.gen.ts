@@ -113,10 +113,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/manage': typeof AdminManageRoute
-  '/admin/manage': typeof AdminManageRoute
   '/api/admin/users': typeof ApiAdminUsersRoute
-  '/api/admin/management': typeof ApiAdminManagementRoute
-  '/api/track-visit': typeof ApiTrackVisitRoute
   '/api/admin/management': typeof ApiAdminManagementRoute
   '/api/track-visit': typeof ApiTrackVisitRoute
   '/api/account/delete': typeof ApiAccountDeleteRoute
@@ -133,7 +130,10 @@ export interface FileRoutesByTo {
   '/upgrade': typeof UpgradeRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/manage': typeof AdminManageRoute
   '/api/admin/users': typeof ApiAdminUsersRoute
+  '/api/admin/management': typeof ApiAdminManagementRoute
+  '/api/track-visit': typeof ApiTrackVisitRoute
   '/api/account/delete': typeof ApiAccountDeleteRoute
   '/api/account/restore': typeof ApiAccountRestoreRoute
   '/api/account/status': typeof ApiAccountStatusRoute
@@ -147,6 +147,12 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/upgrade': typeof UpgradeRoute
+  '/admin/': typeof AdminIndexRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/manage': typeof AdminManageRoute
+  '/api/admin/users': typeof ApiAdminUsersRoute
+  '/api/admin/management': typeof ApiAdminManagementRoute
+  '/api/track-visit': typeof ApiTrackVisitRoute
   '/api/account/delete': typeof ApiAccountDeleteRoute
   '/api/account/restore': typeof ApiAccountRestoreRoute
   '/api/account/status': typeof ApiAccountStatusRoute
@@ -161,6 +167,12 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/upgrade'
+    | '/admin/'
+    | '/admin/login'
+    | '/admin/manage'
+    | '/api/admin/users'
+    | '/api/admin/management'
+    | '/api/track-visit'
     | '/api/account/delete'
     | '/api/account/restore'
     | '/api/account/status'
@@ -173,6 +185,12 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/upgrade'
+    | '/admin/'
+    | '/admin/login'
+    | '/admin/manage'
+    | '/api/admin/users'
+    | '/api/admin/management'
+    | '/api/track-visit'
     | '/api/account/delete'
     | '/api/account/restore'
     | '/api/account/status'
@@ -185,6 +203,12 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/upgrade'
+    | '/admin/'
+    | '/admin/login'
+    | '/admin/manage'
+    | '/api/admin/users'
+    | '/api/admin/management'
+    | '/api/track-visit'
     | '/api/account/delete'
     | '/api/account/restore'
     | '/api/account/status'
@@ -237,11 +261,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/manage': {
+      id: '/admin/manage'
+      path: '/admin/manage'
+      fullPath: '/admin/manage'
+      preLoaderRoute: typeof AdminManageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/users': {
       id: '/api/admin/users'
       path: '/api/admin/users'
       fullPath: '/api/admin/users'
       preLoaderRoute: typeof ApiAdminUsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/management': {
+      id: '/api/admin/management'
+      path: '/api/admin/management'
+      fullPath: '/api/admin/management'
+      preLoaderRoute: typeof ApiAdminManagementRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/track-visit': {
+      id: '/api/track-visit'
+      path: '/api/track-visit'
+      fullPath: '/api/track-visit'
+      preLoaderRoute: typeof ApiTrackVisitRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/upgrade': {
