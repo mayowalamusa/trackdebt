@@ -189,7 +189,7 @@ function UpgradePage() {
           {message && <p className="mb-5 rounded-lg border border-line bg-paper-raised px-3 py-2 text-xs text-ink-soft">{message}</p>}
 
           {!userEmail ? (
-            PLUS_COMING_SOON ? (
+            !registrationEnabled && PLUS_COMING_SOON ? (
               <div className="mb-8 rounded-xl border border-line bg-paper-raised p-4 text-center">
                 <p className="text-sm font-semibold mb-1">Track Debt Plus — Coming Soon</p>
                 <p className="text-xs text-ink-soft leading-relaxed">
