@@ -89,6 +89,7 @@ import { downloadFile } from "@/lib/download";
 import { isProbablyValidPhone, normalizeForStorage } from "@/lib/phone";
 import { paymentService, stateLabel, planLabel } from "@/lib/subscription";
 import { currentSession } from "@/lib/subscription-api";
+import { supabase } from "@/lib/supabase";
 import { DEVELOPER, SUPPORT_EMAIL, WEBSITE_URL } from "@/lib/app-config";
 import { track } from "@/lib/analytics";
 import {
@@ -322,7 +323,8 @@ type Screen =
   | "about"
   | "privacy"
   | "terms"
-  | "redeem";
+  | "redeem"
+  | "account";
 
 
 type Filter = "all" | "outstanding" | "settled" | "overdue" | "dueToday" | "dueWeek";
@@ -341,6 +343,126 @@ const TEMPLATE_TONE: Record<TemplateId, Tone> = {
   "end-of-month": "professional",
   vip: "friendly",
 };
+
+function AccountScreen({ onClose }: { onClose: () => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [mode, setMode] = useState<"sign-up" | "sign-in">("sign-up");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [registrationEnabled, setRegistrationEnabled] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    void supabase?.from("app_feature_flags").select("enabled").eq("key", "registration").maybeSingle()
+      .then(({ data }) => setRegistrationEnabled(Boolean(data?.enabled)));
+    void currentSession().then((session) => setUserEmail(session?.user.email ?? null));
+  }, []);
+
+  const authenticate = async () => {
+    if (!supabase) {
+      setMessage("Account access is not configured yet.");
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    try {
+      if (mode === "sign-up") {
+        if (!registrationEnabled) {
+          setMessage("New account registration is currently closed.");
+          return;
+        }
+        const result = await supabase.auth.signUp({ email: email.trim(), password });
+        if (result.error) throw result.error;
+        setMessage(result.data.session
+          ? "Your free account is ready."
+          : "Check your email to confirm your account.");
+      } else {
+        const result = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+        if (result.error) throw result.error;
+        setUserEmail(result.data.user?.email ?? email.trim());
+        setMessage("Signed in.");
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not complete account access.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const signOut = async () => {
+    await supabase?.auth.signOut();
+    setUserEmail(null);
+    setMessage("Signed out.");
+  };
+
+  return (
+    <div className="p-5 animate-in fade-in slide-in-from-right-2 duration-200">
+      <ScreenHeader title="Track Debt Account" onClose={onClose} />
+      {userEmail ? (
+        <div className="rounded-xl border border-line bg-paper-raised p-5">
+          <p className="mono text-[10px] tracking-widest text-ink-soft">SIGNED IN</p>
+          <p className="text-sm font-semibold mt-2 break-all">{userEmail}</p>
+          <p className="text-[12px] text-ink-soft mt-3 leading-relaxed">
+            Your Free account keeps your records backed up to the cloud and lets you access them across devices.
+          </p>
+          <button type="button" onClick={() => void signOut()} className="w-full mt-5 rounded-lg border border-line py-3 text-sm font-semibold">
+            Sign out
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="rounded-xl border border-line bg-paper-raised p-5 mb-5">
+            <h2 className="text-lg font-bold">{mode === "sign-up" ? "Create your free account" : "Sign in to your account"}</h2>
+            <p className="text-[12px] text-ink-soft mt-2 leading-relaxed">
+              {mode === "sign-up"
+                ? "Save your Track Debt records to your account and access them across devices. No payment is required."
+                : "Access your saved Track Debt records and account."}
+            </p>
+            {mode === "sign-up" && !registrationEnabled && (
+              <p className="mt-4 rounded-lg border border-line px-3 py-2 text-xs text-ink-soft">
+                Registration is currently closed. An admin can enable it from Management → App Settings.
+              </p>
+            )}
+            <input
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              type="email"
+              required
+              placeholder="Email address"
+              className="w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-sm mt-5"
+            />
+            <input
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              type="password"
+              required
+              minLength={6}
+              placeholder="Password (at least 6 characters)"
+              className="w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-sm mt-2"
+            />
+            <button
+              type="button"
+              onClick={() => void authenticate()}
+              disabled={busy || (mode === "sign-up" && !registrationEnabled)}
+              className="btn-primary w-full rounded-lg py-3 text-sm font-semibold mt-3 disabled:opacity-50"
+            >
+              {busy ? "Please wait…" : mode === "sign-up" ? "Create free account" : "Sign in"}
+            </button>
+            {message && <p className="mt-3 text-xs text-ink-soft">{message}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={() => { setMode(mode === "sign-up" ? "sign-in" : "sign-up"); setMessage(null); }}
+            className="w-full py-2 text-xs text-ink-soft"
+          >
+            {mode === "sign-up" ? "Already have an account? Sign in" : "Need an account? Create one"}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
 
 function DebtTracker() {
 
@@ -978,6 +1100,13 @@ function DebtTracker() {
   return (
     <AppShell>
       <>
+        {screen === "list" && !supabase && null}
+
+        {/* ===== ACCOUNT ===== */}
+        {screen === "account" && (
+          <AccountScreen onClose={() => go("settings")} />
+        )}
+
         {/* ===== LIST / DASHBOARD ===== */}
         {screen === "list" && (
           <div className="animate-in fade-in duration-200">
@@ -1027,6 +1156,18 @@ function DebtTracker() {
                   </button>
                 </div>
               </div>
+
+              <button
+                type="button"
+                onClick={() => go("account")}
+                className="mt-5 w-full rounded-lg border border-line bg-paper px-3 py-3 text-left flex items-center justify-between"
+              >
+                <span>
+                  <span className="block text-sm font-semibold">Create a free account</span>
+                  <span className="block text-[11px] text-ink-soft mt-0.5">Back up your records and access them across devices.</span>
+                </span>
+                <ChevronRight size={16} className="text-ink-soft shrink-0" />
+              </button>
 
               <p className="mono text-[10px] tracking-[0.2em] text-ink-soft mt-6">
                 OUTSTANDING BALANCE
@@ -1676,6 +1817,13 @@ function DebtTracker() {
               label="Business Profile"
               onClick={() => go("profile")}
             />
+            <SettingsRow
+              icon={<ShieldCheck size={17} />}
+              label="Track Debt Account"
+              value="Create or sign in"
+              onClick={() => go("account")}
+            />
+
 
             <p className="mono text-[10px] tracking-widest text-ink-soft px-5 pb-2 pt-5">
               SUBSCRIPTION
