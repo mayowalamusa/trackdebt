@@ -34,7 +34,7 @@ export const Route = createFileRoute("/upgrade")({
       { title: `Upgrade — ${APP_NAME}` },
       {
         name: "description",
-        content: "Explore upcoming Track Debt Plus and Premium features.",
+        content: "Create a Track Debt account or manage your Plus subscription.",
       },
     ],
   }),
