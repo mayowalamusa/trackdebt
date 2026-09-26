@@ -1100,8 +1100,6 @@ function DebtTracker() {
   return (
     <AppShell>
       <>
-        {screen === "list" && !supabase && null}
-
         {/* ===== ACCOUNT ===== */}
         {screen === "account" && (
           <AccountScreen onClose={() => go("settings")} />
