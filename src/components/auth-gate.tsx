@@ -23,8 +23,8 @@ function RestoreAccountPrompt({ deadline }: { deadline: string | null }) {
   return <main className="min-h-screen bg-background flex justify-center"><div className="w-full max-w-[430px] min-h-screen bg-paper p-6 pt-20"><h1 className="text-2xl font-bold">Restore your account</h1><p className="mt-3 text-sm text-ink-soft">This account is scheduled for deletion, but it can still be restored before the server deadline.</p><p className="mt-2 text-xs text-ink-soft">Restoration deadline: {deadline ? new Date(deadline).toLocaleDateString("en-NG", { dateStyle: "medium" }) : "Unavailable"}</p><button onClick={() => void restore()} disabled={busy} className="btn-primary w-full rounded py-3 mt-8 text-sm font-semibold disabled:opacity-50">{busy ? "Restoring…" : "Restore Account"}</button>{message && <p className="mt-4 text-sm text-debt">{message}</p>}</div></main>;
 }
 
-// Backing up local records into the paid account happens silently in the
-// background; the user is never blocked by an import screen.
+// Backing up local records into the user's Free or Plus account happens
+// silently in the background; the user is never blocked by an import screen.
 function useBackgroundBackup(userId: string | null, ready: boolean) {
   const started = useRef<string | null>(null);
   useEffect(() => {
@@ -89,7 +89,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     });
   }, [session]);
 
-  useBackgroundBackup(session?.user.id ?? null, plusReady && accountStatus === "active");
+  // Cloud backup is now available to every registered account, including Free.
+  useBackgroundBackup(session?.user.id ?? null, entitlementLoaded && accountStatus === "active");
 
   if (!supabase) return <>{children}</>;
   // Only block rendering on the very first cold load.
@@ -112,7 +113,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (accountStatus === "suspended") return <main className="min-h-screen bg-background flex items-center justify-center p-6"><div className="max-w-sm text-center"><h1 className="text-xl font-bold">Account suspended</h1><p className="mt-2 text-sm text-ink-soft">Your Track Debt account has been suspended. Contact support if you believe this was a mistake.</p></div></main>;
   if (accountStatus === "deletion_pending") return <RestoreAccountPrompt deadline={restorableUntil} />;
   if (accountStatus === "deleted") return <main className="min-h-screen bg-background flex items-center justify-center p-6"><p className="max-w-sm text-center text-sm text-ink-soft">This account is no longer available.</p></main>;
-  if (plusReady && !hasCompletedMigration(session.user.id) && !hasLocalBusinessData()) {
+  if (entitlementLoaded && !hasCompletedMigration(session.user.id) && !hasLocalBusinessData()) {
     try { window.localStorage.setItem(`trackdebt.v4.cloudMigration.${session.user.id}`, "completed"); } catch { /* storage is optional */ }
   }
   return <>{children}</>;
