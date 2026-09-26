@@ -75,10 +75,8 @@ function useCloudBacked<T>(
       // Registered Free users and Plus users both use cloud storage.
       // Migration is the gate: once a signed-in user's local data has been
       // migrated, their account remains cloud-backed regardless of plan.
-        if (active) {
-          setCloudMode(false);
-          setCloudLoaded(true);
-        }
+      if (!hasCompletedMigration(data.session.user.id)) {
+        if (active) setCloudLoaded(true);
         return;
       }
       try {
