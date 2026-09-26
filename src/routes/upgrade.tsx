@@ -191,9 +191,9 @@ function UpgradePage() {
           {!userEmail ? (
             !registrationEnabled && PLUS_COMING_SOON ? (
               <div className="mb-8 rounded-xl border border-line bg-paper-raised p-4 text-center">
-                <p className="text-sm font-semibold mb-1">Track Debt Plus — Coming Soon</p>
+                <p className="text-sm font-semibold mb-1">Registration is currently closed</p>
                 <p className="text-xs text-ink-soft leading-relaxed">
-                  We're putting the finishing touches on Plus. Sign-up will be available shortly — check back soon!
+                  New Track Debt accounts are currently disabled. An admin can enable registration from Management → App Settings.
                 </p>
               </div>
             ) : (
@@ -206,9 +206,9 @@ function UpgradePage() {
             >
               <div className="flex items-center gap-2 mb-3">
                 <LogIn size={16} />
-                <h3 className="font-semibold">Sign in to manage Plus</h3>
+                <h3 className="font-semibold">{authMode === "sign-up" ? "Create your free account" : "Sign in to Track Debt"}</h3>
               </div>
-              <p className="text-xs text-ink-soft mb-4">Plus belongs to your Track Debt account and follows you across devices.</p>
+              <p className="text-xs text-ink-soft mb-4">{authMode === "sign-up" ? "Your Free account includes cloud backup and access across devices." : "Sign in to access your account and manage your plan across devices."}</p>
               <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" required placeholder="Email address" className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm mb-2" />
               {authMode !== "recovery" && <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" required minLength={6} placeholder="Password" className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm" />}
               <button type="submit" disabled={busy} className="w-full mt-3 rounded-lg bg-ink py-3 text-sm font-semibold text-paper disabled:opacity-50">
