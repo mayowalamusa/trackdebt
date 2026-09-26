@@ -60,14 +60,13 @@ function UpgradePage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [authMode, setAuthMode] = useState<"sign-in" | "sign-up" | "recovery">("sign-in");
+  const [authMode, setAuthMode] = useState<"sign-in" | "recovery">("sign-in");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [registrationEnabled, setRegistrationEnabled] = useState(false);
 
   useEffect(() => {
     track("upgrade_page_viewed");
-    void supabase?.from("app_feature_flags").select("enabled").eq("key", "registration").maybeSingle().then(({ data }) => setRegistrationEnabled(Boolean(data?.enabled)));
+
     void currentSession().then((session) => setUserEmail(session?.user.email ?? null));
     const listener = supabase?.auth.onAuthStateChange((_event, session) => {
       setUserEmail(session?.user.email ?? null);
@@ -189,11 +188,11 @@ function UpgradePage() {
           {message && <p className="mb-5 rounded-lg border border-line bg-paper-raised px-3 py-2 text-xs text-ink-soft">{message}</p>}
 
           {!userEmail ? (
-            !registrationEnabled && PLUS_COMING_SOON ? (
+            PLUS_COMING_SOON ? (
               <div className="mb-8 rounded-xl border border-line bg-paper-raised p-4 text-center">
-                <p className="text-sm font-semibold mb-1">Registration is currently closed</p>
+                <p className="text-sm font-semibold mb-1">Track Debt Plus — Coming Soon</p>
                 <p className="text-xs text-ink-soft leading-relaxed">
-                  New Track Debt accounts are currently disabled. An admin can enable registration from Management → App Settings.
+                  Plus checkout is not active yet. Create or manage your account from the Track Debt dashboard.
                 </p>
               </div>
             ) : (
@@ -206,16 +205,13 @@ function UpgradePage() {
             >
               <div className="flex items-center gap-2 mb-3">
                 <LogIn size={16} />
-                <h3 className="font-semibold">{authMode === "sign-up" ? "Create your free account" : "Sign in to Track Debt"}</h3>
+                <h3 className="font-semibold">Sign in to Track Debt</h3>
               </div>
-              <p className="text-xs text-ink-soft mb-4">{authMode === "sign-up" ? "Your Free account includes cloud backup and access across devices." : "Sign in to access your account and manage your plan across devices."}</p>
+              <p className="text-xs text-ink-soft mb-4">Sign in to access your account and manage your plan across devices.</p>
               <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" required placeholder="Email address" className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm mb-2" />
-              {authMode !== "recovery" && <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" required minLength={6} placeholder="Password" className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm" />}
+              <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" required minLength={6} placeholder="Password" className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm" />}
               <button type="submit" disabled={busy} className="w-full mt-3 rounded-lg bg-ink py-3 text-sm font-semibold text-paper disabled:opacity-50">
-                {busy ? "Please wait…" : authMode === "recovery" ? "Send recovery link" : authMode === "sign-in" ? "Sign in" : "Create account"}
-              </button>
-              <button type="button" onClick={() => setAuthMode(authMode === "sign-up" ? "sign-in" : "sign-up")} className="w-full mt-2 py-2 text-xs text-ink-soft">
-                {authMode === "sign-up" ? "Already have an account? Sign in" : "Need an account? Create one"}
+                {busy ? "Please wait…" : authMode === "recovery" ? "Send recovery link" : "Sign in"}
               </button>
               <button type="button" onClick={() => setAuthMode(authMode === "recovery" ? "sign-in" : "recovery")} className="w-full py-2 text-xs text-ink-soft">
                 {authMode === "recovery" ? "Back to sign in" : "Forgot password?"}
