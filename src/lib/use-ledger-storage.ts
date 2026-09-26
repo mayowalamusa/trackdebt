@@ -6,7 +6,7 @@ import type { ReminderRecord } from "./reminders";
 import { defaultNotificationSettings, type InAppNotification, type NotificationSettings } from "./notifications";
 import { isPlainObject, readJSON, writeJSON } from "./storage";
 import { freeSubscription, normalize, resolvePlan, getEntitlements, type Subscription, type PromoEntitlement } from "./subscription";
-import { freeEntitlement, fetchServerEntitlement, type ServerEntitlement } from "./subscription-api";
+import { freeEntitlement, type ServerEntitlement } from "./subscription-api";
 import { supabase } from "./supabase";
 import { loadCloudSnapshot, loadCloudNotifications, syncCloudCustomers, syncCloudNotifications, syncCloudOnboarding, syncCloudPreferences, syncCloudProfile, syncCloudReminders } from "./cloud-data";
 import { hasCompletedMigration } from "./local-migration";
@@ -72,8 +72,9 @@ function useCloudBacked<T>(
         if (active) setCloudLoaded(true);
         return;
       }
-      const entitlement = await fetchServerEntitlement();
-      if (entitlement.plan !== "plus" || !hasCompletedMigration(data.session.user.id)) {
+      // Registered Free users and Plus users both use cloud storage.
+      // Migration is the gate: once a signed-in user's local data has been
+      // migrated, their account remains cloud-backed regardless of plan.
         if (active) {
           setCloudMode(false);
           setCloudLoaded(true);
