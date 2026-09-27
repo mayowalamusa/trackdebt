@@ -3,7 +3,8 @@ import { defaultNotificationSettings, type InAppNotification, type NotificationS
 import type { BusinessProfile, Customer } from "./ledger";
 import type { ReminderRecord } from "./reminders";
 import { emptyProfile } from "./ledger";
-import { hasCloudMigration, syncCloudCustomers, syncCloudNotifications, syncCloudPreferences, syncCloudProfile, syncCloudReminders, ensureCloudProfile, recordCloudMigration } from "./cloud-data";
+import { hasCloudMigration, loadCloudSnapshot, syncCloudCustomers, syncCloudNotifications, syncCloudPreferences, syncCloudProfile, syncCloudReminders, ensureCloudProfile, recordCloudMigration } from "./cloud-data";
+import { activateCloudStorage, deactivateCloudStorage } from "./storage-mode";
 
 const MIGRATION_PREFIX = "trackdebt.v4.cloudMigration.";
 type OnboardingState = { completed: boolean; tips: { addCustomer: boolean; openCustomer: boolean; reminder: boolean } };
@@ -29,9 +30,49 @@ export function hasLocalBusinessData(): boolean {
   }
 }
 
+export function clearLocalTrackDebtData(): void {
+  const keys = [
+    "debtbook.v2.customers",
+    "debtbook.v2.profile",
+    "trackdebt.v3.reminders",
+    "trackdebt.v3.notification_settings",
+    "trackdebt.v3.in_app_notifications",
+    "trackdebt.v3.onboarding",
+    "trackdebt.v3.subscription",
+    "trackdebt.v3.promo",
+    "trackdebt.v3.receiptCounter",
+    "trackdebt.v3.lastBackupAt",
+    "trackdebt.v3.notificationRecords",
+  ];
+  for (const key of keys) {
+    try {
+      window.localStorage.removeItem(key);
+      window.localStorage.removeItem(key + ".corrupt");
+    } catch {
+      /* continue clearing the remaining keys */
+    }
+  }
+}
+
+export function activateCloudOnlyStorage(userId: string): void {
+  activateCloudStorage(userId);
+}
+
+export function wipeLocalDataAndActivateCloud(userId: string): void {
+  clearLocalTrackDebtData();
+  window.localStorage.setItem(migrationKey(userId), "completed");
+  activateCloudStorage(userId);
+}
+
 export async function migrateLocalData(userId: string): Promise<void> {
-  if (hasCompletedMigration(userId) || await hasCloudMigration(userId)) {
+  if (hasCompletedMigration(userId)) {
+    activateCloudStorage(userId);
+    return;
+  }
+  if (await hasCloudMigration(userId)) {
+    clearLocalTrackDebtData();
     window.localStorage.setItem(migrationKey(userId), "completed");
+    activateCloudStorage(userId);
     return;
   }
   const profile = readJSON<BusinessProfile>("debtbook.v2.profile", emptyProfile, { validate: (value) => !!value && typeof value === "object" && !Array.isArray(value) }).value;
@@ -47,11 +88,21 @@ export async function migrateLocalData(userId: string): Promise<void> {
   await syncCloudReminders(reminders);
   await syncCloudPreferences(notificationSettings);
   await syncCloudNotifications(notifications);
+  const verified = await loadCloudSnapshot();
+  if (!verified) throw new Error("Could not verify your cloud data after migration.");
+  const localTransactions = customers.reduce((count, customer) => count + customer.txns.length, 0);
+  const cloudTransactions = verified.customers.reduce((count, customer) => count + customer.txns.length, 0);
+  if (verified.customers.length < customers.length || cloudTransactions < localTransactions || verified.reminders.length < reminders.length) {
+    throw new Error("Cloud migration could not be verified. Your local data is still safe.");
+  }
+
   await recordCloudMigration(userId, {
     customers: customers.length,
-    transactions: customers.reduce((count, customer) => count + customer.txns.length, 0),
+    transactions: localTransactions,
     reminders: reminders.length,
   });
 
+  clearLocalTrackDebtData();
   window.localStorage.setItem(migrationKey(userId), "completed");
+  activateCloudStorage(userId);
 }
