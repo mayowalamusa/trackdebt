@@ -91,6 +91,7 @@ import { paymentService, stateLabel, planLabel } from "@/lib/subscription";
 import { currentSession } from "@/lib/subscription-api";
 import { supabase } from "@/lib/supabase";
 import { DEVELOPER, SUPPORT_EMAIL, WEBSITE_URL } from "@/lib/app-config";
+import { SUPPORTED_CURRENCIES } from "@/lib/currency/currencies";
 import { track } from "@/lib/analytics";
 import {
   defaultOnboarding,
@@ -1501,6 +1502,23 @@ function DebtTracker() {
               </select>
             </Field>
 
+            <Field label="CURRENCY">
+              <select
+                value={profile.currency}
+                onChange={(e) => setP({ currency: e.target.value as BusinessProfile["currency"] })}
+                className="input-field w-full rounded px-3 py-2.5 text-sm"
+              >
+                {SUPPORTED_CURRENCIES.map((currency) => (
+                  <option key={currency.code} value={currency.code}>
+                    {currency.code} — {currency.name} ({currency.symbol})
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-ink-soft mt-1.5 leading-relaxed">
+                Existing amounts will be converted using the latest available daily reference rate.
+              </p>
+            </Field>
+
             <p className="mono text-[11px] tracking-widest text-ink-soft mt-6 mb-3">
               PAYMENT DETAILS (OPTIONAL)
             </p>
@@ -1534,8 +1552,8 @@ function DebtTracker() {
             </p>
 
             <p className="text-[11px] text-ink-soft leading-relaxed mt-2 mb-6">
-              These details appear on your receipts, statements and WhatsApp reminders. Everything
-              is saved on this device only.
+              These details appear on your receipts, statements and WhatsApp reminders. Registered accounts sync
+              business data to the cloud; visitor data stays on this device.
             </p>
 
             <button
