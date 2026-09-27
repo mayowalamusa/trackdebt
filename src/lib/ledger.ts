@@ -1,4 +1,6 @@
 import { normalizeForWhatsApp } from "./phone";
+import { formatMoney } from "./currency/formatter";
+import { DEFAULT_CURRENCY, isCurrencyCode, type CurrencyCode } from "./currency/currencies";
 
 export const APP_NAME = "Track Debt";
 export const APP_VERSION = "1.0.0";
@@ -77,7 +79,7 @@ export const BUSINESS_CATEGORIES = [
   "Other",
 ];
 
-export const naira = (n: number) => "₦" + Math.round(n).toLocaleString("en-NG");
+/** Backwards-compatible money formatter; it now follows the active business currency. */\nexport const naira = (n: number) => formatMoney(Math.round(n * 100) / 100);\n\nexport const normalizeCurrency = (value: unknown): CurrencyCode =>\n  isCurrencyCode(value) ? value : DEFAULT_CURRENCY;
 
 /** True local calendar date as YYYY-MM-DD.
  *
