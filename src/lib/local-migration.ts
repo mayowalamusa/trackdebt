@@ -24,7 +24,13 @@ export function hasCompletedMigration(userId: string): boolean {
 
 export function hasLocalBusinessData(): boolean {
   try {
-    return Boolean(window.localStorage.getItem("debtbook.v2.customers") || window.localStorage.getItem("debtbook.v2.profile"));
+    const customers = readJSON<Customer[]>("debtbook.v2.customers", [], { validate: Array.isArray }).value;
+    const profile = readJSON<BusinessProfile>("debtbook.v2.profile", emptyProfile, {
+      validate: (value) => !!value && typeof value === "object" && !Array.isArray(value),
+    }).value;
+    const reminders = readJSON<ReminderRecord[]>("trackdebt.v3.reminders", [], { validate: Array.isArray }).value;
+    const hasProfile = Object.values(profile).some((value) => String(value ?? "").trim().length > 0);
+    return customers.length > 0 || reminders.length > 0 || hasProfile;
   } catch {
     return false;
   }
