@@ -25,6 +25,7 @@ import { Route as ApiPaystackInitializeRouteImport } from './routes/api/paystack
 import { Route as ApiPaystackStatusRouteImport } from './routes/api/paystack/status'
 import { Route as ApiPaystackWebhookRouteImport } from './routes/api/paystack/webhook'
 import { Route as ApiPublicPromoRedeemRouteImport } from './routes/api/public/promo-redeem'
+import { Route as ApiFxRateRouteImport } from './routes/api/fx/rate'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -104,6 +105,11 @@ const ApiPaystackWebhookRoute = ApiPaystackWebhookRouteImport.update({
 const ApiPublicPromoRedeemRoute = ApiPublicPromoRedeemRouteImport.update({
   id: '/api/public/promo-redeem',
   path: '/api/public/promo-redeem',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFxRateRoute = ApiFxRateRouteImport.update({
+  id: '/api/fx/rate',
+  path: '/api/fx/rate',
   getParentRoute: () => rootRouteImport,
 } as any)
 
