@@ -48,7 +48,8 @@ export async function loadCloudSnapshot(): Promise<CloudSnapshot | null> {
     category: String(profileRow["business_category"] ?? ""),
     bankName: String(profileRow["bank_name"] ?? ""),
     accountNumber: String(profileRow["account_number"] ?? ""),
-    accountName: String(profileRow["account_name"] ?? ""),\n    currency: normalizeCurrency(profileRow["currency"]),
+    accountName: String(profileRow["account_name"] ?? ""),
+    currency: normalizeCurrency(profileRow["currency"]),
   } : emptyProfile;
 
   const transactionsByCustomer = new Map<string, Txn[]>();
@@ -59,6 +60,9 @@ export async function loadCloudSnapshot(): Promise<CloudSnapshot | null> {
       type: row["type"] as Txn["type"],
       ...(row["kind"] === "full" || row["kind"] === "partial" ? { kind: row["kind"] } : {}),
       amount: Number(row["amount"]),
+      ...(row["currency"] ? { currency: normalizeCurrency(row["currency"]) } : {}),
+      ...(row["original_amount"] != null ? { originalAmount: Number(row["original_amount"]) } : {}),
+      ...(row["original_currency"] ? { originalCurrency: normalizeCurrency(row["original_currency"]) } : {}),
       date: String(row["transaction_date"]),
       note: String(row["note"] ?? ""),
       ...(row["reference"] ? { reference: String(row["reference"]) } : {}),
@@ -133,7 +137,8 @@ export async function ensureCloudProfile(profile?: Partial<BusinessProfile>) {
     business_category: profile?.category ?? "",
     bank_name: profile?.bankName ?? "",
     account_number: profile?.accountNumber ?? "",
-    account_name: profile?.accountName ?? "",\n    currency: profile?.currency ?? emptyProfile.currency,
+    account_name: profile?.accountName ?? "",
+    currency: profile?.currency ?? emptyProfile.currency,
   }, { onConflict: "id" });
 }
 
@@ -149,7 +154,8 @@ export async function syncCloudProfile(profile: BusinessProfile, onboarding?: { 
     business_category: profile.category,
     bank_name: profile.bankName,
     account_number: profile.accountNumber,
-    account_name: profile.accountName,\n    currency: profile.currency,
+    account_name: profile.accountName,
+    currency: profile.currency,
     ...(onboarding ? { onboarding_completed: onboarding.completed, onboarding_tips: onboarding.tips } : {}),
   }, { onConflict: "id" });
 }
@@ -174,6 +180,9 @@ export async function syncCloudCustomers(customers: Customer[]) {
     term_key: txn.term?.key ?? null,
     due_date: txn.term?.dueDate ?? null,
     term_set_at: txn.term?.setAt ?? null,
+    currency: txn.currency ?? emptyProfile.currency,
+    original_amount: txn.originalAmount ?? txn.amount,
+    original_currency: txn.originalCurrency ?? txn.currency ?? emptyProfile.currency,
   }))).filter((row) => row.customer_id);
   if (transactionRows.length) await supabase.from("transactions").upsert(transactionRows, { onConflict: "user_id,legacy_id" });
 }
