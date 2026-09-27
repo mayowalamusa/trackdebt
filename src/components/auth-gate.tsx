@@ -156,8 +156,22 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     });
   }, [session]);
 
-  // Cloud backup is now available to every registered account, including Free.
-  useBackgroundBackup(session?.user.id ?? null, entitlementLoaded && accountStatus === "active");
+  useEffect(() => {
+    if (!session || !entitlementLoaded || accountStatus !== "active") return;
+    if (hasCompletedMigration(session.user.id)) {
+      setMigrationReady(true);
+      return;
+    }
+    if (!hasLocalBusinessData()) {
+      try {
+        activateCloudOnlyStorage(session.user.id);
+        window.localStorage.setItem(`trackdebt.v4.cloudMigration.${session.user.id}`, "completed");
+        setMigrationReady(true);
+      } catch {
+        setMigrationReady(false);
+      }
+    }
+  }, [session, entitlementLoaded, accountStatus]);
 
   if (!supabase) return <>{children}</>;
   // Only block rendering on the very first cold load.
@@ -180,15 +194,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (accountStatus === "suspended") return <main className="min-h-screen bg-background flex items-center justify-center p-6"><div className="max-w-sm text-center"><h1 className="text-xl font-bold">Account suspended</h1><p className="mt-2 text-sm text-ink-soft">Your Track Debt account has been suspended. Contact support if you believe this was a mistake.</p></div></main>;
   if (accountStatus === "deletion_pending") return <RestoreAccountPrompt deadline={restorableUntil} />;
   if (accountStatus === "deleted") return <main className="min-h-screen bg-background flex items-center justify-center p-6"><p className="max-w-sm text-center text-sm text-ink-soft">This account is no longer available.</p></main>;
-  if (entitlementLoaded && !hasCompletedMigration(session.user.id) && !hasLocalBusinessData()) {
-    try {
-      activateCloudOnlyStorage(session.user.id);
-      window.localStorage.setItem(`trackdebt.v4.cloudMigration.${session.user.id}`, "completed");
-      setMigrationReady(true);
-    } catch {
-      /* Storage is optional; cloud remains authoritative. */
-    }
-  }
   if (session && entitlementLoaded && accountStatus === "active" && !hasCompletedMigration(session.user.id) && hasLocalBusinessData()) {
     return <CloudMigrationPrompt userId={session.user.id} onComplete={() => setMigrationReady(true)} />;
   }
