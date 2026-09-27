@@ -70,6 +70,17 @@ export function readJSON<T>(
 }
 
 export function writeJSON(key: string, value: unknown): WriteResult {
+  // Cloud-backed accounts must not write Track Debt records back into local
+  // storage. Auth/session storage is managed separately by Supabase.
+  if (key !== "trackdebt.v4.cloudStorageUser") {
+    try {
+      if (window.localStorage.getItem("trackdebt.v4.cloudStorageUser")) {
+        return { ok: true };
+      }
+    } catch {
+      /* Fall through to the normal local-storage write path. */
+    }
+  }
   if (!storageAvailable()) return { ok: false, reason: "unavailable" };
   let serialized: string;
   try {
