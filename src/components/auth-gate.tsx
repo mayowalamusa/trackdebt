@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
-import { hasCompletedMigration, hasLocalBusinessData, migrateLocalData } from "@/lib/local-migration";
+import { activateCloudOnlyStorage, hasCompletedMigration, hasLocalBusinessData, migrateLocalData, wipeLocalDataAndActivateCloud } from "@/lib/local-migration";
+import { deactivateCloudStorage } from "@/lib/storage-mode";
 import { ensureCloudProfile } from "@/lib/cloud-data";
 import { fetchAccountStatus, fetchServerEntitlement, restoreAccount } from "@/lib/subscription-api";
 
@@ -23,18 +24,76 @@ function RestoreAccountPrompt({ deadline }: { deadline: string | null }) {
   return <main className="min-h-screen bg-background flex justify-center"><div className="w-full max-w-[430px] min-h-screen bg-paper p-6 pt-20"><h1 className="text-2xl font-bold">Restore your account</h1><p className="mt-3 text-sm text-ink-soft">This account is scheduled for deletion, but it can still be restored before the server deadline.</p><p className="mt-2 text-xs text-ink-soft">Restoration deadline: {deadline ? new Date(deadline).toLocaleDateString("en-NG", { dateStyle: "medium" }) : "Unavailable"}</p><button onClick={() => void restore()} disabled={busy} className="btn-primary w-full rounded py-3 mt-8 text-sm font-semibold disabled:opacity-50">{busy ? "Restoring…" : "Restore Account"}</button>{message && <p className="mt-4 text-sm text-debt">{message}</p>}</div></main>;
 }
 
-// Backing up local records into the user's Free or Plus account happens
-// silently in the background; the user is never blocked by an import screen.
-function useBackgroundBackup(userId: string | null, ready: boolean) {
-  const started = useRef<string | null>(null);
-  useEffect(() => {
-    if (!ready || !userId || started.current === userId) return;
-    if (hasCompletedMigration(userId) || !hasLocalBusinessData()) return;
-    started.current = userId;
-    void migrateLocalData(userId)
-      .then(() => toast.success("Your records are now backed up to your account."))
-      .catch(() => toast.error("Backup didn't finish — we'll retry next time you open the app."));
-  }, [userId, ready]);
+function CloudMigrationPrompt({ userId, onComplete }: { userId: string; onComplete: () => void }) {
+  const [step, setStep] = useState<"choice" | "warning">("choice");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const moveToCloud = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await migrateLocalData(userId);
+      toast.success("Your local data has been moved to your Track Debt account.");
+      onComplete();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Your data could not be moved to the cloud.");
+      setBusy(false);
+    }
+  };
+
+  const wipeLocal = () => {
+    setBusy(true);
+    setError(null);
+    try {
+      wipeLocalDataAndActivateCloud(userId);
+      toast.success("Local data wiped. Your account is now using cloud storage.");
+      onComplete();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Local data could not be wiped.");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <main className="min-h-screen bg-background flex items-center justify-center p-6">
+      <div className="w-full max-w-[430px] bg-paper-raised border border-line rounded-xl p-6 shadow-sm">
+        <div className="h-12 w-12 rounded-full bg-debt/10 text-debt grid place-items-center text-xl mb-5">
+          {step === "choice" ? "☁️" : "⚠️"}
+        </div>
+
+        {step === "choice" ? (
+          <>
+            <h1 className="text-xl font-bold">We found data on this device</h1>
+            <p className="mt-3 text-sm text-ink-soft leading-relaxed">
+              You have Track Debt records saved locally on this device. Move them to your Track Debt account so you can access them across devices.
+            </p>
+            <button onClick={() => void moveToCloud()} disabled={busy} className="btn-primary w-full rounded py-3 mt-7 text-sm font-semibold disabled:opacity-50">
+              {busy ? "Moving your data…" : "Move data to cloud"}
+            </button>
+            <button onClick={() => setStep("warning")} disabled={busy} className="w-full rounded py-3 mt-2 text-sm font-semibold border border-line bg-paper disabled:opacity-50">
+              Not now
+            </button>
+          </>
+        ) : (
+          <>
+            <h1 className="text-xl font-bold">Your local data will be wiped</h1>
+            <p className="mt-3 text-sm text-ink-soft leading-relaxed">
+              Your registered account uses cloud storage. The records currently saved on this device will not be transferred to your account and may be permanently deleted.
+            </p>
+            <button onClick={() => void moveToCloud()} disabled={busy} className="btn-primary w-full rounded py-3 mt-7 text-sm font-semibold disabled:opacity-50">
+              {busy ? "Moving your data…" : "Move data to cloud"}
+            </button>
+            <button onClick={wipeLocal} disabled={busy} className="w-full rounded py-3 mt-2 text-sm font-semibold border border-destructive text-debt bg-paper disabled:opacity-50">
+              Wipe local data
+            </button>
+          </>
+        )}
+
+        {error && <p className="mt-4 text-sm text-debt leading-relaxed">{error}</p>}
+      </div>
+    </main>
+  );
 }
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
@@ -44,6 +103,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [entitlementLoaded, setEntitlementLoaded] = useState(!supabase);
   const [accountStatus, setAccountStatus] = useState<"active" | "suspended" | "deletion_pending" | "deleted">("active");
   const [restorableUntil, setRestorableUntil] = useState<string | null>(null);
+  const [migrationReady, setMigrationReady] = useState(false);
   // Track whether we've completed at least one full entitlement load so
   // we never blank the screen again on a background session refresh (tab
   // switch, phone wake, Supabase token auto-refresh). The app should only
@@ -54,14 +114,21 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     if (!supabase) return;
     let active = true;
     void supabase.auth.getSession().then(({ data }) => { if (active) { setSession(data.session); setLoaded(true); } });
-    const listener = supabase.auth.onAuthStateChange((_event, nextSession) => { setSession(nextSession); setLoaded(true); });
+    const listener = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!nextSession) deactivateCloudStorage();
+      setSession(nextSession);
+      setMigrationReady(false);
+      setLoaded(true);
+    });
     return () => { active = false; listener.data.subscription.unsubscribe(); };
   }, []);
 
   useEffect(() => {
     if (!session) {
+      deactivateCloudStorage();
       setPlusReady(false);
       setEntitlementLoaded(true);
+      setMigrationReady(false);
       everLoaded.current = true;
       return;
     }
@@ -114,7 +181,19 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (accountStatus === "deletion_pending") return <RestoreAccountPrompt deadline={restorableUntil} />;
   if (accountStatus === "deleted") return <main className="min-h-screen bg-background flex items-center justify-center p-6"><p className="max-w-sm text-center text-sm text-ink-soft">This account is no longer available.</p></main>;
   if (entitlementLoaded && !hasCompletedMigration(session.user.id) && !hasLocalBusinessData()) {
-    try { window.localStorage.setItem(`trackdebt.v4.cloudMigration.${session.user.id}`, "completed"); } catch { /* storage is optional */ }
+    try {
+      activateCloudOnlyStorage(session.user.id);
+      window.localStorage.setItem(`trackdebt.v4.cloudMigration.${session.user.id}`, "completed");
+      setMigrationReady(true);
+    } catch {
+      /* Storage is optional; cloud remains authoritative. */
+    }
+  }
+  if (session && entitlementLoaded && accountStatus === "active" && !hasCompletedMigration(session.user.id) && hasLocalBusinessData()) {
+    return <CloudMigrationPrompt userId={session.user.id} onComplete={() => setMigrationReady(true)} />;
+  }
+  if (session && accountStatus === "active" && !migrationReady && !hasCompletedMigration(session.user.id)) {
+    return <main className="min-h-screen bg-background flex items-center justify-center"><p className="text-sm text-ink-soft">Preparing your account…</p></main>;
   }
   return <>{children}</>;
 }
