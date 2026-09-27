@@ -130,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/api/paystack/status': typeof ApiPaystackStatusRoute
   '/api/paystack/webhook': typeof ApiPaystackWebhookRoute
   '/api/public/promo-redeem': typeof ApiPublicPromoRedeemRoute
+  '/api/fx/rate': typeof ApiFxRateRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -242,6 +243,7 @@ export interface RootRouteChildren {
   ApiPaystackStatusRoute: typeof ApiPaystackStatusRoute
   ApiPaystackWebhookRoute: typeof ApiPaystackWebhookRoute
   ApiPublicPromoRedeemRoute: typeof ApiPublicPromoRedeemRoute
+  ApiFxRateRoute: typeof ApiFxRateRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -358,6 +360,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPromoRedeemRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/fx/rate': {
+      id: '/api/fx/rate'
+      path: '/api/fx/rate'
+      fullPath: '/api/fx/rate'
+      preLoaderRoute: typeof ApiFxRateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -378,6 +387,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPaystackStatusRoute: ApiPaystackStatusRoute,
   ApiPaystackWebhookRoute: ApiPaystackWebhookRoute,
   ApiPublicPromoRedeemRoute: ApiPublicPromoRedeemRoute,
+  ApiFxRateRoute: ApiFxRateRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
