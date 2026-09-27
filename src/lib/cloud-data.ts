@@ -1,7 +1,7 @@
 import type { BusinessProfile, Customer, Txn } from "./ledger";
 import type { ReminderRecord } from "./reminders";
 import type { InAppNotification, NotificationSettings } from "./notifications";
-import { emptyProfile } from "./ledger";
+import { emptyProfile, normalizeCurrency } from "./ledger";
 import { defaultNotificationSettings } from "./notifications";
 import { supabase } from "./supabase";
 
@@ -48,7 +48,7 @@ export async function loadCloudSnapshot(): Promise<CloudSnapshot | null> {
     category: String(profileRow["business_category"] ?? ""),
     bankName: String(profileRow["bank_name"] ?? ""),
     accountNumber: String(profileRow["account_number"] ?? ""),
-    accountName: String(profileRow["account_name"] ?? ""),
+    accountName: String(profileRow["account_name"] ?? ""),\n    currency: normalizeCurrency(profileRow["currency"]),
   } : emptyProfile;
 
   const transactionsByCustomer = new Map<string, Txn[]>();
@@ -133,7 +133,7 @@ export async function ensureCloudProfile(profile?: Partial<BusinessProfile>) {
     business_category: profile?.category ?? "",
     bank_name: profile?.bankName ?? "",
     account_number: profile?.accountNumber ?? "",
-    account_name: profile?.accountName ?? "",
+    account_name: profile?.accountName ?? "",\n    currency: profile?.currency ?? emptyProfile.currency,
   }, { onConflict: "id" });
 }
 
@@ -149,7 +149,7 @@ export async function syncCloudProfile(profile: BusinessProfile, onboarding?: { 
     business_category: profile.category,
     bank_name: profile.bankName,
     account_number: profile.accountNumber,
-    account_name: profile.accountName,
+    account_name: profile.accountName,\n    currency: profile.currency,
     ...(onboarding ? { onboarding_completed: onboarding.completed, onboarding_tips: onboarding.tips } : {}),
   }, { onConflict: "id" });
 }
