@@ -34,7 +34,7 @@ export const Route = createFileRoute("/upgrade")({
       { title: `Upgrade — ${APP_NAME}` },
       {
         name: "description",
-        content: "Create a Track Debt account or manage your Plus subscription.",
+        content: "Manage your Track Debt Plus subscription and account.",
       },
     ],
   }),
@@ -209,7 +209,7 @@ function UpgradePage() {
               </div>
               <p className="text-xs text-ink-soft mb-4">Sign in to access your account and manage your plan across devices.</p>
               <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" required placeholder="Email address" className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm mb-2" />
-              <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" required minLength={6} placeholder="Password" className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm" />}
+              <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" required minLength={6} placeholder="Password" className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm" />
               <button type="submit" disabled={busy} className="w-full mt-3 rounded-lg bg-ink py-3 text-sm font-semibold text-paper disabled:opacity-50">
                 {busy ? "Please wait…" : authMode === "recovery" ? "Send recovery link" : "Sign in"}
               </button>
