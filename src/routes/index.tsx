@@ -92,6 +92,7 @@ import { currentSession } from "@/lib/subscription-api";
 import { supabase } from "@/lib/supabase";
 import { DEVELOPER, SUPPORT_EMAIL, WEBSITE_URL } from "@/lib/app-config";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency/currencies";
+import { getExchangeRate } from "@/lib/currency/rates";
 import { track } from "@/lib/analytics";
 import {
   defaultOnboarding,
@@ -697,6 +698,9 @@ function DebtTracker() {
       amount: amt,
       date: todayISO(),
       note: form.note.trim(),
+      currency: profile.currency,
+      originalAmount: amt,
+      originalCurrency: profile.currency,
       ...(txnType === "payment" ? { kind: amt >= bal ? "full" : "partial" } : {}),
       ...(txnType === "sale"
         ? {
@@ -746,6 +750,9 @@ function DebtTracker() {
               date: t.date,
               type: txnType,
               amount: amt,
+              currency: t.currency ?? profile.currency,
+              originalAmount: t.originalAmount ?? t.amount,
+              originalCurrency: t.originalCurrency ?? t.currency ?? profile.currency,
               note: form.note.trim(),
               ...(txnType === "sale" ? { reference: t.reference ?? issueReceiptReference() } : {}),
             };
@@ -807,7 +814,35 @@ function DebtTracker() {
     reader.readAsDataURL(file);
   };
 
-  const setP = (patch: Partial<BusinessProfile>) => setProfile((p) => ({ ...p, ...patch }));
+  const setP = (patch: Partial<BusinessProfile>) => {
+    if (!patch.currency || patch.currency === profile.currency) {
+      setProfile((p) => ({ ...p, ...patch }));
+      return;
+    }
+
+    const targetCurrency = patch.currency;
+    const sourceCurrency = profile.currency;
+    const run = async () => {
+      try {
+        const { rate } = await getExchangeRate(sourceCurrency, targetCurrency);
+        setCustomers((current) =>
+          current.map((customer) => ({
+            ...customer,
+            txns: customer.txns.map((txn) => ({
+              ...txn,
+              amount: Math.round(txn.amount * rate * 100) / 100,
+              currency: targetCurrency,
+            })),
+          })),
+        );
+        setProfile((p) => ({ ...p, ...patch }));
+        toast.success(`Amounts converted to ${targetCurrency} using the latest daily reference rate.`);
+      } catch {
+        toast.error("Currency conversion is unavailable right now. Your currency was not changed.");
+      }
+    };
+    void run();
+  };
 
   const bizLabel = (profile.name || "Your business").toUpperCase();
 
