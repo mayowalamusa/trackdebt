@@ -149,6 +149,7 @@ export interface FileRoutesByTo {
   '/api/paystack/status': typeof ApiPaystackStatusRoute
   '/api/paystack/webhook': typeof ApiPaystackWebhookRoute
   '/api/public/promo-redeem': typeof ApiPublicPromoRedeemRoute
+  '/api/fx/rate': typeof ApiFxRateRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -168,6 +169,7 @@ export interface FileRoutesById {
   '/api/paystack/status': typeof ApiPaystackStatusRoute
   '/api/paystack/webhook': typeof ApiPaystackWebhookRoute
   '/api/public/promo-redeem': typeof ApiPublicPromoRedeemRoute
+  '/api/fx/rate': typeof ApiFxRateRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -188,6 +190,7 @@ export interface FileRouteTypes {
     | '/api/paystack/status'
     | '/api/paystack/webhook'
     | '/api/public/promo-redeem'
+    | '/api/fx/rate'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -206,6 +209,7 @@ export interface FileRouteTypes {
     | '/api/paystack/status'
     | '/api/paystack/webhook'
     | '/api/public/promo-redeem'
+    | '/api/fx/rate'
   id:
     | '__root__'
     | '/'
@@ -224,6 +228,7 @@ export interface FileRouteTypes {
     | '/api/paystack/status'
     | '/api/paystack/webhook'
     | '/api/public/promo-redeem'
+    | '/api/fx/rate'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
