@@ -10,6 +10,7 @@ import { freeEntitlement, type ServerEntitlement } from "./subscription-api";
 import { supabase } from "./supabase";
 import { loadCloudSnapshot, loadCloudNotifications, syncCloudCustomers, syncCloudNotifications, syncCloudOnboarding, syncCloudPreferences, syncCloudProfile, syncCloudReminders } from "./cloud-data";
 import { hasCompletedMigration } from "./local-migration";
+import { setActiveCurrency } from "./currency/formatter";
 
 type PersistOptions<T> = {
   migrate?: (raw: T) => T;
@@ -134,7 +135,15 @@ export function usePersistentProfile() {
     validate: isPlainObject,
     corruptMessage: "Your saved business profile could not be read and was reset on this device.",
   });
-  return useCloudBacked(local, (snapshot) => snapshot?.profile ?? emptyProfile, syncCloudProfile);
+  const [profile, setProfile, loaded] = useCloudBacked(
+    local,
+    (snapshot) => snapshot?.profile ?? emptyProfile,
+    syncCloudProfile,
+  );
+  useEffect(() => {
+    if (loaded) setActiveCurrency(profile.currency);
+  }, [loaded, profile.currency]);
+  return [profile, setProfile, loaded] as const;
 }
 
 export function useReminderHistory() {
