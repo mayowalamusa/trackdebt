@@ -88,8 +88,8 @@ export const BUSINESS_CATEGORIES = [
   "Other",
 ];
 
-/** Backwards-compatible money formatter; it now follows the active business currency. */
-export const naira = (n: number) => formatMoney(Math.round(n * 100) / 100);
+/** Currency-aware money formatter; follows the active business currency. */
+export const money = (n: number) => formatMoney(Math.round(n * 100) / 100);
 
 export const normalizeCurrency = (value: unknown): CurrencyCode =>
   isCurrencyCode(value) ? value : DEFAULT_CURRENCY;
@@ -201,10 +201,10 @@ export const receiptMessage = (c: Customer, t: Txn, p: BusinessProfile) => {
     `RECEIPT ${t.reference ?? ""}`.trim(),
     fmtDateLong(t.date),
     `Customer: ${c.name}`,
-    `${txnLabel(t)}: ${naira(t.amount)}`,
+    `${txnLabel(t)}: ${money(t.amount)}`,
     t.note ? `Note: ${t.note}` : "",
     t.term?.dueDate ? `Payment due: ${fmtDateLong(t.term.dueDate)}` : "",
-    `Balance after: ${naira(balanceOf(c))}`,
+    `Balance after: ${money(balanceOf(c))}`,
   ].filter(Boolean);
   const footer = profileFooter(p);
   if (footer) lines.push(``, footer);
@@ -215,7 +215,7 @@ export const statementMessage = (c: Customer, p: BusinessProfile) => {
   const biz = p.name || APP_NAME;
   const rows = c.txns.map(
     (t) =>
-      `${fmtDate(t.date)}  ${t.type === "sale" ? "+" : "−"}${naira(t.amount)}${
+      `${fmtDate(t.date)}  ${t.type === "sale" ? "+" : "−"}${money(t.amount)}${
         t.note ? `  (${t.note})` : ""
       }`,
   );
@@ -225,7 +225,7 @@ export const statementMessage = (c: Customer, p: BusinessProfile) => {
     ``,
     ...(rows.length ? rows : ["No transactions yet."]),
     ``,
-    `Balance: ${naira(balanceOf(c))}`,
+    `Balance: ${money(balanceOf(c))}`,
   ];
   const footer = profileFooter(p);
   if (footer) lines.push(``, footer);
