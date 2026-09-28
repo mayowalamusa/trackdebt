@@ -229,6 +229,5 @@ export const statementMessage = (c: Customer, p: BusinessProfile) => {
   ];
   const footer = profileFooter(p);
   if (footer) lines.push(``, footer);
-  return lines.join("
-");
+  return lines.join("\n");
 };
