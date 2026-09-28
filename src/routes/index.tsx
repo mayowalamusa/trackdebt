@@ -475,18 +475,25 @@ function DebtTracker() {
   // Keep account-dependent UI in sync with Supabase auth.
   // This controls the dashboard account banner and Settings status.
   const [authUser, setAuthUser] = useState<{ email?: string | null } | null>(null);
+  const [authResolved, setAuthResolved] = useState(false);
   useEffect(() => {
     if (!supabase) {
       setAuthUser(null);
+      setAuthResolved(true);
       return;
     }
     const client = supabase;
     let active = true;
     void client.auth.getSession().then(({ data }) => {
-      if (active) setAuthUser(data.session?.user ?? null);
+      if (!active) return;
+      setAuthUser(data.session?.user ?? null);
+      setAuthResolved(true);
     });
     const { data: listener } = client.auth.onAuthStateChange((_event, session) => {
-      if (active) setAuthUser(session?.user ?? null);
+      if (active) {
+        setAuthUser(session?.user ?? null);
+        setAuthResolved(true);
+      }
     });
     return () => {
       active = false;
@@ -1247,7 +1254,7 @@ function DebtTracker() {
                 </div>
               </div>
 
-              {!authUser && (
+              {authResolved && !authUser && (
                 <button
                   type="button"
                   onClick={() => go("account")}
@@ -1929,8 +1936,8 @@ function DebtTracker() {
             <SettingsRow
               icon={<ShieldCheck size={17} />}
               label="Track Debt Account"
-              value={authUser ? "Logged in" : "Create account"}
-              tone={authUser ? "paid" : undefined}
+              value={authResolved ? (authUser ? "Logged in" : "Create account") : "Checking…"}
+              tone={authResolved && authUser ? "paid" : undefined}
               onClick={() => go("account")}
             />
 
