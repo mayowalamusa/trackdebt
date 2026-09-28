@@ -1,7 +1,7 @@
 {
   "name": "Track Debt",
   "short_name": "Track Debt",
-  "description": "Track customer credit sales, send payment reminders and manage outstanding balances.",
+  "description": "Track customer credit sales, payments, due dates and outstanding balances across supported currencies.",
   "start_url": "/",
   "id": "/",
   "display": "standalone",
