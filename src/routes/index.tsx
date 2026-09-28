@@ -751,8 +751,9 @@ function DebtTracker() {
               type: txnType,
               amount: amt,
               currency: t.currency ?? profile.currency,
-              originalAmount: t.originalAmount ?? t.amount,
-              originalCurrency: t.originalCurrency ?? t.currency ?? profile.currency,
+              // Editing an entry means the new amount is entered in the current business currency.
+              originalAmount: amt,
+              originalCurrency: profile.currency,
               note: form.note.trim(),
               ...(txnType === "sale" ? { reference: t.reference ?? issueReceiptReference() } : {}),
             };
@@ -821,18 +822,51 @@ function DebtTracker() {
     }
 
     const targetCurrency = patch.currency;
-    const sourceCurrency = profile.currency;
     const run = async () => {
       try {
-        const { rate } = await getExchangeRate(sourceCurrency, targetCurrency);
+        // Keep each transaction's original amount/currency as the source of truth.
+        // This prevents FX drift when the business switches currencies more than once.
+        const currentCustomers = customers;
+        const sourceCurrencies = Array.from(
+          new Set(
+            currentCustomers.flatMap((customer) =>
+              customer.txns.map((txn) => txn.originalCurrency ?? txn.currency ?? profile.currency),
+            ),
+          ),
+        );
+
+        const rates = new Map<string, number>();
+        await Promise.all(
+          sourceCurrencies.map(async (sourceCurrency) => {
+            if (sourceCurrency === targetCurrency) {
+              rates.set(sourceCurrency, 1);
+              return;
+            }
+            const { rate } = await getExchangeRate(sourceCurrency, targetCurrency);
+            rates.set(sourceCurrency, rate);
+          }),
+        );
+
         setCustomers((current) =>
           current.map((customer) => ({
             ...customer,
-            txns: customer.txns.map((txn) => ({
-              ...txn,
-              amount: Math.round(txn.amount * rate * 100) / 100,
-              currency: targetCurrency,
-            })),
+            txns: customer.txns.map((txn) => {
+              const originalCurrency = txn.originalCurrency ?? txn.currency ?? profile.currency;
+              const originalAmount = txn.originalAmount ?? txn.amount;
+              const rate = rates.get(originalCurrency);
+
+              if (rate == null) {
+                throw new Error(`Missing exchange rate for ${originalCurrency} to ${targetCurrency}`);
+              }
+
+              return {
+                ...txn,
+                amount: Math.round(originalAmount * rate * 100) / 100,
+                currency: targetCurrency,
+                originalAmount,
+                originalCurrency,
+              };
+            }),
           })),
         );
         setProfile((p) => ({ ...p, ...patch }));
