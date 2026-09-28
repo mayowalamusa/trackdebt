@@ -86,7 +86,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "Track Debt helps Nigerian business owners track customer credit sales, send WhatsApp payment reminders and manage outstanding balances.",
+          "Track Debt helps small businesses track customer credit sales, payments, due dates and outstanding balances, with payment reminders and support for multiple currencies.",
       },
       { name: "application-name", content: "Track Debt" },
       { name: "apple-mobile-web-app-title", content: "Track Debt" },
@@ -96,14 +96,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "theme-color", content: "#be2323" },
       { property: "og:type", content: "website" },
       { property: "og:site_name", content: "Track Debt" },
-      { property: "og:title", content: "Track Debt" },
+      { property: "og:title", content: "Track Debt — Customer Credit Ledger for Small Businesses" },
       {
         property: "og:description",
-        content: "Never lose money to customer credit again.",
+        content: "Track credit sales, payments, due dates and customer balances in one simple app."
       },
       { property: "og:image", content: `${import.meta.env.BASE_URL}icons/icon-512.png` },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "Track Debt" },
+      { name: "twitter:title", content: "Track Debt — Customer Credit Ledger for Small Businesses" },
     ],
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
