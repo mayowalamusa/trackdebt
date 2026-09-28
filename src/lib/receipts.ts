@@ -2,7 +2,7 @@ import trackDebtLogo from "@/assets/track-debt-logo.png.asset.json";
 import {
   balanceOf,
   fmtDateLong,
-  naira,
+  money,
   todayISO,
   type BusinessProfile,
   type Customer,
@@ -63,20 +63,20 @@ export function receiptSummary(
       `Date: ${fmtDateLong(t.date)}`,
       `Customer: ${c.name}${c.phone ? ` (${c.phone})` : ""}`,
       t.note ? `Description: ${t.note}` : "",
-      kind === "payment" ? `Amount paid: ${naira(t.amount)}` : `Amount: ${naira(t.amount)}`,
+      kind === "payment" ? `Amount paid: ${money(t.amount)}` : `Amount: ${money(t.amount)}`,
       t.term?.dueDate ? `Payment due: ${fmtDateLong(t.term.dueDate)}` : "",
     );
   } else {
     lines.push(`Customer: ${c.name}${c.phone ? ` (${c.phone})` : ""}`, "");
     for (const x of c.txns) {
       lines.push(
-        `${fmtDateLong(x.date)}  ${x.type === "sale" ? "+" : "−"}${naira(x.amount)}${x.note ? `  (${x.note})` : ""}`,
+        `${fmtDateLong(x.date)}  ${x.type === "sale" ? "+" : "−"}${money(x.amount)}${x.note ? `  (${x.note})` : ""}`,
       );
     }
   }
   lines.push(
     "",
-    `Outstanding balance: ${naira(Math.max(balanceOf(c), 0))}`,
+    `Outstanding balance: ${money(Math.max(balanceOf(c), 0))}`,
     `Status: ${dueInfoOf(c).label}`,
     `Generated: ${fmtDateLong(todayISO())} · ${APP_NAME}`,
   );
@@ -222,7 +222,7 @@ async function buildReceiptPdf(
         y,
         { maxWidth: W - M - 90 - 110 },
       );
-      doc.text(`${x.type === "sale" ? "+" : "-"}${naira(x.amount)}`, W - M, y, {
+      doc.text(`${x.type === "sale" ? "+" : "-"}${money(x.amount)}`, W - M, y, {
         align: "right",
       });
       y += 15;
@@ -242,7 +242,7 @@ async function buildReceiptPdf(
       .setFont("helvetica", "bold")
       .setFontSize(11)
       .setTextColor(...INK);
-    doc.text(naira(Math.max(running, 0)), W - M, y, { align: "right" });
+    doc.text(money(Math.max(running, 0)), W - M, y, { align: "right" });
     y += 24;
   } else {
     const amountLabel = kind === "payment" ? "Amount paid" : "Original amount";
@@ -263,9 +263,9 @@ async function buildReceiptPdf(
       y += bold ? 24 : 17;
     };
 
-    money(amountLabel, naira(amount));
-    if (kind === "sale") money("Amount paid", naira(paid));
-    money("Remaining balance", naira(bal), true);
+    money(amountLabel, money(amount));
+    if (kind === "sale") money("Amount paid", money(paid));
+    money("Remaining balance", money(bal), true);
   }
 
   /* ---- status block ---- */
@@ -296,7 +296,7 @@ async function buildReceiptPdf(
 
   if (kind !== "statement") {
     doc.setFontSize(9).setTextColor(...SOFT);
-    doc.text(`Outstanding balance: ${naira(bal)}`, M, y);
+    doc.text(`Outstanding balance: ${money(bal)}`, M, y);
     y += 20;
   }
 
