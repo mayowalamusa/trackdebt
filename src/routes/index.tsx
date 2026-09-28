@@ -2239,36 +2239,66 @@ function DebtTracker() {
               }}
             />
 
-            {screen === "addCustomer" && "contacts" in navigator && (
+            {screen === "addCustomer" && (
               <button
                 type="button"
                 onClick={async () => {
                   try {
-                    // Web Contact Picker API — works on Android Chrome + iOS Safari.
-                    // Prompts the user's native contact picker; no special app
-                    // permission beyond the OS prompt is required.
-                    const contacts = await (
-                      navigator as unknown as {
-                        contacts: {
-                          select: (
-                            props: string[],
-                            opts: { multiple: boolean }
-                          ) => Promise<Array<{ name?: string[]; tel?: string[] }>>;
-                        };
-                      }
-                    ).contacts.select(["name", "tel"], { multiple: false });
-                    if (!contacts?.length) return;
-                    const contact = contacts[0];
+                    type ContactPickerNavigator = Navigator & {
+                      contacts?: {
+                        select: (
+                          properties: string[],
+                          options?: { multiple?: boolean },
+                        ) => Promise<Array<{ name?: string[]; tel?: string[] }>>;
+                      };
+                    };
+
+                    const contactNavigator = navigator as ContactPickerNavigator;
+                    const selectContacts = contactNavigator.contacts?.select;
+
+                    if (!window.isSecureContext || !selectContacts) {
+                      const inPreview =
+                        window.self !== window.top;
+
+                      toast.error(
+                        inPreview
+                          ? "Contact import is not available inside the Lovable preview. Open Track Debt directly in Chrome on Android to use it."
+                          : "Contact import is not supported by this browser. Try Chrome on Android or enter the details manually.",
+                      );
+                      return;
+                    }
+
+                    const contacts = await selectContacts.call(
+                      contactNavigator.contacts,
+                      ["name", "tel"],
+                      { multiple: false },
+                    );
+
+                    const contact = contacts?.[0];
                     if (!contact) return;
-                    const name = contact.name?.[0]?.trim() ?? "";
-                    const phone = contact.tel?.[0]?.replace(/\s+/g, "").trim() ?? "";
-                    setForm((f) => ({
-                      ...f,
-                      name: name || f.name,
-                      phone: phone ? normalizeForStorage(phone) : f.phone,
+
+                    const name = contact.name?.find(Boolean)?.trim() ?? "";
+                    const phone = contact.tel?.find(Boolean)?.trim() ?? "";
+
+                    setForm((current) => ({
+                      ...current,
+                      name: name || current.name,
+                      phone: phone
+                        ? normalizeForStorage(phone)
+                        : current.phone,
                     }));
-                  } catch {
-                    toast.error("Could not open contacts. Try entering details manually.");
+                  } catch (error) {
+                    // Closing the native picker is not an error.
+                    if (
+                      error instanceof DOMException &&
+                      (error.name === "AbortError" || error.name === "NotAllowedError")
+                    ) {
+                      return;
+                    }
+
+                    toast.error(
+                      "Could not open contacts. Try entering the details manually.",
+                    );
                   }
                 }}
                 className="w-full flex items-center justify-center gap-2 rounded border border-line bg-paper-raised py-2.5 text-sm font-semibold text-ink mb-5 transition-transform active:scale-[0.99]"
