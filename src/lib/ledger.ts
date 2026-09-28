@@ -30,6 +30,12 @@ export type Txn = {
   term?: PaymentTerm;
   /** receipt / invoice reference, e.g. TD-2026-000001 */
   reference?: string;
+  /** Currency used for the currently displayed/operating amount. */
+  currency?: CurrencyCode;
+  /** Immutable source amount used to prevent FX drift when switching currencies. */
+  originalAmount?: number;
+  /** Immutable source currency paired with originalAmount. */
+  originalCurrency?: CurrencyCode;
 };
 
 export type Customer = {
@@ -52,6 +58,8 @@ export type BusinessProfile = {
   bankName: string;
   accountNumber: string;
   accountName: string;
+  /** Operating/display currency for this business. */
+  currency: CurrencyCode;
 };
 
 export const emptyProfile: BusinessProfile = {
@@ -64,6 +72,7 @@ export const emptyProfile: BusinessProfile = {
   bankName: "",
   accountNumber: "",
   accountName: "",
+  currency: DEFAULT_CURRENCY,
 };
 
 export const BUSINESS_CATEGORIES = [
