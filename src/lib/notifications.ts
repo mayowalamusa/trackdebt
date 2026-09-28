@@ -29,7 +29,7 @@ import {
   setMinutes,
   startOfDay,
 } from "date-fns";
-import { balanceOf, naira, type BusinessProfile, type Customer } from "./ledger";
+import { balanceOf, money, type BusinessProfile, type Customer } from "./ledger";
 import { openSales } from "./due-dates";
 
 const ICON = "/icons/icon-192.png";
@@ -372,7 +372,7 @@ export async function scheduleDebtReminders(
   for (const { txn, outstanding } of openDebts) {
     if (!txn.term?.dueDate) continue;
     const dueDate = parseISO(txn.term.dueDate);
-    const amountStr = naira(outstanding);
+    const amountStr = money(outstanding);
 
     const addReminder = (
       date: Date,
