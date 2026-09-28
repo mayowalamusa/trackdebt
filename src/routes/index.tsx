@@ -50,7 +50,7 @@ import {
   balanceOf,
   fmtDate,
   lastActivity,
-  naira,
+  money,
   paymentDetailsLine,
   receiptMessage,
   statementMessage,
@@ -91,7 +91,7 @@ import { paymentService, stateLabel, planLabel } from "@/lib/subscription";
 import { currentSession } from "@/lib/subscription-api";
 import { supabase } from "@/lib/supabase";
 import { DEVELOPER, SUPPORT_EMAIL, WEBSITE_URL } from "@/lib/app-config";
-import { SUPPORTED_CURRENCIES } from "@/lib/currency/currencies";
+import { SUPPORTED_CURRENCIES, getCurrency } from "@/lib/currency/currencies";
 import { getExchangeRate } from "@/lib/currency/rates";
 import { track } from "@/lib/analytics";
 import {
@@ -242,7 +242,7 @@ const CustomerItem = memo(function CustomerItem({
           bal > 0 ? "text-debt" : bal < 0 ? "text-paid" : "text-ink-soft"
         }`}
       >
-        {bal === 0 ? "settled" : naira(Math.abs(bal))}
+        {bal === 0 ? "settled" : money(Math.abs(bal))}
       </span>
     </button>
   );
@@ -292,7 +292,7 @@ function DebouncedInput({
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Track Debt — Customer Credit Ledger in Naira" },
+      { title: "Track Debt — Customer Credit Ledger for Small Businesses" },
       {
         name: "description",
         content:
@@ -1272,7 +1272,7 @@ function DebtTracker() {
                 OUTSTANDING BALANCE
               </p>
               <p className="mono text-[2.6rem] leading-none font-bold text-debt mt-2">
-                {naira(stats.outstanding)}
+                {money(stats.outstanding)}
               </p>
 
               <div className="grid grid-cols-3 gap-2 mt-6">
@@ -1302,13 +1302,13 @@ function DebtTracker() {
                 <Stat
                   icon={<TrendingUp size={13} />}
                   label="Collected (mo.)"
-                  value={naira(stats.collections)}
+                  value={money(stats.collections)}
                   tone="paid"
                 />
                 <Stat
                   icon={<TrendingDown size={13} />}
                   label="Credit sales (mo.)"
-                  value={naira(stats.creditSales)}
+                  value={money(stats.creditSales)}
                   tone="debt"
                 />
               </div>
@@ -1615,7 +1615,7 @@ function DebtTracker() {
                 ))}
               </select>
               <p className="text-[11px] text-ink-soft mt-1.5 leading-relaxed">
-                Existing amounts will be converted using the latest available daily reference rate.
+                Existing amounts will be converted using the latest available daily reference rate when you change the business currency.
               </p>
             </Field>
 
@@ -2039,8 +2039,7 @@ function DebtTracker() {
             <ScreenHeader title="Backup & Restore" onClose={() => go("settings")} />
 
             <p className="text-[13px] leading-relaxed text-ink-soft mb-5">
-              Your Track Debt data is stored on this device. Back up your data regularly so you can
-              restore it if you change devices or lose app data.
+              Visitor data is stored on this device. Registered accounts can sync business records to the cloud. You can also export a backup for safekeeping.
             </p>
 
             <div className="rounded border border-line bg-paper-raised px-4 py-3 mb-5">
@@ -2334,7 +2333,7 @@ function DebtTracker() {
                 initialValue={form.notes}
                 onBlur={(val) => setForm({ ...form, notes: val.trim() })}
                 rows={3}
-                placeholder="e.g. Pays every Friday · Don't exceed ₦30,000"
+                placeholder="e.g. Pays every Friday · Don't exceed 30,000"
                 className="input-field w-full rounded px-3 py-2.5 text-sm resize-none"
               />
             </Field>
@@ -2441,7 +2440,7 @@ function DebtTracker() {
               </div>
             )}
 
-            <Field label="AMOUNT (₦)">
+            <Field label={`AMOUNT (${getCurrency(profile.currency).symbol})`}>
               <LocalInput
                 initialValue={form.amount}
                 onBlur={(val) => setForm({ ...form, amount: val })}
@@ -2499,7 +2498,7 @@ function DebtTracker() {
             )}
 
             <p className="text-[11px] text-ink-soft mb-5">
-              Current balance {naira(Math.max(balanceOf(selected), 0))} · balances recalculate
+              Current balance {money(Math.max(balanceOf(selected), 0))} · balances recalculate
               automatically.
             </p>
 
@@ -2592,7 +2591,7 @@ function DebtTracker() {
                     balanceOf(selected) > 0 ? "text-debt" : "text-paid"
                   }`}
                 >
-                  {naira(Math.abs(balanceOf(selected)))}
+                  {money(Math.abs(balanceOf(selected)))}
                 </p>
                 <p className="text-[11px] text-ink-soft mt-1.5">
                   {balanceOf(selected) > 0 ? "owed to you" : "settled"}
@@ -2760,7 +2759,7 @@ function DebtTracker() {
                       }`}
                     >
                       {t.type === "sale" ? "+" : "−"}
-                      {naira(t.amount)}
+                      {money(t.amount)}
                     </p>
                     <button
                       onClick={() => openEditTxn(t)}
@@ -2794,7 +2793,7 @@ function DebtTracker() {
                 <DueBadge info={dueInfoOf(selected)} />
               </div>
               <p className="mono text-xl font-bold text-debt mt-1.5">
-                {naira(Math.max(balanceOf(selected), 0))}
+                {money(Math.max(balanceOf(selected), 0))}
               </p>
               <p className="text-[11px] text-ink-soft mt-0.5">{dueDateLong(selected)}</p>
             </div>
@@ -2861,7 +2860,7 @@ function DebtTracker() {
               <Mic size={40} />
             </div>
             <h3 className="text-xl font-bold mb-2">Listening...</h3>
-            <p className="text-center text-paper-raised/60">Say something like: "Add a new customer named Chidi" or "Record a sale of 5000 naira for Amaka."</p>
+            <p className="text-center text-paper-raised/60">Say something like: "Add a new customer named Chidi" or "Record a sale of 5000 money for Amaka."</p>
             <button
               onClick={() => setVoiceOverlay(false)}
               className="mt-12 text-sm font-semibold underline opacity-70"
@@ -2895,7 +2894,7 @@ function DebtTracker() {
                   <>
                     <div className="flex justify-between border-b border-line pb-2">
                       <span className="text-[11px] font-bold text-ink-soft uppercase">Amount</span>
-                      <span className="font-bold text-debt">{naira(voiceReview.data.amount)}</span>
+                      <span className="font-bold text-debt">{money(voiceReview.data.amount)}</span>
                     </div>
                     <div className="flex justify-between border-b border-line pb-2">
                       <span className="text-[11px] font-bold text-ink-soft uppercase">Note</span>
