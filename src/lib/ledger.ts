@@ -88,7 +88,11 @@ export const BUSINESS_CATEGORIES = [
   "Other",
 ];
 
-/** Backwards-compatible money formatter; it now follows the active business currency. */\nexport const naira = (n: number) => formatMoney(Math.round(n * 100) / 100);\n\nexport const normalizeCurrency = (value: unknown): CurrencyCode =>\n  isCurrencyCode(value) ? value : DEFAULT_CURRENCY;
+/** Backwards-compatible money formatter; it now follows the active business currency. */
+export const naira = (n: number) => formatMoney(Math.round(n * 100) / 100);
+
+export const normalizeCurrency = (value: unknown): CurrencyCode =>
+  isCurrencyCode(value) ? value : DEFAULT_CURRENCY;
 
 /** True local calendar date as YYYY-MM-DD.
  *
@@ -204,7 +208,8 @@ export const receiptMessage = (c: Customer, t: Txn, p: BusinessProfile) => {
   ].filter(Boolean);
   const footer = profileFooter(p);
   if (footer) lines.push(``, footer);
-  return lines.join("\n");
+  return lines.join("
+");
 };
 
 export const statementMessage = (c: Customer, p: BusinessProfile) => {
@@ -225,5 +230,6 @@ export const statementMessage = (c: Customer, p: BusinessProfile) => {
   ];
   const footer = profileFooter(p);
   if (footer) lines.push(``, footer);
-  return lines.join("\n");
+  return lines.join("
+");
 };
