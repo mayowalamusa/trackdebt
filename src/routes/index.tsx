@@ -298,7 +298,7 @@ export const Route = createFileRoute("/")({
         content:
           "Record credit sales and payments, track who owes you, filter overdue customers and send WhatsApp reminders and receipts.",
       },
-      { property: "og:title", content: "Track Debt — Customer Credit Ledger in Naira" },
+      { property: "og:title", content: "Track Debt — Customer Credit Ledger for Small Businesses" },
       {
         property: "og:description",
         content:
