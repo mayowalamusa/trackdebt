@@ -65,16 +65,33 @@ export type BrandInput = {
 
 export const saveBrand = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: BrandInput) => input)
+  .inputValidator((input: BrandInput) => ({
+    id: input.id ?? null,
+    app_name: input.app_name,
+    logo_url: input.logo_url ?? null,
+    support_email: input.support_email ?? null,
+    website_url: input.website_url ?? null,
+    developer: input.developer ?? null,
+    description: input.description ?? null,
+    theme_color: input.theme_color ?? null,
+  }))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
-    const payload = { ...data, is_active: true };
+    const payload = {
+      app_name: data.app_name,
+      logo_url: data.logo_url,
+      support_email: data.support_email,
+      website_url: data.website_url,
+      developer: data.developer,
+      description: data.description,
+      theme_color: data.theme_color,
+      is_active: true,
+    };
     if (data.id) {
       const { error } = await context.supabase.from("app_config").update(payload).eq("id", data.id);
       if (error) throw new Error(error.message);
     } else {
-      const { id: _ignored, ...insert } = payload;
-      const { error } = await context.supabase.from("app_config").insert(insert);
+      const { error } = await context.supabase.from("app_config").insert(payload);
       if (error) throw new Error(error.message);
     }
     return { ok: true };
@@ -103,13 +120,27 @@ export type PromoInput = {
 
 export const savePromoCode = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: PromoInput) => input)
+  .inputValidator((input: PromoInput) => ({
+    id: input.id ?? null,
+    code: input.code,
+    plan: input.plan,
+    days: input.days,
+    max_uses: input.max_uses ?? null,
+    expires_at: input.expires_at ?? null,
+    is_active: input.is_active,
+  }))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
-    const { id, ...rest } = data;
-    const payload = { ...rest, code: rest.code.trim().toUpperCase() };
-    if (id) {
-      const { error } = await context.supabase.from("promo_codes").update(payload).eq("id", id);
+    const payload = {
+      code: data.code.trim().toUpperCase(),
+      plan: data.plan,
+      days: data.days,
+      max_uses: data.max_uses,
+      expires_at: data.expires_at,
+      is_active: data.is_active,
+    };
+    if (data.id) {
+      const { error } = await context.supabase.from("promo_codes").update(payload).eq("id", data.id);
       if (error) throw new Error(error.message);
     } else {
       const { error } = await context.supabase.from("promo_codes").insert(payload);
@@ -151,12 +182,27 @@ export type AnnouncementInput = {
 
 export const saveAnnouncement = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: AnnouncementInput) => input)
+  .inputValidator((input: AnnouncementInput) => ({
+    id: input.id ?? null,
+    message: input.message,
+    link: input.link ?? null,
+    priority: input.priority,
+    starts_at: input.starts_at ?? null,
+    ends_at: input.ends_at ?? null,
+    is_active: input.is_active,
+  }))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
-    const { id, ...payload } = data;
-    if (id) {
-      const { error } = await context.supabase.from("announcements").update(payload).eq("id", id);
+    const payload = {
+      message: data.message,
+      link: data.link,
+      priority: data.priority,
+      starts_at: data.starts_at,
+      ends_at: data.ends_at,
+      is_active: data.is_active,
+    };
+    if (data.id) {
+      const { error } = await context.supabase.from("announcements").update(payload).eq("id", data.id);
       if (error) throw new Error(error.message);
     } else {
       const { error } = await context.supabase.from("announcements").insert(payload);
