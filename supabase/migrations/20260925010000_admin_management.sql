@@ -34,13 +34,24 @@ CREATE TABLE IF NOT EXISTS public.app_feature_flags (
   description text,
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+-- Only the registration flag is read directly by the public client.
+-- Admin management reads/writes flags through the service-role client.
 GRANT SELECT ON public.app_feature_flags TO anon, authenticated;
 GRANT ALL ON public.app_feature_flags TO service_role;
 ALTER TABLE public.app_feature_flags ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public can read feature flags" ON public.app_feature_flags;
-CREATE POLICY "Public can read feature flags" ON public.app_feature_flags FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "Public can read registration feature flag"
+  ON public.app_feature_flags
+  FOR SELECT
+  TO anon, authenticated
+  USING (key = 'registration');
 DROP POLICY IF EXISTS "Admins can manage feature flags" ON public.app_feature_flags;
-CREATE POLICY "Admins can manage feature flags" ON public.app_feature_flags FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin')) WITH CHECK (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins can manage feature flags"
+  ON public.app_feature_flags
+  FOR ALL
+  TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'))
+  WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
 INSERT INTO public.app_feature_flags (key, enabled, label, description) VALUES
   ('registration', false, 'New registrations', 'Allow new users to create Track Debt accounts.'),
