@@ -472,6 +472,28 @@ function DebtTracker() {
   const [customers, setCustomers, customersLoaded] = usePersistentCustomers();
   const loaded = profileLoaded && customersLoaded;
 
+  // Keep account-dependent UI in sync with Supabase auth.
+  // This controls the dashboard account banner and Settings status.
+  const [authUser, setAuthUser] = useState<{ email?: string | null } | null>(null);
+  useEffect(() => {
+    if (!supabase) {
+      setAuthUser(null);
+      return;
+    }
+    const client = supabase;
+    let active = true;
+    void client.auth.getSession().then(({ data }) => {
+      if (active) setAuthUser(data.session?.user ?? null);
+    });
+    const { data: listener } = client.auth.onAuthStateChange((_event, session) => {
+      if (active) setAuthUser(session?.user ?? null);
+    });
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
   const [screen, setScreen] = useState<Screen>("list");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingTxnId, setEditingTxnId] = useState<string | null>(null);
@@ -1225,17 +1247,19 @@ function DebtTracker() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => go("account")}
-                className="mt-5 w-full rounded-lg border border-line bg-paper px-3 py-3 text-left flex items-center justify-between"
-              >
-                <span>
-                  <span className="block text-sm font-semibold">Create a free account</span>
-                  <span className="block text-[11px] text-ink-soft mt-0.5">Back up your records and access them across devices.</span>
-                </span>
-                <ChevronRight size={16} className="text-ink-soft shrink-0" />
-              </button>
+              {!authUser && (
+                <button
+                  type="button"
+                  onClick={() => go("account")}
+                  className="mt-5 w-full rounded-lg border border-line bg-paper px-3 py-3 text-left flex items-center justify-between"
+                >
+                  <span>
+                    <span className="block text-sm font-semibold">Create a free account</span>
+                    <span className="block text-[11px] text-ink-soft mt-0.5">Back up your records and access them across devices.</span>
+                  </span>
+                  <ChevronRight size={16} className="text-ink-soft shrink-0" />
+                </button>
+              )}
 
               <p className="mono text-[10px] tracking-[0.2em] text-ink-soft mt-6">
                 OUTSTANDING BALANCE
@@ -1905,7 +1929,8 @@ function DebtTracker() {
             <SettingsRow
               icon={<ShieldCheck size={17} />}
               label="Track Debt Account"
-              value="Create or sign in"
+              value={authUser ? "Logged in" : "Create account"}
+              tone={authUser ? "paid" : undefined}
               onClick={() => go("account")}
             />
 
