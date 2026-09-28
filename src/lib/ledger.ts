@@ -208,8 +208,7 @@ export const receiptMessage = (c: Customer, t: Txn, p: BusinessProfile) => {
   ].filter(Boolean);
   const footer = profileFooter(p);
   if (footer) lines.push(``, footer);
-  return lines.join("
-");
+  return lines.join("\n");
 };
 
 export const statementMessage = (c: Customer, p: BusinessProfile) => {
