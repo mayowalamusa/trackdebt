@@ -2110,13 +2110,7 @@ function DebtTracker() {
             <div className="flex flex-col items-center text-center mb-7">
               <div className="h-16 w-16 rounded-[16px] bg-debt grid place-items-center shadow-sm">
                 <svg viewBox="0 0 512 512" className="h-9 w-9" aria-hidden="true">
-                  <path
-                    d="M 110,300 A 146,146 0 0 1 402,300"
-                    fill="none"
-                    stroke="#ffffff"
-                    strokeWidth="30"
-                    strokeLinecap="round"
-                  />
+                  <path d="M 110,300 A 146,146 0 0 1 402,300" fill="none" stroke="#ffffff" strokeWidth="30" strokeLinecap="round" />
                   <path d="M 241,304 L 256,176 L 271,304 Z" fill="#ffffff" />
                   <circle cx="256" cy="304" r="20" fill="#ffffff" />
                   <rect x="196" y="330" width="120" height="32" rx="16" fill="#ffffff" />
@@ -2126,11 +2120,17 @@ function DebtTracker() {
               </div>
               <p className="mt-3 text-lg font-bold">{APP_NAME}</p>
               <p className="mono text-[11px] text-ink-soft mt-0.5">Version {APP_VERSION}</p>
-              <p className="mt-4 text-sm text-ink-soft leading-relaxed max-w-[300px]">
-                Track Debt helps Nigerian business owners track customer credit sales, send WhatsApp
-                payment reminders and manage outstanding balances — right from their phone, fully
-                offline.
+              <p className="mt-4 text-sm text-ink-soft leading-relaxed max-w-[320px]">
+                Track Debt is a simple credit-sales and customer debt management tool for small businesses.
+                Record credit sales and payments, monitor outstanding balances, set due dates, prepare
+                payment reminders and keep business records organised in one place.
               </p>
+            </div>
+
+            <div className="space-y-3 text-[13px] leading-relaxed text-ink-soft mb-6">
+              <p><strong className="text-ink">Local or cloud storage.</strong> Visitors can use Track Debt locally on their device. Registered users can move their records to a Track Debt account and sync them across supported devices.</p>
+              <p><strong className="text-ink">Multiple currencies.</strong> Business records can be managed in supported currencies including NGN, GHS, KES, TZS, UGX, ZMW and RWF. Currency conversion uses daily reference rates when a business changes its operating currency.</p>
+              <p><strong className="text-ink">Built for practical business use.</strong> Track Debt does not lend money or collect debts on your behalf. It gives you tools to keep clearer records and communicate with your customers.</p>
             </div>
 
             <p className="mono text-[10px] tracking-widest text-ink-soft pb-2">DEVELOPER</p>
@@ -2149,85 +2149,70 @@ function DebtTracker() {
           </div>
         )}
 
-        {/* ===== PRIVACY POLICY ===== */}
         {screen === "privacy" && (
           <div className="p-5 animate-in fade-in slide-in-from-right-2 duration-200">
             <ScreenHeader title="Privacy Policy" onClose={() => go("settings")} />
             <div className="space-y-4 text-[13px] leading-relaxed text-ink-soft pb-8">
-              <p>
-                {APP_NAME} is built around a simple principle: your business data belongs to you.
-              </p>
-              <p>
-                <strong className="text-ink">Local storage.</strong> Your business profile,
-                customers, transactions and reminder history are stored only on this device. None of
-                it is uploaded to a server or shared with third parties by default.
-              </p>
-              <p>
-                <strong className="text-ink">AI reminders.</strong> When you use "Generate with AI,"
-                a limited set of details for that one message — customer name, amounts, due date and
-                payment status — is sent to our AI provider solely to draft the message text. Phone
-                numbers are never included in that request.
-              </p>
-              <p>
-                <strong className="text-ink">WhatsApp.</strong> Sending a reminder or receipt opens
-                WhatsApp with a pre-filled message. {APP_NAME} does not have access to your WhatsApp
-                account and cannot confirm whether a message was actually delivered.
-              </p>
-              <p>
-                <strong className="text-ink">Track Debt Pro.</strong> If you subscribe, payment
-                processing is handled by our billing provider (e.g. Google Play or Paystack) —
-                {" " + APP_NAME} never sees or stores your card details.
-              </p>
-              <p>
-                <strong className="text-ink">Your control.</strong> Uninstalling the app or clearing
-                its storage permanently deletes your local data. We recommend keeping your own
-                backups of anything important.
-              </p>
-              <p>Questions about this policy can be sent to {SUPPORT_EMAIL}.</p>
+              <p><strong className="text-ink">Last updated:</strong> 28 September 2026</p>
+              <p>{APP_NAME} is provided by {DEVELOPER}. We respect your privacy and aim to collect only information needed to provide, secure and improve the service.</p>
+
+              <p><strong className="text-ink">Information you provide.</strong> Depending on how you use Track Debt, this may include your email address and account credentials, business profile details, customer names and phone numbers, transaction records, payment reminders, notification preferences and subscription information.</p>
+
+              <p><strong className="text-ink">Visitor and registered accounts.</strong> If you use Track Debt without an account, your business records are stored locally on your device. If you create an account, your records can be moved to cloud storage so they can sync across supported devices. Track Debt shows a migration prompt before local business records are transferred or wiped.</p>
+
+              <p><strong className="text-ink">Why we process data.</strong> We use account and business data to provide the ledger, cloud sync, backups, reminders, receipts, account management, support, security, analytics and subscription features you choose to use.</p>
+
+              <p><strong className="text-ink">AI reminders.</strong> When you request an AI-generated reminder, limited information needed to draft that message may be sent to the AI service used by Track Debt. Phone numbers are not required for that request. You should review AI-generated text before sending it.</p>
+
+              <p><strong className="text-ink">Currency conversion.</strong> When you change the operating currency, Track Debt requests a currency-pair exchange rate from its exchange-rate provider. The request contains currency information needed for the rate lookup, not your customer records.</p>
+
+              <p><strong className="text-ink">Contacts.</strong> If you choose Import from Contacts and your browser supports contact selection, Track Debt uses the contact you select to fill the customer form. Track Debt does not need access to your entire contact list.</p>
+
+              <p><strong className="text-ink">WhatsApp.</strong> When you choose to send a reminder or receipt, Track Debt opens WhatsApp with a prepared message. Track Debt does not control your WhatsApp account or confirm delivery.</p>
+
+              <p><strong className="text-ink">Payments and advertising.</strong> When paid features are enabled, payment processing is handled by the payment provider shown at checkout. Track Debt does not store your full card details. Free users may see advertising from advertising partners, which may use cookies or similar technologies according to their own policies.</p>
+
+              <p><strong className="text-ink">Security and retention.</strong> We use reasonable technical measures and access controls to protect account data. You are also responsible for protecting your device, password and exported backups. Account deletion and restoration periods are described in the account controls available in Track Debt.</p>
+
+              <p><strong className="text-ink">Your choices.</strong> You can use Track Debt locally without registering, create or sign in to an account, export local backups, and request account support through {SUPPORT_EMAIL}. You may also request help with your personal data where applicable under relevant data-protection law.</p>
+
+              <p>Questions or privacy requests can be sent to {SUPPORT_EMAIL}.</p>
             </div>
           </div>
         )}
 
-        {/* ===== TERMS OF USE ===== */}
         {screen === "terms" && (
           <div className="p-5 animate-in fade-in slide-in-from-right-2 duration-200">
             <ScreenHeader title="Terms of Use" onClose={() => go("settings")} />
             <div className="space-y-4 text-[13px] leading-relaxed text-ink-soft pb-8">
-              <p>By using {APP_NAME}, you agree to the following:</p>
-              <p>
-                <strong className="text-ink">The app is a record-keeping tool.</strong> {APP_NAME}{" "}
-                helps you track credit sales, payments and reminders you choose to send. It does not
-                extend credit, collect debts on your behalf, or guarantee that any customer will
-                pay.
-              </p>
-              <p>
-                <strong className="text-ink">You're responsible for your data.</strong> Since
-                records are stored on your device, you're responsible for keeping your phone secure
-                and for backing up information you don't want to lose.
-              </p>
-              <p>
-                <strong className="text-ink">Reminders and receipts.</strong> Messages generated by{" "}
-                {APP_NAME}, including AI-drafted reminders, are provided as a convenience. Review
-                any message before sending — you are responsible for what you send to your
-                customers.
-              </p>
-              <p>
-                <strong className="text-ink">Track Debt Pro.</strong> Subscription pricing, billing
-                cycles and cancellation are handled by the billing provider used at checkout. Pro
-                features remain available for the period you've paid for; if a subscription lapses,
-                your account returns to the Free plan and your local data is left untouched.
-              </p>
-              <p>
-                <strong className="text-ink">No warranty.</strong> {APP_NAME} is provided "as is."
-                We work to keep it reliable, but we're not liable for losses arising from its use,
-                including data loss, missed payments, or reminders that weren't delivered.
-              </p>
-              <p>Questions about these terms can be sent to {SUPPORT_EMAIL}.</p>
+              <p><strong className="text-ink">Last updated:</strong> 28 September 2026</p>
+              <p>By accessing or using {APP_NAME}, you agree to these Terms of Use.</p>
+
+              <p><strong className="text-ink">1. The service.</strong> Track Debt is a business record-keeping tool for tracking customer credit sales, payments, balances, due dates, reminders and related records. It does not provide credit, guarantee repayment, act as a debt collector, or provide accounting, legal or financial advice.</p>
+
+              <p><strong className="text-ink">2. Accounts and data.</strong> You may use local mode without an account. Registered users can use cloud storage and supported cross-device sync. You are responsible for providing accurate information, protecting your login credentials and reviewing your records.</p>
+
+              <p><strong className="text-ink">3. Currency and conversion.</strong> Track Debt supports multiple operating currencies. Currency conversion is provided for record-display purposes using available reference rates and may differ from rates offered by banks, payment providers or money-transfer services. Do not rely on Track Debt conversion figures as a guaranteed settlement, tax or accounting rate.</p>
+
+              <p><strong className="text-ink">4. Reminders, receipts and AI.</strong> Messages, reminders, receipts and AI-generated content are tools for your convenience. You are responsible for checking the accuracy and appropriateness of anything before sending it to a customer.</p>
+
+              <p><strong className="text-ink">5. WhatsApp and third-party services.</strong> Track Debt may open or connect to third-party services such as WhatsApp, payment providers, advertising services, cloud infrastructure and exchange-rate services. Their own terms and privacy policies apply to your use of those services.</p>
+
+              <p><strong className="text-ink">6. Subscriptions.</strong> Free features are available subject to the service configuration. Paid plans, including Track Debt Plus, may have their own price, billing period and feature limits. Where Plus is billed through Paystack, its current billing currency is NGN. Subscription terms shown at checkout take precedence for that purchase.</p>
+
+              <p><strong className="text-ink">7. Acceptable use.</strong> You must not use Track Debt to violate applicable laws, misuse another person's information, attempt unauthorised access, interfere with the service, or use the service to send unlawful, abusive or deceptive communications.</p>
+
+              <p><strong className="text-ink">8. Data and backups.</strong> We work to keep the service available, but no software or storage system is guaranteed to be uninterrupted or loss-free. Keep appropriate backups of important records. If you choose to wipe local data or delete an account, information may become permanently unavailable after the applicable recovery period.</p>
+
+              <p><strong className="text-ink">9. Availability and changes.</strong> Features, supported currencies, integrations, pricing and limits may change as Track Debt develops. We may suspend or restrict access where necessary for security, legal compliance, maintenance or misuse.</p>
+
+              <p><strong className="text-ink">10. Disclaimer.</strong> Track Debt is provided on an "as available" basis to the extent permitted by law. We are not responsible for losses caused by inaccurate records entered by you, customer non-payment, failed third-party delivery, exchange-rate differences, device loss, or circumstances outside our reasonable control.</p>
+
+              <p><strong className="text-ink">11. Contact.</strong> Questions about these terms can be sent to {SUPPORT_EMAIL}.</p>
             </div>
           </div>
         )}
 
-        {/* ===== ADD / EDIT CUSTOMER ===== */}
         {(screen === "addCustomer" || screen === "editCustomer") && (
           <div className="p-5 animate-in fade-in slide-in-from-right-2 duration-200">
             <ScreenHeader
