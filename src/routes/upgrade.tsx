@@ -239,7 +239,7 @@ function UpgradePage() {
                     Available now
                   </p>
                 </div>
-                <p className="text-xl font-bold mono">₦0</p>
+                <p className="text-xl font-bold mono">Free</p>
               </div>
               <p className="text-xs text-ink-soft mb-4">
                 Customer management, debt tracking, due-date notifications and WhatsApp sharing.
@@ -256,7 +256,7 @@ function UpgradePage() {
                 <div>
                   <h3 className="font-bold text-lg">PLUS</h3>
                   <p className="text-[11px] text-ink-soft uppercase tracking-wider font-semibold">
-                    ₦1,000/month
+                    ₦1,000/month · billed in NGN
                   </p>
                 </div>
                 <p className="text-sm font-bold mono text-paid">₦1,000</p>
