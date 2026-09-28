@@ -4,6 +4,9 @@
 // the device owner, so it may drive UI affordances only. Anything that costs
 // money on our side (AI generation) must be gated on a token this module
 // signed, which the client cannot forge or extend.
+//
+// Security: entitlement signing uses a dedicated secret only. Do not fall back
+// to a general-purpose platform/API key.
 
 import type { PlanId } from "./app-config";
 
@@ -16,11 +19,8 @@ export type EntitlementClaims = {
 };
 
 function signingSecret(): string | null {
-  return (
-    process.env["TRACKDEBT_ENTITLEMENT_SECRET"] ||
-    process.env["LOVABLE_API_KEY"] ||
-    null
-  );
+  const secret = process.env["TRACKDEBT_ENTITLEMENT_SECRET"];
+  return secret && secret.length >= 32 ? secret : null;
 }
 
 const encoder = new TextEncoder();
@@ -28,6 +28,10 @@ const encoder = new TextEncoder();
 function b64url(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
+  return b64urlEncode(binary);
+}
+
+function b64urlEncode(binary: string): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
