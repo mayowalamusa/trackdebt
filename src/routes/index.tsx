@@ -41,6 +41,8 @@ import {
   Ticket,
   Zap,
   TicketPercent,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import {
   APP_NAME,
@@ -349,6 +351,7 @@ const TEMPLATE_TONE: Record<TemplateId, Tone> = {
 function AccountScreen({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [mode, setMode] = useState<"sign-up" | "sign-in">("sign-up");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -372,6 +375,10 @@ function AccountScreen({ onClose }: { onClose: () => void }) {
       if (mode === "sign-up") {
         if (!registrationEnabled) {
           setMessage("New account registration is currently closed.");
+          return;
+        }
+        if (password.length < 6 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+          setMessage("Password must be at least 6 characters and contain both letters and numbers.");
           return;
         }
         const result = await supabase.auth.signUp({ email: email.trim(), password });
@@ -434,15 +441,32 @@ function AccountScreen({ onClose }: { onClose: () => void }) {
               placeholder="Email address"
               className="w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-sm mt-5"
             />
-            <input
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              type="password"
-              required
-              minLength={6}
-              placeholder="Password (at least 6 characters)"
-              className="w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-sm mt-2"
-            />
+            <div className="relative mt-2">
+              <input
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                type={showPassword ? "text" : "password"}
+                required
+                minLength={6}
+                placeholder="Password (at least 6 characters)"
+                className="w-full rounded-lg border border-line bg-paper px-3 py-2.5 pr-11 text-sm"
+                aria-label="Password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((visible) => !visible)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-ink-soft hover:text-ink"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              </button>
+            </div>
+            {mode === "sign-up" && (
+              <p className="mt-1.5 text-[11px] text-ink-soft">
+                Password must contain at least 6 characters, including both letters and numbers.
+              </p>
+            )}
             <button
               type="button"
               onClick={() => void authenticate()}
