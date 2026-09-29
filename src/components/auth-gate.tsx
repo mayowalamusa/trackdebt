@@ -109,13 +109,22 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   // switch, phone wake, Supabase token auto-refresh). The app should only
   // ever show a blank loading screen on the very first cold start.
   const everLoaded = useRef(false);
+  const hadSession = useRef(false);
 
   useEffect(() => {
     if (!supabase) return;
     let active = true;
     void supabase.auth.getSession().then(({ data }) => { if (active) { setSession(data.session); setLoaded(true); } });
     const listener = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      if (!nextSession) deactivateCloudStorage();
+      if (!nextSession) {
+        deactivateCloudStorage();
+        if (hadSession.current) {
+          window.location.reload();
+          return;
+        }
+      } else {
+        hadSession.current = true;
+      }
       setSession(nextSession);
       setMigrationReady(false);
       setLoaded(true);
