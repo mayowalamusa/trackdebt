@@ -114,8 +114,35 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!supabase) return;
     let active = true;
-    void supabase.auth.getSession().then(({ data }) => { if (active) { setSession(data.session); setLoaded(true); } });
+    let settled = false;
+
+    // Never leave the entire app blocked forever if auth storage/network stalls.
+    // A visitor can safely continue in local mode when no session is available.
+    const timeout = window.setTimeout(() => {
+      if (!active || settled) return;
+      settled = true;
+      setLoaded(true);
+      setEntitlementLoaded(true);
+    }, 6000);
+
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!active || settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      if (data.session) hadSession.current = true;
+      setSession(data.session);
+      setLoaded(true);
+    }).catch(() => {
+      if (!active || settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      setSession(null);
+      setLoaded(true);
+      setEntitlementLoaded(true);
+    });
+
     const listener = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!active) return;
       if (!nextSession) {
         deactivateCloudStorage();
         if (hadSession.current) {
@@ -129,7 +156,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       setMigrationReady(false);
       setLoaded(true);
     });
-    return () => { active = false; listener.data.subscription.unsubscribe(); };
+
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+      listener.data.subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
