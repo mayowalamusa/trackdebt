@@ -383,6 +383,11 @@ function AccountScreen({ onClose }: { onClose: () => void }) {
         }
         const result = await supabase.auth.signUp({ email: email.trim(), password });
         if (result.error) throw result.error;
+        if (result.data.user?.identities?.length === 0) {
+          setMode("sign-in");
+          setMessage("An account with this email already exists. Please sign in instead.");
+          return;
+        }
         setMessage(result.data.session
           ? "Your free account is ready."
           : "Check your email to confirm your account.");
