@@ -1,6 +1,6 @@
 begin;
 
-select plan(28);
+select plan(31);
 
 -- RLS must remain enabled on every client-facing Track Debt data table.
 select ok(
