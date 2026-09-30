@@ -110,6 +110,7 @@ import {
   usePromoEntitlements,
 } from "@/lib/use-ledger-storage";
 import { Onboarding } from "@/components/onboarding";
+import { AuthGate } from "@/components/auth-gate";
 import {
   AppShell,
   Chip,
@@ -308,7 +309,7 @@ export const Route = createFileRoute("/")({
       },
     ],
   }),
-  component: DebtTracker,
+  component: UserApp,
 });
 
 type Screen =
@@ -492,6 +493,14 @@ function AccountScreen({ onClose }: { onClose: () => void }) {
         </>
       )}
     </div>
+  );
+}
+
+function UserApp() {
+  return (
+    <AuthGate>
+      <DebtTracker />
+    </AuthGate>
   );
 }
 
