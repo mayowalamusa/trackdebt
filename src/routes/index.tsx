@@ -1317,7 +1317,6 @@ function DebtTracker() {
     if (!voiceReview || voiceReview.type !== "customer") return;
     const data = voiceReview.data;
     if (!recordCustomer({ name: data.name, phone: data.phone, notes: data.notes })) return;
-    toast.success("Customer added from voice.");
     setVoiceReview(null);
   };
 
@@ -1333,7 +1332,6 @@ function DebtTracker() {
         termKey: data.termKey,
       })
     ) return;
-    toast.success(data.type === "sale" ? "Credit sale recorded from voice." : "Payment recorded from voice.");
     setVoiceReview(null);
   };
 
@@ -3005,7 +3003,7 @@ function DebtTracker() {
               <Mic size={40} />
             </div>
             <h3 className="text-xl font-bold mb-2">Listening...</h3>
-            <p className="text-center text-paper-raised/60">Say something like: "Add a new customer named Chidi" or "Record a sale of 5000 money for Amaka."</p>
+            <p className="text-center text-paper-raised/60">Speak naturally. For example: “Add a customer named Chidi with phone 08031234567” or “Record a sale of 5000 for 7 days with note cement.”</p>
             <button
               onClick={cancelVoice}
               className="mt-12 text-sm font-semibold underline opacity-70"
