@@ -1,3 +1,4 @@
+-- Runs after the base Track Debt schema migration so account lifecycle objects can be applied independently.
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   display_name text,
