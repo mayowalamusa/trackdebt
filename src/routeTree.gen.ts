@@ -14,18 +14,18 @@ import { Route as UpgradeRouteImport } from './routes/upgrade'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminManageRouteImport } from './routes/admin/manage'
-import { Route as ApiAdminUsersRouteImport } from './routes/api/admin/users'
-import { Route as ApiAdminManagementRouteImport } from './routes/api/admin/management'
 import { Route as ApiTrackVisitRouteImport } from './routes/api/track-visit'
 import { Route as ApiAccountDeleteRouteImport } from './routes/api/account/delete'
 import { Route as ApiAccountRestoreRouteImport } from './routes/api/account/restore'
 import { Route as ApiAccountStatusRouteImport } from './routes/api/account/status'
+import { Route as ApiAdminManagementRouteImport } from './routes/api/admin/management'
+import { Route as ApiAdminUsersRouteImport } from './routes/api/admin/users'
+import { Route as ApiFxRateRouteImport } from './routes/api/fx/rate'
 import { Route as ApiPaystackCancelRouteImport } from './routes/api/paystack/cancel'
 import { Route as ApiPaystackInitializeRouteImport } from './routes/api/paystack/initialize'
 import { Route as ApiPaystackStatusRouteImport } from './routes/api/paystack/status'
 import { Route as ApiPaystackWebhookRouteImport } from './routes/api/paystack/webhook'
 import { Route as ApiPublicPromoRedeemRouteImport } from './routes/api/public/promo-redeem'
-import { Route as ApiFxRateRouteImport } from './routes/api/fx/rate'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -52,16 +52,6 @@ const AdminManageRoute = AdminManageRouteImport.update({
   path: '/admin/manage',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAdminUsersRoute = ApiAdminUsersRouteImport.update({
-  id: '/api/admin/users',
-  path: '/api/admin/users',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminManagementRoute = ApiAdminManagementRouteImport.update({
-  id: '/api/admin/management',
-  path: '/api/admin/management',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiTrackVisitRoute = ApiTrackVisitRouteImport.update({
   id: '/api/track-visit',
   path: '/api/track-visit',
@@ -80,6 +70,21 @@ const ApiAccountRestoreRoute = ApiAccountRestoreRouteImport.update({
 const ApiAccountStatusRoute = ApiAccountStatusRouteImport.update({
   id: '/api/account/status',
   path: '/api/account/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminManagementRoute = ApiAdminManagementRouteImport.update({
+  id: '/api/admin/management',
+  path: '/api/admin/management',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminUsersRoute = ApiAdminUsersRouteImport.update({
+  id: '/api/admin/users',
+  path: '/api/admin/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFxRateRoute = ApiFxRateRouteImport.update({
+  id: '/api/fx/rate',
+  path: '/api/fx/rate',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPaystackCancelRoute = ApiPaystackCancelRouteImport.update({
@@ -107,148 +112,143 @@ const ApiPublicPromoRedeemRoute = ApiPublicPromoRedeemRouteImport.update({
   path: '/api/public/promo-redeem',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiFxRateRoute = ApiFxRateRouteImport.update({
-  id: '/api/fx/rate',
-  path: '/api/fx/rate',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/upgrade': typeof UpgradeRoute
-  '/admin/': typeof AdminIndexRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/manage': typeof AdminManageRoute
-  '/api/admin/users': typeof ApiAdminUsersRoute
-  '/api/admin/management': typeof ApiAdminManagementRoute
   '/api/track-visit': typeof ApiTrackVisitRoute
+  '/admin/': typeof AdminIndexRoute
   '/api/account/delete': typeof ApiAccountDeleteRoute
   '/api/account/restore': typeof ApiAccountRestoreRoute
   '/api/account/status': typeof ApiAccountStatusRoute
+  '/api/admin/management': typeof ApiAdminManagementRoute
+  '/api/admin/users': typeof ApiAdminUsersRoute
+  '/api/fx/rate': typeof ApiFxRateRoute
   '/api/paystack/cancel': typeof ApiPaystackCancelRoute
   '/api/paystack/initialize': typeof ApiPaystackInitializeRoute
   '/api/paystack/status': typeof ApiPaystackStatusRoute
   '/api/paystack/webhook': typeof ApiPaystackWebhookRoute
   '/api/public/promo-redeem': typeof ApiPublicPromoRedeemRoute
-  '/api/fx/rate': typeof ApiFxRateRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/upgrade': typeof UpgradeRoute
-  '/admin/': typeof AdminIndexRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/manage': typeof AdminManageRoute
-  '/api/admin/users': typeof ApiAdminUsersRoute
-  '/api/admin/management': typeof ApiAdminManagementRoute
   '/api/track-visit': typeof ApiTrackVisitRoute
+  '/admin': typeof AdminIndexRoute
   '/api/account/delete': typeof ApiAccountDeleteRoute
   '/api/account/restore': typeof ApiAccountRestoreRoute
   '/api/account/status': typeof ApiAccountStatusRoute
+  '/api/admin/management': typeof ApiAdminManagementRoute
+  '/api/admin/users': typeof ApiAdminUsersRoute
+  '/api/fx/rate': typeof ApiFxRateRoute
   '/api/paystack/cancel': typeof ApiPaystackCancelRoute
   '/api/paystack/initialize': typeof ApiPaystackInitializeRoute
   '/api/paystack/status': typeof ApiPaystackStatusRoute
   '/api/paystack/webhook': typeof ApiPaystackWebhookRoute
   '/api/public/promo-redeem': typeof ApiPublicPromoRedeemRoute
-  '/api/fx/rate': typeof ApiFxRateRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/upgrade': typeof UpgradeRoute
-  '/admin/': typeof AdminIndexRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/manage': typeof AdminManageRoute
-  '/api/admin/users': typeof ApiAdminUsersRoute
-  '/api/admin/management': typeof ApiAdminManagementRoute
   '/api/track-visit': typeof ApiTrackVisitRoute
+  '/admin/': typeof AdminIndexRoute
   '/api/account/delete': typeof ApiAccountDeleteRoute
   '/api/account/restore': typeof ApiAccountRestoreRoute
   '/api/account/status': typeof ApiAccountStatusRoute
+  '/api/admin/management': typeof ApiAdminManagementRoute
+  '/api/admin/users': typeof ApiAdminUsersRoute
+  '/api/fx/rate': typeof ApiFxRateRoute
   '/api/paystack/cancel': typeof ApiPaystackCancelRoute
   '/api/paystack/initialize': typeof ApiPaystackInitializeRoute
   '/api/paystack/status': typeof ApiPaystackStatusRoute
   '/api/paystack/webhook': typeof ApiPaystackWebhookRoute
   '/api/public/promo-redeem': typeof ApiPublicPromoRedeemRoute
-  '/api/fx/rate': typeof ApiFxRateRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/upgrade'
-    | '/admin/'
     | '/admin/login'
     | '/admin/manage'
-    | '/api/admin/users'
-    | '/api/admin/management'
     | '/api/track-visit'
+    | '/admin/'
     | '/api/account/delete'
     | '/api/account/restore'
     | '/api/account/status'
+    | '/api/admin/management'
+    | '/api/admin/users'
+    | '/api/fx/rate'
     | '/api/paystack/cancel'
     | '/api/paystack/initialize'
     | '/api/paystack/status'
     | '/api/paystack/webhook'
     | '/api/public/promo-redeem'
-    | '/api/fx/rate'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/upgrade'
-    | '/admin/'
     | '/admin/login'
     | '/admin/manage'
-    | '/api/admin/users'
-    | '/api/admin/management'
     | '/api/track-visit'
+    | '/admin'
     | '/api/account/delete'
     | '/api/account/restore'
     | '/api/account/status'
+    | '/api/admin/management'
+    | '/api/admin/users'
+    | '/api/fx/rate'
     | '/api/paystack/cancel'
     | '/api/paystack/initialize'
     | '/api/paystack/status'
     | '/api/paystack/webhook'
     | '/api/public/promo-redeem'
-    | '/api/fx/rate'
   id:
     | '__root__'
     | '/'
     | '/upgrade'
-    | '/admin/'
     | '/admin/login'
     | '/admin/manage'
-    | '/api/admin/users'
-    | '/api/admin/management'
     | '/api/track-visit'
+    | '/admin/'
     | '/api/account/delete'
     | '/api/account/restore'
     | '/api/account/status'
+    | '/api/admin/management'
+    | '/api/admin/users'
+    | '/api/fx/rate'
     | '/api/paystack/cancel'
     | '/api/paystack/initialize'
     | '/api/paystack/status'
     | '/api/paystack/webhook'
     | '/api/public/promo-redeem'
-    | '/api/fx/rate'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   UpgradeRoute: typeof UpgradeRoute
-  AdminIndexRoute: typeof AdminIndexRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminManageRoute: typeof AdminManageRoute
-  ApiAdminUsersRoute: typeof ApiAdminUsersRoute
-  ApiAdminManagementRoute: typeof ApiAdminManagementRoute
   ApiTrackVisitRoute: typeof ApiTrackVisitRoute
+  AdminIndexRoute: typeof AdminIndexRoute
   ApiAccountDeleteRoute: typeof ApiAccountDeleteRoute
   ApiAccountRestoreRoute: typeof ApiAccountRestoreRoute
   ApiAccountStatusRoute: typeof ApiAccountStatusRoute
+  ApiAdminManagementRoute: typeof ApiAdminManagementRoute
+  ApiAdminUsersRoute: typeof ApiAdminUsersRoute
+  ApiFxRateRoute: typeof ApiFxRateRoute
   ApiPaystackCancelRoute: typeof ApiPaystackCancelRoute
   ApiPaystackInitializeRoute: typeof ApiPaystackInitializeRoute
   ApiPaystackStatusRoute: typeof ApiPaystackStatusRoute
   ApiPaystackWebhookRoute: typeof ApiPaystackWebhookRoute
   ApiPublicPromoRedeemRoute: typeof ApiPublicPromoRedeemRoute
-  ApiFxRateRoute: typeof ApiFxRateRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -260,9 +260,16 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/upgrade': {
+      id: '/upgrade'
+      path: '/upgrade'
+      fullPath: '/upgrade'
+      preLoaderRoute: typeof UpgradeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/': {
       id: '/admin/'
-      path: '/admin/'
+      path: '/admin'
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof rootRouteImport
@@ -281,32 +288,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminManageRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/admin/users': {
-      id: '/api/admin/users'
-      path: '/api/admin/users'
-      fullPath: '/api/admin/users'
-      preLoaderRoute: typeof ApiAdminUsersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/management': {
-      id: '/api/admin/management'
-      path: '/api/admin/management'
-      fullPath: '/api/admin/management'
-      preLoaderRoute: typeof ApiAdminManagementRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/track-visit': {
       id: '/api/track-visit'
       path: '/api/track-visit'
       fullPath: '/api/track-visit'
       preLoaderRoute: typeof ApiTrackVisitRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/upgrade': {
-      id: '/upgrade'
-      path: '/upgrade'
-      fullPath: '/upgrade'
-      preLoaderRoute: typeof UpgradeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/account/delete': {
@@ -328,6 +314,27 @@ declare module '@tanstack/react-router' {
       path: '/api/account/status'
       fullPath: '/api/account/status'
       preLoaderRoute: typeof ApiAccountStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/management': {
+      id: '/api/admin/management'
+      path: '/api/admin/management'
+      fullPath: '/api/admin/management'
+      preLoaderRoute: typeof ApiAdminManagementRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/users': {
+      id: '/api/admin/users'
+      path: '/api/admin/users'
+      fullPath: '/api/admin/users'
+      preLoaderRoute: typeof ApiAdminUsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/fx/rate': {
+      id: '/api/fx/rate'
+      path: '/api/fx/rate'
+      fullPath: '/api/fx/rate'
+      preLoaderRoute: typeof ApiFxRateRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/paystack/cancel': {
@@ -365,34 +372,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPromoRedeemRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/fx/rate': {
-      id: '/api/fx/rate'
-      path: '/api/fx/rate'
-      fullPath: '/api/fx/rate'
-      preLoaderRoute: typeof ApiFxRateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   UpgradeRoute: UpgradeRoute,
-  AdminIndexRoute: AdminIndexRoute,
   AdminLoginRoute: AdminLoginRoute,
   AdminManageRoute: AdminManageRoute,
-  ApiAdminUsersRoute: ApiAdminUsersRoute,
-  ApiAdminManagementRoute: ApiAdminManagementRoute,
   ApiTrackVisitRoute: ApiTrackVisitRoute,
+  AdminIndexRoute: AdminIndexRoute,
   ApiAccountDeleteRoute: ApiAccountDeleteRoute,
   ApiAccountRestoreRoute: ApiAccountRestoreRoute,
   ApiAccountStatusRoute: ApiAccountStatusRoute,
+  ApiAdminManagementRoute: ApiAdminManagementRoute,
+  ApiAdminUsersRoute: ApiAdminUsersRoute,
+  ApiFxRateRoute: ApiFxRateRoute,
   ApiPaystackCancelRoute: ApiPaystackCancelRoute,
   ApiPaystackInitializeRoute: ApiPaystackInitializeRoute,
   ApiPaystackStatusRoute: ApiPaystackStatusRoute,
   ApiPaystackWebhookRoute: ApiPaystackWebhookRoute,
   ApiPublicPromoRedeemRoute: ApiPublicPromoRedeemRoute,
-  ApiFxRateRoute: ApiFxRateRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

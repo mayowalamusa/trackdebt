@@ -52,7 +52,7 @@ function Management() {
   if (!data && !error) return <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Loading management…</div>;
 
   return <div className="min-h-screen bg-muted/20">
-    <header className="border-b bg-background"><div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4"><div><p className="text-sm font-medium text-primary">Track Debt</p><h1 className="text-xl font-bold">Management</h1></div><Link to="/admin/" className="rounded-lg border px-3 py-2 text-sm">← Admin</Link></div></header>
+    <header className="border-b bg-background"><div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4"><div><p className="text-sm font-medium text-primary">Track Debt</p><h1 className="text-xl font-bold">Management</h1></div><Link to="/admin" className="rounded-lg border px-3 py-2 text-sm">← Admin</Link></div></header>
     <main className="mx-auto max-w-7xl px-4 py-6">
       <nav className="mb-6 flex gap-2 overflow-x-auto">{nav.map(([v, l]) => <button key={v} onClick={() => setTab(v)} className={"whitespace-nowrap rounded-lg px-3 py-2 text-sm " + (tab === v ? "bg-primary text-primary-foreground" : "border bg-background")}>{l}</button>)}</nav>
       {error && <p className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}

@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_broadcasts: {
+        Row: {
+          audience: string
+          body: string
+          created_at: string
+          id: string
+          link: string | null
+          recipient_count: number
+          sent_at: string
+          sent_by: string | null
+          title: string
+        }
+        Insert: {
+          audience: string
+          body: string
+          created_at?: string
+          id?: string
+          link?: string | null
+          recipient_count?: number
+          sent_at?: string
+          sent_by?: string | null
+          title: string
+        }
+        Update: {
+          audience?: string
+          body?: string
+          created_at?: string
+          id?: string
+          link?: string | null
+          recipient_count?: number
+          sent_at?: string
+          sent_by?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
       announcements: {
         Row: {
           created_at: string
@@ -89,6 +125,30 @@ export type Database = {
           theme_color?: string | null
           updated_at?: string
           website_url?: string | null
+        }
+        Relationships: []
+      }
+      app_feature_flags: {
+        Row: {
+          description: string | null
+          enabled: boolean
+          key: string
+          label: string
+          updated_at: string
+        }
+        Insert: {
+          description?: string | null
+          enabled?: boolean
+          key: string
+          label: string
+          updated_at?: string
+        }
+        Update: {
+          description?: string | null
+          enabled?: boolean
+          key?: string
+          label?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -243,6 +303,7 @@ export type Database = {
           customer_id: string | null
           id: string
           legacy_id: string | null
+          link: string | null
           read: boolean
           scheduled_for: string
           status: string
@@ -257,6 +318,7 @@ export type Database = {
           customer_id?: string | null
           id?: string
           legacy_id?: string | null
+          link?: string | null
           read?: boolean
           scheduled_for?: string
           status?: string
@@ -271,6 +333,7 @@ export type Database = {
           customer_id?: string | null
           id?: string
           legacy_id?: string | null
+          link?: string | null
           read?: boolean
           scheduled_for?: string
           status?: string
@@ -316,6 +379,7 @@ export type Database = {
           business_name: string
           business_phone: string
           created_at: string
+          currency: string
           deletion_requested_at: string | null
           display_name: string | null
           id: string
@@ -336,6 +400,7 @@ export type Database = {
           business_name?: string
           business_phone?: string
           created_at?: string
+          currency?: string
           deletion_requested_at?: string | null
           display_name?: string | null
           id: string
@@ -356,6 +421,7 @@ export type Database = {
           business_name?: string
           business_phone?: string
           created_at?: string
+          currency?: string
           deletion_requested_at?: string | null
           display_name?: string | null
           id?: string
@@ -533,24 +599,54 @@ export type Database = {
           },
         ]
       }
-      subscription_events: {
+      site_visits: {
         Row: {
-          created_at: string
-          event_id: string
-          event_name: string
-          reference: string | null
+          last_seen_at: string
+          visited_on: string
+          visitor_id: string
         }
         Insert: {
-          created_at?: string
-          event_id: string
-          event_name: string
-          reference?: string | null
+          last_seen_at?: string
+          visited_on?: string
+          visitor_id: string
         }
         Update: {
+          last_seen_at?: string
+          visited_on?: string
+          visitor_id?: string
+        }
+        Relationships: []
+      }
+      subscription_events: {
+        Row: {
+          amount: number | null
+          created_at: string
+          currency: string | null
+          event_id: string
+          event_name: string
+          metadata: Json
+          reference: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount?: number | null
           created_at?: string
+          currency?: string | null
+          event_id: string
+          event_name: string
+          metadata?: Json
+          reference?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          currency?: string | null
           event_id?: string
           event_name?: string
+          metadata?: Json
           reference?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -621,12 +717,15 @@ export type Database = {
         Row: {
           amount: number
           created_at: string
+          currency: string
           customer_id: string
           due_date: string | null
           id: string
           kind: string | null
           legacy_id: string | null
           note: string
+          original_amount: number | null
+          original_currency: string | null
           reference: string | null
           term_key: string | null
           term_set_at: string | null
@@ -638,12 +737,15 @@ export type Database = {
         Insert: {
           amount: number
           created_at?: string
+          currency?: string
           customer_id: string
           due_date?: string | null
           id?: string
           kind?: string | null
           legacy_id?: string | null
           note?: string
+          original_amount?: number | null
+          original_currency?: string | null
           reference?: string | null
           term_key?: string | null
           term_set_at?: string | null
@@ -655,12 +757,15 @@ export type Database = {
         Update: {
           amount?: number
           created_at?: string
+          currency?: string
           customer_id?: string
           due_date?: string | null
           id?: string
           kind?: string | null
           legacy_id?: string | null
           note?: string
+          original_amount?: number | null
+          original_currency?: string | null
           reference?: string | null
           term_key?: string | null
           term_set_at?: string | null
@@ -712,7 +817,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin"

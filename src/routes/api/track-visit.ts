@@ -8,7 +8,11 @@ export const Route = createFileRoute("/api/track-visit")({
         try {
           const body = (await request.json()) as { visitorId?: string };
           const visitorId = body.visitorId?.trim();
-          if (!visitorId || visitorId.length > 100) return Response.json({ ok: false }, { status: 400 });
+          // Only accept the shapes the app itself generates (a UUID, or the
+          // "ephemeral-" fallback) so arbitrary records can't be injected.
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(visitorId ?? "");
+          const isEphemeral = /^ephemeral-[a-z0-9]{1,32}$/.test(visitorId ?? "");
+          if (!visitorId || (!isUuid && !isEphemeral)) return Response.json({ ok: false }, { status: 400 });
           const admin = createSupabaseAdmin();
           if (!admin) return Response.json({ ok: false }, { status: 503 });
           const now = new Date();
