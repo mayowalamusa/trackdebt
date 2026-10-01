@@ -249,7 +249,7 @@ async function buildReceiptPdf(
     const amount = t?.amount ?? 0;
     const paid = kind === "payment" ? amount : 0;
 
-    const money = (label: string, value: string, bold = false) => {
+    const moneyRow = (label: string, value: string, bold = false) => {
       doc
         .setFont("helvetica", "normal")
         .setFontSize(9)
@@ -263,9 +263,9 @@ async function buildReceiptPdf(
       y += bold ? 24 : 17;
     };
 
-    money(amountLabel, money(amount));
-    if (kind === "sale") money("Amount paid", money(paid));
-    money("Remaining balance", money(bal), true);
+    moneyRow(amountLabel, money(amount));
+    if (kind === "sale") moneyRow("Amount paid", money(paid));
+    moneyRow("Remaining balance", money(bal), true);
   }
 
   /* ---- status block ---- */

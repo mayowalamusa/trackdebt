@@ -194,11 +194,11 @@ function handleSwMessage(event: MessageEvent): void {
 function playNotificationSound(): void {
   if (!notificationSoundEnabled || typeof window === "undefined") return;
 
-  const AudioCtor = (
-    window as Window & {
-      webkitAudioContext?: typeof AudioContext;
-    }
-  ).AudioContext ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  const w = window as Window & {
+    AudioContext?: typeof AudioContext;
+    webkitAudioContext?: typeof AudioContext;
+  };
+  const AudioCtor = w.AudioContext ?? w.webkitAudioContext;
 
   if (!AudioCtor) return;
 

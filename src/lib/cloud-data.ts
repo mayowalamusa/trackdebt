@@ -99,6 +99,7 @@ export async function loadCloudSnapshot(): Promise<CloudSnapshot | null> {
   const preference = preferencesResult.data as Record<string, unknown> | null;
   const notificationSettings: NotificationSettings = preference ? {
     enabled: Boolean(preference["enabled"]),
+    soundEnabled: defaultNotificationSettings.soundEnabled,
     remind7DaysBefore: Boolean(preference["remind_7_days_before"]),
     remind3DaysBefore: Boolean(preference["remind_3_days_before"]),
     remind1DayBefore: Boolean(preference["remind_1_day_before"]),

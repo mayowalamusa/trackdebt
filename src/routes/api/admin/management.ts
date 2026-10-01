@@ -64,11 +64,11 @@ export const Route = createFileRoute("/api/admin/management")({
         try {
           const { admin, user } = await assertAdmin(request);
           const body = (await request.json()) as Record<string, unknown>;
-          if (body.action === 'broadcast') {
-            const title = String(body.title ?? '').trim();
-            const message = String(body.message ?? '').trim();
-            const link = body.link ? String(body.link).trim() : null;
-            const audience = ['all', 'free', 'plus'].includes(String(body.audience)) ? String(body.audience) : 'all';
+          if (body["action"] === 'broadcast') {
+            const title = String(body["title"] ?? '').trim();
+            const message = String(body["message"] ?? '').trim();
+            const link = body["link"] ? String(body["link"]).trim() : null;
+            const audience = ['all', 'free', 'plus'].includes(String(body["audience"])) ? String(body["audience"]) : 'all';
             if (!title || !message) return Response.json({ error: "Title and message are required." }, { status: 400 });
             const usersResult = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
             if (usersResult.error) return Response.json({ error: usersResult.error.message }, { status: 500 });
@@ -86,9 +86,9 @@ export const Route = createFileRoute("/api/admin/management")({
             if (logError) return Response.json({ error: logError.message }, { status: 500 });
             return Response.json({ ok: true, recipientCount: recipients.length });
           }
-          if (body.action === 'admin_role') {
-            const userId = String(body.userId ?? '');
-            const makeAdmin = Boolean(body.makeAdmin);
+          if (body["action"] === 'admin_role') {
+            const userId = String(body["userId"] ?? '');
+            const makeAdmin = Boolean(body["makeAdmin"]);
             if (!userId) return Response.json({ error: 'User is required.' }, { status: 400 });
             if (userId === user.id && !makeAdmin) return Response.json({ error: 'You cannot remove your own admin access.' }, { status: 400 });
             if (makeAdmin) {
@@ -101,18 +101,18 @@ export const Route = createFileRoute("/api/admin/management")({
             return Response.json({ ok: true });
           }
 
-          if (body.action === 'account_status') {
-            const userId = String(body.userId ?? '');
-            const status = body.status === 'active' ? 'active' : body.status === 'deleted' ? 'deleted' : 'suspended';
+          if (body["action"] === 'account_status') {
+            const userId = String(body["userId"] ?? '');
+            const status = body["status"] === 'active' ? 'active' : body["status"] === 'deleted' ? 'deleted' : 'suspended';
             if (!userId) return Response.json({ error: "User is required." }, { status: 400 });
             if (userId === user.id && status !== "active") return Response.json({ error: "You cannot suspend your own admin account." }, { status: 400 });
             const { error } = await admin.from('profiles').update({ account_status: status }).eq('id', userId);
             if (error) return Response.json({ error: error.message }, { status: 500 });
             return Response.json({ ok: true });
           }
-          if (body.action === 'feature_flag') {
-            const key = String(body.key ?? '');
-            const enabled = Boolean(body.enabled);
+          if (body["action"] === 'feature_flag') {
+            const key = String(body["key"] ?? '');
+            const enabled = Boolean(body["enabled"]);
             const { error } = await admin.from('app_feature_flags').update({ enabled, updated_at: new Date().toISOString() }).eq('key', key);
             if (error) return Response.json({ error: error.message }, { status: 500 });
             return Response.json({ ok: true });

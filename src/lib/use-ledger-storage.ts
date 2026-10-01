@@ -6,7 +6,7 @@ import type { ReminderRecord } from "./reminders";
 import { defaultNotificationSettings, type InAppNotification, type NotificationSettings } from "./notifications";
 import { isPlainObject, readJSON, writeJSON } from "./storage";
 import { freeSubscription, normalize, resolvePlan, getEntitlements, type Subscription, type PromoEntitlement } from "./subscription";
-import { freeEntitlement, type ServerEntitlement } from "./subscription-api";
+import { fetchServerEntitlement, freeEntitlement, type ServerEntitlement } from "./subscription-api";
 import { supabase } from "./supabase";
 import { loadCloudSnapshot, loadCloudNotifications, syncCloudCustomers, syncCloudNotifications, syncCloudOnboarding, syncCloudPreferences, syncCloudProfile, syncCloudReminders } from "./cloud-data";
 import { hasCompletedMigration } from "./local-migration";
