@@ -2974,7 +2974,7 @@ function DebtTracker() {
               <Mic size={40} />
             </div>
             <h3 className="text-xl font-bold mb-2">Listening...</h3>
-            <p className="text-center text-paper-raised/60">Speak naturally. For example: “Add a customer named Chidi with phone 08031234567” or “Record a sale of 5000 for 7 days with note cement.”</p>
+            <p className="text-center text-paper-raised/60">Speak naturally. For example: “Add a customer named Chidi with phone 08031234567” or “Record a sale of 5000 due in 7 days with note cement.”</p>
             <button
               onClick={cancelVoice}
               className="mt-12 text-sm font-semibold underline opacity-70"
