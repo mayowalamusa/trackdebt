@@ -724,24 +724,32 @@ function DebtTracker() {
   }, [customers, query, filter, sort]);
 
   /* ---------- mutations ---------- */
-  const addCustomer = () => {
-    if (!form.name.trim() || !form.phone.trim()) return;
-    if (!isProbablyValidPhone(form.phone)) {
+  const recordCustomer = (input: { name: string; phone: string; notes?: string }) => {
+    const name = input.name.trim();
+    const phone = input.phone.trim();
+    if (!name || !phone) return false;
+    if (!isProbablyValidPhone(phone)) {
       toast.error("That phone number doesn't look right. Please check it and try again.");
-      return;
+      return false;
     }
+
     setCustomers((cs) => [
       ...cs,
       {
         id: "c" + Date.now(),
-        name: form.name.trim(),
-        phone: normalizeForStorage(form.phone),
-        notes: form.notes.trim(),
+        name,
+        phone: normalizeForStorage(phone),
+        notes: input.notes?.trim() ?? "",
         createdAt: todayISO(),
         txns: [],
       },
     ]);
     track("customer_added");
+    return true;
+  };
+
+  const addCustomer = () => {
+    if (!recordCustomer({ name: form.name, phone: form.phone, notes: form.notes })) return;
     toast.success("Customer added.");
     resetForm();
     go("list");
@@ -783,43 +791,83 @@ function DebtTracker() {
     go("list");
   };
 
-  const addTxn = () => {
-    const amt = parseFloat(form.amount);
-    if (!amt || amt <= 0 || !selectedId || !selected) return;
+  const recordTxn = (input: {
+    type: Txn["type"];
+    amount: number;
+    note?: string;
+    termKey?: TermKey;
+    customDueDate?: string;
+  }) => {
+    if (!input.amount || input.amount <= 0 || !selectedId || !selected) return false;
+
     const bal = balanceOf(selected);
-    const dueDate = txnType === "sale" ? termDueDate(termKey, customDueDate) : undefined;
+    const dueDate =
+      input.type === "sale"
+        ? termDueDate(input.termKey ?? "none", input.customDueDate ?? "")
+        : undefined;
     const t: Txn = {
       id: "t" + Date.now(),
-      type: txnType,
-      amount: amt,
+      type: input.type,
+      amount: input.amount,
       date: todayISO(),
-      note: form.note.trim(),
+      note: input.note?.trim() ?? "",
       currency: profile.currency,
-      originalAmount: amt,
+      originalAmount: input.amount,
       originalCurrency: profile.currency,
-      ...(txnType === "payment" ? { kind: amt >= bal ? "full" : "partial" } : {}),
-      ...(txnType === "sale"
+      ...(input.type === "payment" ? { kind: input.amount >= bal ? "full" : "partial" } : {}),
+      ...(input.type === "sale"
         ? {
             reference: issueReceiptReference(),
             ...(dueDate
-              ? { term: { key: termKey, dueDate, setAt: new Date().toISOString() } }
+              ? { term: { key: input.termKey ?? "none", dueDate, setAt: new Date().toISOString() } }
               : {}),
           }
         : {}),
     };
-    setCustomers((cs) => cs.map((c) => (c.id === selectedId ? { ...c, txns: [...c.txns, t] } : c)));
-    track(txnType === "sale" ? "transaction_created" : "payment_recorded");
-    toast.success(txnType === "sale" ? "Credit sale recorded." : "Payment recorded.");
 
-    if (txnType === "sale" && t.term?.dueDate) {
-      scheduleDebtReminders({ ...selected, txns: [...selected.txns, t] }, notifSettings, profile, inAppNotifs, setInAppNotifs);
-    } else if (txnType === "payment") {
-      // Re-schedule everything for this customer since payment might have cleared debts
-      scheduleDebtReminders({ ...selected, txns: [...selected.txns, t] }, notifSettings, profile, inAppNotifs, setInAppNotifs);
+    const updatedCustomer = { ...selected, txns: [...selected.txns, t] };
+    setCustomers((cs) => cs.map((c) => (c.id === selectedId ? updatedCustomer : c)));
+    track(input.type === "sale" ? "transaction_created" : "payment_recorded");
+    toast.success(input.type === "sale" ? "Credit sale recorded." : "Payment recorded.");
+
+    if (input.type === "sale" && t.term?.dueDate) {
+      scheduleDebtReminders(
+        updatedCustomer,
+        notifSettings,
+        profile,
+        inAppNotifs,
+        setInAppNotifs,
+      );
+    } else if (input.type === "payment") {
+      scheduleDebtReminders(
+        updatedCustomer,
+        notifSettings,
+        profile,
+        inAppNotifs,
+        setInAppNotifs,
+      );
     }
 
-    // Trigger daily reminder rescheduling
-    scheduleDailyReminder([...customers.map(c => c.id === selectedId ? { ...c, txns: [...c.txns, t] } : c)], notifSettings);
+    scheduleDailyReminder(
+      customers.map((c) => (c.id === selectedId ? updatedCustomer : c)),
+      notifSettings,
+    );
+
+    return true;
+  };
+
+  const addTxn = () => {
+    const amt = parseFloat(form.amount);
+    if (!amt || amt <= 0 || !selectedId || !selected) return;
+    if (
+      !recordTxn({
+        type: txnType,
+        amount: amt,
+        note: form.note,
+        termKey,
+        customDueDate,
+      })
+    ) return;
 
     resetForm();
     setTermKey("none");
@@ -1268,22 +1316,7 @@ function DebtTracker() {
   const applyVoiceCustomer = () => {
     if (!voiceReview || voiceReview.type !== "customer") return;
     const data = voiceReview.data;
-    if (!data.name || !data.phone || !isProbablyValidPhone(data.phone)) {
-      toast.error("The voice command did not contain a valid customer phone number.");
-      return;
-    }
-    setCustomers((cs) => [
-      ...cs,
-      {
-        id: "c" + Date.now(),
-        name: data.name.trim(),
-        phone: normalizeForStorage(data.phone),
-        notes: String(data.notes ?? "").trim(),
-        createdAt: todayISO(),
-        txns: [],
-      },
-    ]);
-    track("customer_added");
+    if (!recordCustomer({ name: data.name, phone: data.phone, notes: data.notes })) return;
     toast.success("Customer added from voice.");
     setVoiceReview(null);
   };
@@ -1292,48 +1325,15 @@ function DebtTracker() {
     if (!voiceReview || voiceReview.type !== "txn") return;
     const data = voiceReview.data;
     const amount = parseFloat(data.amount);
-    if (!amount || amount <= 0 || !selectedId || !selected) {
-      toast.error("The voice command did not contain a valid transaction amount.");
-      return;
-    }
-
-    const bal = balanceOf(selected);
-    const dueDate = data.type === "sale" ? termDueDate(data.termKey, "") : undefined;
-    const t: Txn = {
-      id: "t" + Date.now(),
-      type: data.type,
-      amount,
-      date: todayISO(),
-      note: String(data.note ?? "").trim(),
-      currency: profile.currency,
-      originalAmount: amount,
-      originalCurrency: profile.currency,
-      ...(data.type === "payment" ? { kind: amount >= bal ? "full" : "partial" } : {}),
-      ...(data.type === "sale"
-        ? {
-            reference: issueReceiptReference(),
-            ...(dueDate
-              ? { term: { key: data.termKey, dueDate, setAt: new Date().toISOString() } }
-              : {}),
-          }
-        : {}),
-    };
-
-    const updatedCustomer = { ...selected, txns: [...selected.txns, t] };
-    setCustomers((cs) => cs.map((c) => (c.id === selectedId ? updatedCustomer : c)));
-    track(data.type === "sale" ? "transaction_created" : "payment_recorded");
+    if (
+      !recordTxn({
+        type: data.type,
+        amount,
+        note: data.note,
+        termKey: data.termKey,
+      })
+    ) return;
     toast.success(data.type === "sale" ? "Credit sale recorded from voice." : "Payment recorded from voice.");
-
-    if (data.type === "sale" && t.term?.dueDate) {
-      scheduleDebtReminders(updatedCustomer, notifSettings, profile, inAppNotifs, setInAppNotifs);
-    } else if (data.type === "payment") {
-      scheduleDebtReminders(updatedCustomer, notifSettings, profile, inAppNotifs, setInAppNotifs);
-    }
-    scheduleDailyReminder(
-      customers.map((c) => (c.id === selectedId ? updatedCustomer : c)),
-      notifSettings,
-    );
-
     setVoiceReview(null);
   };
 
