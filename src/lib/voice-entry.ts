@@ -87,6 +87,7 @@ function recognitionConstructor(): SpeechRecognitionConstructor | null {
 /**
  * Starts the browser's real SpeechRecognition API.
  * Nothing is simulated: the returned transcript comes from the microphone.
+ * Native React Native/Expo voice will use a separate native implementation later.
  */
 export function startVoiceRecognition(language = "en-NG"): VoiceSession {
   const Constructor = recognitionConstructor();
