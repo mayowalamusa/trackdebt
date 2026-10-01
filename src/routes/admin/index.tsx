@@ -1,8 +1,18 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-type Tab = "overview" | "brand" | "promos" | "announcements" | "users";
+type Tab =
+  | "overview"
+  | "users"
+  | "subscriptions"
+  | "payments"
+  | "promos"
+  | "announcements"
+  | "broadcasts"
+  | "brand"
+  | "settings";
 
 type Brand = {
   id: string;
@@ -47,32 +57,90 @@ type UserRow = {
   isAdmin: boolean;
 };
 
+type Flag = { key: string; enabled: boolean; label: string; description: string | null };
+type Broadcast = {
+  id: string;
+  title: string;
+  body: string;
+  link: string | null;
+  audience: string;
+  recipient_count: number;
+  sent_at: string;
+};
+type EventRow = {
+  event_id: string;
+  event_name: string;
+  reference: string | null;
+  created_at: string;
+  amount: number | null;
+  currency: string | null;
+  user_id: string | null;
+};
+type SubscriptionRow = {
+  user_id: string;
+  plan: string;
+  status: string;
+  amount: number | null;
+  current_period_end: string | null;
+  last_successful_payment_at: string | null;
+};
+
+type Stats = {
+  registered?: number;
+  free?: number;
+  plus?: number;
+  newUsers30d?: number;
+  visitorsToday?: number;
+  visitorsMonth?: number;
+  customers?: number;
+  transactions?: number;
+  recordedRevenue?: number;
+};
+
+type Management = {
+  stats?: Stats;
+  users?: UserRow[];
+  subscriptions?: SubscriptionRow[];
+  events?: EventRow[];
+  broadcasts?: Broadcast[];
+  flags?: Flag[];
+};
+
 export const Route = createFileRoute("/admin/")({
-  head: () => ({ meta: [{ title: "Admin — Track Debt" }] }),
-  component: AdminDashboard,
+  head: () => ({
+    meta: [
+      { title: "Admin — Track Debt" },
+      { name: "description", content: "Track Debt administration: users, subscriptions, promos and app settings." },
+      { name: "robots", content: "noindex" },
+    ],
+  }),
+  component: AdminPortal,
 });
 
-function AdminDashboard() {
+function AdminPortal() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("overview");
   const [ready, setReady] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [search, setSearch] = useState("");
+
   const [brand, setBrand] = useState<Brand | null>(null);
   const [promos, setPromos] = useState<Promo[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [users, setUsers] = useState<UserRow[]>([]);
-  const [counts, setCounts] = useState({ users: 0, subscribers: 0, activePromos: 0, activeAnnouncements: 0 });
+  const [management, setManagement] = useState<Management>({});
 
   useEffect(() => {
     void load();
   }, []);
 
   async function load() {
-    setLoading(true);
     setError("");
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const user = session?.user;
     if (!user) {
       navigate({ to: "/admin/login" });
       return;
@@ -91,40 +159,49 @@ function AdminDashboard() {
       return;
     }
 
-    const [{ data: brandData }, { data: promoData }, { data: announcementData }, { count: userCount }] =
-      await Promise.all([
-        supabase.from("app_config").select("*").limit(1).maybeSingle(),
-        supabase.from("promo_codes").select("*").order("created_at", { ascending: false }),
-        supabase.from("announcements").select("*").order("created_at", { ascending: false }),
-        supabase.from("profiles").select("id", { count: "exact", head: true }),
-      ]);
-
-    const { count: subscriberCount } = await supabase
-      .from("subscriptions")
-      .select("user_id", { count: "exact", head: true })
-      .eq("status", "active");
+    const [{ data: brandData }, { data: promoData }, { data: announcementData }] = await Promise.all([
+      supabase.from("app_config").select("*").limit(1).maybeSingle(),
+      supabase.from("promo_codes").select("*").order("created_at", { ascending: false }),
+      supabase.from("announcements").select("*").order("priority", { ascending: false }).order("created_at", { ascending: false }),
+    ]);
 
     setBrand(brandData);
     setPromos(promoData ?? []);
     setAnnouncements(announcementData ?? []);
-    setCounts({
-      users: userCount ?? 0,
-      subscribers: subscriberCount ?? 0,
-      activePromos: (promoData ?? []).filter((p) => p.is_active).length,
-      activeAnnouncements: (announcementData ?? []).filter((a) => a.is_active).length,
-    });
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
-    if (token) {
-      const response = await fetch("/api/admin/users", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.ok) setUsers(await response.json());
+    const response = await fetch("/api/admin/management", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (response.status === 401 || response.status === 403) {
+      navigate({ to: "/admin/login" });
+      return;
     }
+    if (response.ok) setManagement(await response.json());
+    else setError(await response.text());
 
     setReady(true);
-    setLoading(false);
+  }
+
+  async function action(body: Record<string, unknown>, successMessage: string) {
+    setBusy(true);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+      const response = await fetch("/api/admin/management", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) throw new Error(await response.text());
+      toast.success(successMessage);
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "That action did not go through.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function signOut() {
@@ -132,16 +209,33 @@ function AdminDashboard() {
     navigate({ to: "/admin/login" });
   }
 
-  if (!ready && loading) {
+  const users = management.users ?? [];
+  const stats = management.stats ?? {};
+  const filteredUsers = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return users;
+    return users.filter(
+      (u) =>
+        u.email.toLowerCase().includes(term) ||
+        u.plan.toLowerCase().includes(term) ||
+        u.accountStatus.toLowerCase().includes(term),
+    );
+  }, [users, search]);
+
+  if (!ready && !error) {
     return <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Loading admin…</div>;
   }
 
   const nav: [Tab, string][] = [
     ["overview", "Overview"],
-    ["brand", "Brand"],
+    ["users", "Users & Accounts"],
+    ["subscriptions", "Subscriptions"],
+    ["payments", "Payments"],
     ["promos", "Promo Codes"],
     ["announcements", "Announcements"],
-    ["users", "Users"],
+    ["broadcasts", "Broadcasts"],
+    ["brand", "Brand"],
+    ["settings", "App Settings"],
   ];
 
   return (
@@ -149,10 +243,12 @@ function AdminDashboard() {
       <header className="border-b bg-background">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
           <div>
-            <p className="text-sm font-medium text-primary">Track Debt</p>
+            <p className="text-sm font-medium text-primary">{brand?.app_name ?? "Track Debt"}</p>
             <h1 className="text-xl font-bold">Admin</h1>
           </div>
-          <div className="flex items-center gap-2"><Link to="/admin/manage" className="rounded-lg border px-3 py-2 text-sm">Management</Link><button onClick={signOut} className="rounded-lg border px-3 py-2 text-sm">Sign out</button></div>
+          <button onClick={signOut} className="rounded-lg border px-3 py-2 text-sm">
+            Sign out
+          </button>
         </div>
       </header>
 
@@ -171,31 +267,632 @@ function AdminDashboard() {
 
         {error && <p className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
 
-        {tab === "overview" && <Overview counts={counts} />}
-        {tab === "brand" && <BrandPanel brand={brand} onSaved={load} />}
+        {tab === "overview" && <Overview stats={stats} promos={promos} announcements={announcements} />}
+        {tab === "users" && (
+          <UsersPanel users={filteredUsers} search={search} setSearch={setSearch} busy={busy} action={action} />
+        )}
+        {tab === "subscriptions" && <SubscriptionsPanel rows={management.subscriptions ?? []} />}
+        {tab === "payments" && <PaymentsPanel events={management.events ?? []} />}
         {tab === "promos" && <PromoPanel promos={promos} onSaved={load} />}
         {tab === "announcements" && <AnnouncementPanel announcements={announcements} onSaved={load} />}
-        {tab === "users" && <UsersPanel users={users} onSaved={load} />}
+        {tab === "broadcasts" && <BroadcastsPanel broadcasts={management.broadcasts ?? []} busy={busy} action={action} />}
+        {tab === "brand" && <BrandPanel brand={brand} onSaved={load} />}
+        {tab === "settings" && <SettingsPanel flags={management.flags ?? []} busy={busy} action={action} />}
       </div>
     </div>
   );
 }
 
-function Overview({ counts }: { counts: { users: number; subscribers: number; activePromos: number; activeAnnouncements: number } }) {
-  const cards = [
-    ["Users", counts.users],
-    ["Paying subscribers", counts.subscribers],
-    ["Active promo codes", counts.activePromos],
-    ["Active announcements", counts.activeAnnouncements],
-  ];
+function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-2xl border bg-background p-5 shadow-sm">
+      <h2 className="mb-5 text-lg font-semibold">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function Card({ label, value, detail }: { label: string; value: string | number; detail?: string }) {
+  return (
+    <div className="rounded-xl border bg-background p-5">
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className="mt-2 text-3xl font-bold">{value}</p>
+      {detail && <p className="mt-1 text-xs text-muted-foreground">{detail}</p>}
+    </div>
+  );
+}
+
+function Overview({ stats, promos, announcements }: { stats: Stats; promos: Promo[]; announcements: Announcement[] }) {
   return (
     <section>
-      <h2 className="mb-4 text-lg font-semibold">Overview</h2>
+      <h2 className="mb-4 text-lg font-semibold">Business overview</h2>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {cards.map(([label, value]) => (
-          <div key={label} className="rounded-xl border bg-background p-5">
-            <p className="text-sm text-muted-foreground">{label}</p>
-            <p className="mt-2 text-3xl font-bold">{value}</p>
+        <Card label="Registered users" value={stats.registered ?? 0} />
+        <Card label="Free accounts" value={stats.free ?? 0} />
+        <Card label="Active Plus" value={stats.plus ?? 0} />
+        <Card label="New users (30d)" value={stats.newUsers30d ?? 0} />
+        <Card label="Visitors today" value={stats.visitorsToday ?? 0} />
+        <Card label="Visitors this month" value={stats.visitorsMonth ?? 0} />
+        <Card label="Customers recorded" value={stats.customers ?? 0} />
+        <Card label="Transactions recorded" value={stats.transactions ?? 0} />
+        <Card label="Active promo codes" value={promos.filter((p) => p.is_active).length} />
+        <Card label="Active announcements" value={announcements.filter((a) => a.is_active).length} />
+      </div>
+      <div className="mt-6 rounded-xl border bg-background p-5">
+        <h3 className="font-semibold">Recorded subscription revenue</h3>
+        <p className="mt-2 text-3xl font-bold">₦{Number(stats.recordedRevenue ?? 0).toLocaleString()}</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Based on successful payment events captured automatically. Older payments may not include an amount.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function UsersPanel({
+  users,
+  search,
+  setSearch,
+  busy,
+  action,
+}: {
+  users: UserRow[];
+  search: string;
+  setSearch: (v: string) => void;
+  busy: boolean;
+  action: (body: Record<string, unknown>, successMessage: string) => Promise<void>;
+}) {
+  return (
+    <section>
+      <h2 className="mb-4 text-lg font-semibold">Users & accounts</h2>
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search email, plan or status"
+        className="mb-4 w-full max-w-xl rounded-lg border bg-background px-3 py-2.5"
+      />
+      <div className="overflow-x-auto rounded-xl border bg-background">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b">
+              <th className="p-3">Email</th>
+              <th className="p-3">Joined</th>
+              <th className="p-3">Plan</th>
+              <th className="p-3">Status</th>
+              <th className="p-3">Account</th>
+              <th className="p-3">Admin</th>
+              <th className="p-3">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((u) => (
+              <tr key={u.id} className="border-b last:border-0">
+                <td className="p-3">{u.email}</td>
+                <td className="p-3">{new Date(u.createdAt).toLocaleDateString("en-NG")}</td>
+                <td className="p-3">{u.plan}</td>
+                <td className="p-3">{u.status}</td>
+                <td className="p-3">{u.accountStatus}</td>
+                <td className="p-3">{u.isAdmin ? "Yes" : "No"}</td>
+                <td className="space-x-3 p-3">
+                  <button
+                    disabled={busy}
+                    onClick={() =>
+                      void action(
+                        { action: "account_status", userId: u.id, status: u.accountStatus === "active" ? "suspended" : "active" },
+                        u.accountStatus === "active" ? "Account suspended." : "Account restored.",
+                      )
+                    }
+                    className="underline disabled:opacity-50"
+                  >
+                    {u.accountStatus === "active" ? "Suspend" : "Restore"}
+                  </button>
+                  <button
+                    disabled={busy}
+                    onClick={() =>
+                      void action(
+                        { action: "admin_role", userId: u.id, makeAdmin: !u.isAdmin },
+                        u.isAdmin ? "Admin access revoked." : "Admin access granted.",
+                      )
+                    }
+                    className="underline disabled:opacity-50"
+                  >
+                    {u.isAdmin ? "Revoke admin" : "Make admin"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {users.length === 0 && (
+              <tr>
+                <td colSpan={7} className="p-4 text-center text-muted-foreground">
+                  No users match this search.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function SubscriptionsPanel({ rows }: { rows: SubscriptionRow[] }) {
+  return (
+    <section>
+      <h2 className="mb-4 text-lg font-semibold">Subscriptions</h2>
+      <div className="overflow-x-auto rounded-xl border bg-background">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b">
+              <th className="p-3">User</th>
+              <th className="p-3">Plan</th>
+              <th className="p-3">Status</th>
+              <th className="p-3">Amount</th>
+              <th className="p-3">Period end</th>
+              <th className="p-3">Last payment</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.user_id} className="border-b last:border-0">
+                <td className="p-3">{r.user_id}</td>
+                <td className="p-3">{r.plan}</td>
+                <td className="p-3">{r.status}</td>
+                <td className="p-3">{r.amount ? "₦" + (Number(r.amount) / 100).toLocaleString() : "—"}</td>
+                <td className="p-3">{r.current_period_end ? new Date(r.current_period_end).toLocaleDateString("en-NG") : "—"}</td>
+                <td className="p-3">
+                  {r.last_successful_payment_at ? new Date(r.last_successful_payment_at).toLocaleDateString("en-NG") : "—"}
+                </td>
+              </tr>
+            ))}
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={6} className="p-4 text-center text-muted-foreground">
+                  No subscriptions yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function PaymentsPanel({ events }: { events: EventRow[] }) {
+  const rows = events.filter((e) => e.event_name === "charge.success" || e.event_name === "charge.failed");
+  return (
+    <section>
+      <h2 className="mb-4 text-lg font-semibold">Payment events</h2>
+      <div className="overflow-x-auto rounded-xl border bg-background">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b">
+              <th className="p-3">Date</th>
+              <th className="p-3">Event</th>
+              <th className="p-3">Amount</th>
+              <th className="p-3">Reference</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.event_id} className="border-b last:border-0">
+                <td className="p-3">{new Date(r.created_at).toLocaleString("en-NG")}</td>
+                <td className="p-3">{r.event_name}</td>
+                <td className="p-3">{r.amount ? "₦" + (Number(r.amount) / 100).toLocaleString() : "—"}</td>
+                <td className="p-3">{r.reference ?? "—"}</td>
+              </tr>
+            ))}
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={4} className="p-4 text-center text-muted-foreground">
+                  No payments recorded yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function BrandPanel({ brand, onSaved }: { brand: Brand | null; onSaved: () => Promise<void> }) {
+  const [form, setForm] = useState<Brand>(
+    () =>
+      brand ?? {
+        id: "",
+        app_name: "Track Debt",
+        logo_url: "",
+        support_email: "",
+        website_url: "",
+        developer: "",
+        description: "",
+        theme_color: "#be2323",
+      },
+  );
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    if (brand) setForm(brand);
+  }, [brand]);
+
+  async function save() {
+    setSaving(true);
+    const { error } = await supabase
+      .from("app_config")
+      .update({
+        app_name: form.app_name,
+        logo_url: form.logo_url || null,
+        support_email: form.support_email || null,
+        website_url: form.website_url || null,
+        developer: form.developer || null,
+        description: form.description || null,
+        theme_color: form.theme_color || null,
+      })
+      .eq("id", form.id);
+    setSaving(false);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Brand details saved.");
+      await onSaved();
+    }
+  }
+
+  return (
+    <Panel title="Brand details">
+      <div className="grid gap-4 md:grid-cols-2">
+        {(
+          [
+            ["app_name", "App name"],
+            ["logo_url", "Logo URL"],
+            ["support_email", "Support email"],
+            ["website_url", "Website URL"],
+            ["developer", "Developer"],
+            ["theme_color", "Theme colour"],
+          ] as const
+        ).map(([key, label]) => (
+          <label key={key} className="block">
+            <span className="mb-1.5 block text-sm font-medium">{label}</span>
+            <input
+              value={form[key] ?? ""}
+              onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+              className="w-full rounded-lg border px-3 py-2.5"
+            />
+          </label>
+        ))}
+        <label className="block md:col-span-2">
+          <span className="mb-1.5 block text-sm font-medium">Description</span>
+          <textarea
+            rows={4}
+            value={form.description ?? ""}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            className="w-full rounded-lg border px-3 py-2.5"
+          />
+        </label>
+      </div>
+      <button
+        onClick={save}
+        disabled={saving}
+        className="mt-4 rounded-lg bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50"
+      >
+        {saving ? "Saving…" : "Save changes"}
+      </button>
+    </Panel>
+  );
+}
+
+function PromoPanel({ promos, onSaved }: { promos: Promo[]; onSaved: () => Promise<void> }) {
+  const empty: Promo = { id: "", code: "", plan: "plus", days: 30, max_uses: null, uses_count: 0, expires_at: null, is_active: true };
+  const [form, setForm] = useState<Promo>(empty);
+
+  async function save() {
+    if (!form.code.trim()) {
+      toast.error("Enter a code first.");
+      return;
+    }
+    const payload = {
+      code: form.code.trim().toUpperCase(),
+      plan: form.plan,
+      days: Number(form.days),
+      max_uses: form.max_uses || null,
+      expires_at: form.expires_at || null,
+      is_active: form.is_active,
+    };
+    const result = form.id
+      ? await supabase.from("promo_codes").update(payload).eq("id", form.id)
+      : await supabase.from("promo_codes").insert(payload);
+    if (result.error) toast.error(result.error.message);
+    else {
+      toast.success(form.id ? "Promo code updated." : "Promo code created.");
+      setForm(empty);
+      await onSaved();
+    }
+  }
+
+  async function toggleActive(promo: Promo) {
+    const { error } = await supabase.from("promo_codes").update({ is_active: !promo.is_active }).eq("id", promo.id);
+    if (error) toast.error(error.message);
+    else {
+      toast.success(promo.is_active ? "Promo code switched off." : "Promo code switched on.");
+      await onSaved();
+    }
+  }
+
+  async function remove(id: string) {
+    if (!confirm("Delete this promo code?")) return;
+    const { error } = await supabase.from("promo_codes").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Promo code deleted.");
+      await onSaved();
+    }
+  }
+
+  return (
+    <Panel title="Promo codes">
+      <div className="grid gap-3 rounded-xl border p-4 md:grid-cols-5">
+        <input
+          placeholder="CODE"
+          value={form.code}
+          onChange={(e) => setForm({ ...form, code: e.target.value })}
+          className="rounded-lg border px-3 py-2"
+        />
+        <select value={form.plan} onChange={(e) => setForm({ ...form, plan: e.target.value })} className="rounded-lg border px-3 py-2">
+          <option value="plus">Plus</option>
+          <option value="premium">Premium</option>
+        </select>
+        <input
+          type="number"
+          min="1"
+          value={form.days}
+          onChange={(e) => setForm({ ...form, days: Number(e.target.value) })}
+          className="rounded-lg border px-3 py-2"
+        />
+        <input
+          type="number"
+          min="1"
+          placeholder="Max uses"
+          value={form.max_uses ?? ""}
+          onChange={(e) => setForm({ ...form, max_uses: e.target.value ? Number(e.target.value) : null })}
+          className="rounded-lg border px-3 py-2"
+        />
+        <button onClick={save} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground">
+          {form.id ? "Update" : "Create"}
+        </button>
+      </div>
+      <div className="mt-5 overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b">
+              <th className="p-2">Code</th>
+              <th className="p-2">Plan</th>
+              <th className="p-2">Days</th>
+              <th className="p-2">Uses</th>
+              <th className="p-2">Status</th>
+              <th className="p-2" />
+            </tr>
+          </thead>
+          <tbody>
+            {promos.map((p) => (
+              <tr key={p.id} className="border-b">
+                <td className="p-2 font-medium">{p.code}</td>
+                <td className="p-2">{p.plan}</td>
+                <td className="p-2">{p.days}</td>
+                <td className="p-2">
+                  {p.uses_count}
+                  {p.max_uses ? ` / ${p.max_uses}` : ""}
+                </td>
+                <td className="p-2">{p.is_active ? "Active" : "Inactive"}</td>
+                <td className="space-x-3 p-2">
+                  <button className="underline" onClick={() => setForm(p)}>
+                    Edit
+                  </button>
+                  <button className="underline" onClick={() => void toggleActive(p)}>
+                    {p.is_active ? "Switch off" : "Switch on"}
+                  </button>
+                  <button className="underline" onClick={() => void remove(p.id)}>
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {promos.length === 0 && (
+              <tr>
+                <td colSpan={6} className="p-4 text-center text-muted-foreground">
+                  No promo codes yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
+  );
+}
+
+function AnnouncementPanel({ announcements, onSaved }: { announcements: Announcement[]; onSaved: () => Promise<void> }) {
+  const empty: Announcement = { id: "", message: "", link: "", priority: 0, starts_at: null, ends_at: null, is_active: true };
+  const [form, setForm] = useState<Announcement>(empty);
+
+  async function save() {
+    if (!form.message.trim()) {
+      toast.error("Write the announcement message first.");
+      return;
+    }
+    const payload = {
+      message: form.message.trim(),
+      link: form.link || null,
+      priority: Number(form.priority),
+      starts_at: form.starts_at || null,
+      ends_at: form.ends_at || null,
+      is_active: form.is_active,
+    };
+    const result = form.id
+      ? await supabase.from("announcements").update(payload).eq("id", form.id)
+      : await supabase.from("announcements").insert(payload);
+    if (result.error) toast.error(result.error.message);
+    else {
+      toast.success(form.id ? "Announcement updated." : "Announcement published.");
+      setForm(empty);
+      await onSaved();
+    }
+  }
+
+  async function remove(id: string) {
+    if (!confirm("Delete this announcement?")) return;
+    const { error } = await supabase.from("announcements").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Announcement deleted.");
+      await onSaved();
+    }
+  }
+
+  return (
+    <Panel title="Announcements">
+      <p className="mb-4 text-sm text-muted-foreground">
+        Active announcements appear as a banner at the top of the app for everyone using Track Debt.
+      </p>
+      <div className="space-y-3 rounded-xl border p-4">
+        <textarea
+          rows={3}
+          placeholder="Announcement message"
+          value={form.message}
+          onChange={(e) => setForm({ ...form, message: e.target.value })}
+          className="w-full rounded-lg border px-3 py-2"
+        />
+        <div className="grid gap-3 md:grid-cols-4">
+          <input
+            placeholder="Link (optional)"
+            value={form.link ?? ""}
+            onChange={(e) => setForm({ ...form, link: e.target.value })}
+            className="rounded-lg border px-3 py-2"
+          />
+          <input
+            type="number"
+            value={form.priority}
+            onChange={(e) => setForm({ ...form, priority: Number(e.target.value) })}
+            className="rounded-lg border px-3 py-2"
+          />
+          <input
+            type="datetime-local"
+            value={form.starts_at ? form.starts_at.slice(0, 16) : ""}
+            onChange={(e) => setForm({ ...form, starts_at: e.target.value ? new Date(e.target.value).toISOString() : null })}
+            className="rounded-lg border px-3 py-2"
+          />
+          <input
+            type="datetime-local"
+            value={form.ends_at ? form.ends_at.slice(0, 16) : ""}
+            onChange={(e) => setForm({ ...form, ends_at: e.target.value ? new Date(e.target.value).toISOString() : null })}
+            className="rounded-lg border px-3 py-2"
+          />
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} /> Active
+        </label>
+        <div className="flex gap-2">
+          <button onClick={save} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground">
+            {form.id ? "Update" : "Create"}
+          </button>
+          {form.id && (
+            <button onClick={() => setForm(empty)} className="rounded-lg border px-4 py-2">
+              Cancel
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="mt-5 space-y-2">
+        {announcements.map((a) => (
+          <div key={a.id} className="flex items-center justify-between rounded-xl border p-3">
+            <div>
+              <p className="font-medium">{a.message}</p>
+              <p className="text-xs text-muted-foreground">
+                Priority {a.priority} · {a.is_active ? "Active" : "Inactive"}
+              </p>
+            </div>
+            <div className="space-x-3">
+              <button className="underline" onClick={() => setForm(a)}>
+                Edit
+              </button>
+              <button className="underline" onClick={() => void remove(a.id)}>
+                Delete
+              </button>
+            </div>
+          </div>
+        ))}
+        {announcements.length === 0 && <p className="text-sm text-muted-foreground">No announcements yet.</p>}
+      </div>
+    </Panel>
+  );
+}
+
+function BroadcastsPanel({
+  broadcasts,
+  busy,
+  action,
+}: {
+  broadcasts: Broadcast[];
+  busy: boolean;
+  action: (body: Record<string, unknown>, successMessage: string) => Promise<void>;
+}) {
+  const [title, setTitle] = useState("");
+  const [message, setMessage] = useState("");
+  const [link, setLink] = useState("");
+  const [audience, setAudience] = useState("all");
+
+  function send() {
+    if (!title.trim() || !message.trim()) {
+      toast.error("Add a title and a message.");
+      return;
+    }
+    void action({ action: "broadcast", title, message, link, audience }, "Notification sent.").then(() => {
+      setTitle("");
+      setMessage("");
+      setLink("");
+    });
+  }
+
+  return (
+    <section>
+      <h2 className="mb-4 text-lg font-semibold">In-app broadcasts</h2>
+      <div className="space-y-3 rounded-xl border bg-background p-5">
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Title"
+          className="w-full rounded-lg border px-3 py-2"
+        />
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Message"
+          rows={4}
+          className="w-full rounded-lg border px-3 py-2"
+        />
+        <div className="grid gap-3 md:grid-cols-2">
+          <input
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+            placeholder="Optional link"
+            className="rounded-lg border px-3 py-2"
+          />
+          <select value={audience} onChange={(e) => setAudience(e.target.value)} className="rounded-lg border px-3 py-2">
+            <option value="all">All registered users</option>
+            <option value="free">Free users</option>
+            <option value="plus">Plus users</option>
+          </select>
+        </div>
+        <button disabled={busy} onClick={send} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50">
+          Send notification
+        </button>
+      </div>
+      <div className="mt-6 space-y-2">
+        {broadcasts.map((b) => (
+          <div key={b.id} className="rounded-xl border bg-background p-4">
+            <p className="font-semibold">{b.title}</p>
+            <p className="mt-1 text-sm">{b.body}</p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Audience: {b.audience} · Recipients: {b.recipient_count} · {new Date(b.sent_at).toLocaleString("en-NG")}
+            </p>
           </div>
         ))}
       </div>
@@ -203,120 +900,36 @@ function Overview({ counts }: { counts: { users: number; subscribers: number; ac
   );
 }
 
-function BrandPanel({ brand, onSaved }: { brand: Brand | null; onSaved: () => void }) {
-  const [form, setForm] = useState<Brand>(() => brand ?? {
-    id: "", app_name: "Track Debt", logo_url: "", support_email: "", website_url: "",
-    developer: "", description: "", theme_color: "#be2323",
-  });
-  useEffect(() => { if (brand) setForm(brand); }, [brand]);
-
-  async function save() {
-    const { error } = await supabase.from("app_config").update({
-      app_name: form.app_name, logo_url: form.logo_url || null, support_email: form.support_email || null,
-      website_url: form.website_url || null, developer: form.developer || null,
-      description: form.description || null, theme_color: form.theme_color || null,
-    }).eq("id", form.id);
-    if (error) alert(error.message); else alert("Brand details saved.");
-    onSaved();
-  }
-
-  return <Panel title="Brand details">
-    <div className="grid gap-4 md:grid-cols-2">
-      {([
-        ["app_name", "App name"], ["logo_url", "Logo URL"], ["support_email", "Support email"],
-        ["website_url", "Website URL"], ["developer", "Developer"], ["theme_color", "Theme colour"],
-      ] as const).map(([key, label]) => (
-        <label key={key} className="block"><span className="mb-1.5 block text-sm font-medium">{label}</span>
-          <input value={form[key] ?? ""} onChange={(e) => setForm({ ...form, [key]: e.target.value })} className="w-full rounded-lg border px-3 py-2.5" />
-        </label>
-      ))}
-      <label className="block md:col-span-2"><span className="mb-1.5 block text-sm font-medium">Description</span>
-        <textarea rows={4} value={form.description ?? ""} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full rounded-lg border px-3 py-2.5" />
-      </label>
-    </div>
-    <button onClick={save} className="mt-4 rounded-lg bg-primary px-4 py-2 text-primary-foreground">Save changes</button>
-  </Panel>;
-}
-
-function PromoPanel({ promos, onSaved }: { promos: Promo[]; onSaved: () => void }) {
-  const empty: Promo = { id: "", code: "", plan: "plus", days: 30, max_uses: null, uses_count: 0, expires_at: null, is_active: true };
-  const [form, setForm] = useState<Promo>(empty);
-
-  async function save() {
-    const payload = { code: form.code.trim().toUpperCase(), plan: form.plan, days: Number(form.days), max_uses: form.max_uses || null, expires_at: form.expires_at || null, is_active: form.is_active };
-    const result = form.id ? await supabase.from("promo_codes").update(payload).eq("id", form.id) : await supabase.from("promo_codes").insert(payload);
-    if (result.error) alert(result.error.message); else { setForm(empty); onSaved(); }
-  }
-  async function remove(id: string) {
-    if (!confirm("Delete this promo code?")) return;
-    const { error } = await supabase.from("promo_codes").delete().eq("id", id);
-    if (error) alert(error.message); else onSaved();
-  }
-
-  return <Panel title="Promo codes">
-    <div className="grid gap-3 rounded-xl border p-4 md:grid-cols-5">
-      <input placeholder="CODE" value={form.code} onChange={e => setForm({ ...form, code: e.target.value })} className="rounded-lg border px-3 py-2" />
-      <select value={form.plan} onChange={e => setForm({ ...form, plan: e.target.value })} className="rounded-lg border px-3 py-2"><option value="plus">Plus</option><option value="premium">Premium</option></select>
-      <input type="number" min="1" value={form.days} onChange={e => setForm({ ...form, days: Number(e.target.value) })} className="rounded-lg border px-3 py-2" />
-      <input type="number" min="1" placeholder="Max uses" value={form.max_uses ?? ""} onChange={e => setForm({ ...form, max_uses: e.target.value ? Number(e.target.value) : null })} className="rounded-lg border px-3 py-2" />
-      <button onClick={save} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground">{form.id ? "Update" : "Create"}</button>
-    </div>
-    <div className="mt-5 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="p-2">Code</th><th className="p-2">Plan</th><th className="p-2">Days</th><th className="p-2">Uses</th><th className="p-2">Status</th><th className="p-2"></th></tr></thead><tbody>
-      {promos.map(p => <tr key={p.id} className="border-b"><td className="p-2 font-medium">{p.code}</td><td className="p-2">{p.plan}</td><td className="p-2">{p.days}</td><td className="p-2">{p.uses_count}{p.max_uses ? ` / ${p.max_uses}` : ""}</td><td className="p-2">{p.is_active ? "Active" : "Inactive"}</td><td className="p-2"><button className="mr-2 underline" onClick={() => setForm(p)}>Edit</button><button className="underline" onClick={() => remove(p.id)}>Delete</button></td></tr>)}
-    </tbody></table></div>
-  </Panel>;
-}
-
-function AnnouncementPanel({ announcements, onSaved }: { announcements: Announcement[]; onSaved: () => void }) {
-  const empty: Announcement = { id: "", message: "", link: "", priority: 0, starts_at: null, ends_at: null, is_active: true };
-  const [form, setForm] = useState<Announcement>(empty);
-
-  async function save() {
-    const payload = { message: form.message.trim(), link: form.link || null, priority: Number(form.priority), starts_at: form.starts_at || null, ends_at: form.ends_at || null, is_active: form.is_active };
-    const result = form.id ? await supabase.from("announcements").update(payload).eq("id", form.id) : await supabase.from("announcements").insert(payload);
-    if (result.error) alert(result.error.message); else { setForm(empty); onSaved(); }
-  }
-  async function remove(id: string) {
-    if (!confirm("Delete this announcement?")) return;
-    const { error } = await supabase.from("announcements").delete().eq("id", id);
-    if (error) alert(error.message); else onSaved();
-  }
-
-  return <Panel title="Announcements">
-    <div className="space-y-3 rounded-xl border p-4">
-      <textarea rows={3} placeholder="Announcement message" value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} className="w-full rounded-lg border px-3 py-2" />
-      <div className="grid gap-3 md:grid-cols-4">
-        <input placeholder="Link (optional)" value={form.link ?? ""} onChange={e => setForm({ ...form, link: e.target.value })} className="rounded-lg border px-3 py-2" />
-        <input type="number" value={form.priority} onChange={e => setForm({ ...form, priority: Number(e.target.value) })} className="rounded-lg border px-3 py-2" />
-        <input type="datetime-local" value={form.starts_at ? form.starts_at.slice(0,16) : ""} onChange={e => setForm({ ...form, starts_at: e.target.value ? new Date(e.target.value).toISOString() : null })} className="rounded-lg border px-3 py-2" />
-        <input type="datetime-local" value={form.ends_at ? form.ends_at.slice(0,16) : ""} onChange={e => setForm({ ...form, ends_at: e.target.value ? new Date(e.target.value).toISOString() : null })} className="rounded-lg border px-3 py-2" />
+function SettingsPanel({
+  flags,
+  busy,
+  action,
+}: {
+  flags: Flag[];
+  busy: boolean;
+  action: (body: Record<string, unknown>, successMessage: string) => Promise<void>;
+}) {
+  return (
+    <section>
+      <h2 className="mb-4 text-lg font-semibold">App settings</h2>
+      <div className="space-y-2">
+        {flags.map((f) => (
+          <div key={f.key} className="flex items-center justify-between rounded-xl border bg-background p-4">
+            <div>
+              <p className="font-medium">{f.label}</p>
+              <p className="text-xs text-muted-foreground">{f.description}</p>
+            </div>
+            <button
+              disabled={busy}
+              onClick={() => void action({ action: "feature_flag", key: f.key, enabled: !f.enabled }, "Setting updated.")}
+              className={`rounded-full px-3 py-1 text-sm ${f.enabled ? "bg-primary text-primary-foreground" : "border"}`}
+            >
+              {f.enabled ? "On" : "Off"}
+            </button>
+          </div>
+        ))}
+        {flags.length === 0 && <p className="text-sm text-muted-foreground">No settings available.</p>}
       </div>
-      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.is_active} onChange={e => setForm({ ...form, is_active: e.target.checked })} /> Active</label>
-      <button onClick={save} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground">{form.id ? "Update" : "Create"}</button>
-    </div>
-    <div className="mt-5 space-y-2">{announcements.map(a => <div key={a.id} className="flex items-center justify-between rounded-xl border p-3"><div><p className="font-medium">{a.message}</p><p className="text-xs text-muted-foreground">Priority {a.priority} · {a.is_active ? "Active" : "Inactive"}</p></div><div><button className="mr-3 underline" onClick={() => setForm(a)}>Edit</button><button className="underline" onClick={() => remove(a.id)}>Delete</button></div></div>)}</div>
-  </Panel>;
-}
-
-function UsersPanel({ users, onSaved }: { users: UserRow[]; onSaved: () => void }) {
-  async function toggle(user: UserRow) {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-    const response = await fetch("/api/admin/users", {
-      method: "PATCH",
-      headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: user.id, makeAdmin: !user.isAdmin }),
-    });
-    if (!response.ok) alert(await response.text()); else onSaved();
-  }
-
-  return <Panel title="Users">
-    <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="p-2">Email</th><th className="p-2">Joined</th><th className="p-2">Plan</th><th className="p-2">Subscription</th><th className="p-2">Account</th><th className="p-2">Admin</th><th className="p-2"></th></tr></thead><tbody>
-      {users.map(u => <tr key={u.id} className="border-b"><td className="p-2">{u.email}</td><td className="p-2">{new Date(u.createdAt).toLocaleDateString()}</td><td className="p-2">{u.plan}</td><td className="p-2">{u.status}</td><td className="p-2">{u.accountStatus}</td><td className="p-2">{u.isAdmin ? "Yes" : "No"}</td><td className="p-2"><button onClick={() => toggle(u)} className="underline">{u.isAdmin ? "Revoke" : "Grant"}</button></td></tr>)}
-    </tbody></table></div>
-  </Panel>;
-}
-
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
-  return <section className="rounded-2xl border bg-background p-5 shadow-sm"><h2 className="mb-5 text-lg font-semibold">{title}</h2>{children}</section>;
+    </section>
+  );
 }
