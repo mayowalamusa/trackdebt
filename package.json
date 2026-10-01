@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.59",
+    "@ai-sdk/provider-utils": "^5.0.51",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -73,6 +74,7 @@
     "undici": "^8.11.2",
     "vaul": "^1.1.2",
     "vite-tsconfig-paths": "^6.0.2",
+    "xmlbuilder2": "^4.0.3",
     "zod": "^3.24.2"
   },
   "devDependencies": {
