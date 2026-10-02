@@ -38,7 +38,7 @@ describe("server Plus entitlement", () => {
   });
 
   it("does not leak one user's subscription to another user", () => {
-    expect(isPlusEntitled({ ...base })).toBe(true);
+    expect(isPlusEntitled({ ...base }, Date.parse("2026-09-15T00:00:00.000Z"))).toBe(true);
     expect(base.user_id).toBe("user-a");
   });
 });

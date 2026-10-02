@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
+import { AnnouncementBanner } from "@/components/announcement-banner";
 import { trackSiteVisit } from "@/lib/site-analytics";
 
 const FONT_CSS_URL =
@@ -152,6 +153,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <AnnouncementBanner />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       <Toaster />
