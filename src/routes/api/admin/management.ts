@@ -67,18 +67,25 @@ export const Route = createFileRoute("/api/admin/management")({
           if (body["action"] === 'broadcast') {
             const title = String(body["title"] ?? '').trim();
             const message = String(body["message"] ?? '').trim();
-            const link = body["link"] ? String(body["link"]).trim() : null;
-            const audience = ['all', 'free', 'plus'].includes(String(body["audience"])) ? String(body["audience"]) : 'all';
+            const rawLink = body["link"] ? String(body["link"]).trim() : '';
+            const link = rawLink ? (/^(https?:\/\/|\/)/i.test(rawLink) ? rawLink : 'https://' + rawLink) : null;
+            const audience = ['all', 'free', 'plus', 'selected'].includes(String(body["audience"])) ? String(body["audience"]) : 'all';
+            const selectedIds = Array.isArray(body["userIds"]) ? (body["userIds"] as unknown[]).map(String) : [];
             if (!title || !message) return Response.json({ error: "Title and message are required." }, { status: 400 });
-            const usersResult = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
+            if (audience === 'selected' && !selectedIds.length) return Response.json({ error: "Choose at least one user." }, { status: 400 });
+            const usersResult = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
             if (usersResult.error) return Response.json({ error: usersResult.error.message }, { status: 500 });
             const ids = usersResult.data.users.map((u) => u.id);
             const { data: subs } = ids.length ? await admin.from('subscriptions').select('user_id,plan,status').in('user_id', ids) : { data: [] as any[] };
             const planMap = new Map((subs ?? []).map((s: any) => [s.user_id, s]));
-            const recipients = ids.filter((id) => audience === 'all' || (audience === 'free' && (planMap.get(id)?.plan ?? 'free') === 'free') || (audience === 'plus' && planMap.get(id)?.plan === 'plus' && planMap.get(id)?.status === 'active'));
+            const recipients = ids.filter((id) => audience === 'all' || (audience === 'selected' && selectedIds.includes(id)) || (audience === 'free' && (planMap.get(id)?.plan ?? 'free') === 'free') || (audience === 'plus' && planMap.get(id)?.plan === 'plus' && planMap.get(id)?.status === 'active'));
             const broadcastId = crypto.randomUUID();
             if (recipients.length) {
-              const rows = recipients.map((id) => ({ user_id: id, legacy_id: 'admin-broadcast:' + broadcastId + ':' + id, customer_id: null, transaction_id: null, type: 'admin_broadcast', title, body: message, link, created_at: new Date().toISOString(), scheduled_for: new Date().toISOString(), read: false, status: 'delivered' }));
+              // Some older accounts have no profile row yet; notifications require one.
+              const { error: profileError } = await admin.from('profiles').upsert(recipients.map((id) => ({ id })), { onConflict: 'id', ignoreDuplicates: true });
+              if (profileError) return Response.json({ error: profileError.message }, { status: 500 });
+              const now = new Date().toISOString();
+              const rows = recipients.map((id) => ({ user_id: id, legacy_id: 'admin-broadcast:' + broadcastId + ':' + id, customer_id: null, transaction_id: null, type: 'admin_broadcast', title, body: message, link, created_at: now, scheduled_for: now, read: false, status: 'scheduled' }));
               const { error } = await admin.from('notifications').insert(rows);
               if (error) return Response.json({ error: error.message }, { status: 500 });
             }

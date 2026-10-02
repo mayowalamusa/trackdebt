@@ -206,7 +206,7 @@ export async function loadCloudNotifications(): Promise<InAppNotification[]> {
   const { data, error } = await supabase.from("notifications").select("*").eq("user_id", id).order("scheduled_for", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((row: Record<string, unknown>) => ({
-    id: String(row["id"]),
+    id: String(row["legacy_id"] ?? row["id"]),
     debtId: String(row["transaction_id"] ?? ""),
     customerId: String(row["customer_id"] ?? ""),
     type: row["type"] as InAppNotification["type"],
@@ -222,7 +222,7 @@ export async function loadCloudNotifications(): Promise<InAppNotification[]> {
 export async function syncCloudNotifications(notifications: InAppNotification[]) {
   const id = await userId();
   if (!supabase || !id || !notifications.length) return;
-  await supabase.from("notifications").upsert(notifications.map((notification) => ({ user_id: id, legacy_id: notification.id, customer_id: null, transaction_id: null, type: notification.type, title: notification.title, body: notification.body, created_at: notification.createdAt, scheduled_for: notification.scheduledFor, read: notification.read, status: notification.status })), { onConflict: "user_id,legacy_id" });
+  await supabase.from("notifications").upsert(notifications.map((notification) => ({ user_id: id, legacy_id: notification.id, customer_id: null, transaction_id: null, type: notification.type, title: notification.title, body: notification.body, created_at: notification.createdAt, scheduled_for: notification.scheduledFor, read: notification.read, status: notification.status, link: notification.link ?? null })), { onConflict: "user_id,legacy_id" });
 }
 
 export async function syncCloudOnboarding(onboarding: { completed: boolean; tips: { addCustomer: boolean; openCustomer: boolean; reminder: boolean } }) {

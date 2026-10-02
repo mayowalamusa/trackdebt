@@ -232,8 +232,7 @@ function AdminPortal() {
     ["subscriptions", "Subscriptions"],
     ["payments", "Payments"],
     ["promos", "Promo Codes"],
-    ["announcements", "Announcements"],
-    ["broadcasts", "Broadcasts"],
+    ["broadcasts", "Announcements & Alerts"],
     ["brand", "Brand"],
     ["settings", "App Settings"],
   ];
@@ -274,8 +273,7 @@ function AdminPortal() {
         {tab === "subscriptions" && <SubscriptionsPanel rows={management.subscriptions ?? []} />}
         {tab === "payments" && <PaymentsPanel events={management.events ?? []} />}
         {tab === "promos" && <PromoPanel promos={promos} onSaved={load} />}
-        {tab === "announcements" && <AnnouncementPanel announcements={announcements} onSaved={load} />}
-        {tab === "broadcasts" && <BroadcastsPanel broadcasts={management.broadcasts ?? []} busy={busy} action={action} />}
+        {tab === "broadcasts" && <BroadcastsPanel broadcasts={management.broadcasts ?? []} users={management.users ?? []} busy={busy} action={action} />}
         {tab === "brand" && <BrandPanel brand={brand} onSaved={load} />}
         {tab === "settings" && <SettingsPanel flags={management.flags ?? []} busy={busy} action={action} />}
       </div>
@@ -709,128 +707,14 @@ function PromoPanel({ promos, onSaved }: { promos: Promo[]; onSaved: () => Promi
   );
 }
 
-function AnnouncementPanel({ announcements, onSaved }: { announcements: Announcement[]; onSaved: () => Promise<void> }) {
-  const empty: Announcement = { id: "", message: "", link: "", priority: 0, starts_at: null, ends_at: null, is_active: true };
-  const [form, setForm] = useState<Announcement>(empty);
-
-  async function save() {
-    if (!form.message.trim()) {
-      toast.error("Write the announcement message first.");
-      return;
-    }
-    const payload = {
-      message: form.message.trim(),
-      link: form.link || null,
-      priority: Number(form.priority),
-      starts_at: form.starts_at || null,
-      ends_at: form.ends_at || null,
-      is_active: form.is_active,
-    };
-    const result = form.id
-      ? await supabase.from("announcements").update(payload).eq("id", form.id)
-      : await supabase.from("announcements").insert(payload);
-    if (result.error) toast.error(result.error.message);
-    else {
-      toast.success(form.id ? "Announcement updated." : "Announcement published.");
-      setForm(empty);
-      await onSaved();
-    }
-  }
-
-  async function remove(id: string) {
-    if (!confirm("Delete this announcement?")) return;
-    const { error } = await supabase.from("announcements").delete().eq("id", id);
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Announcement deleted.");
-      await onSaved();
-    }
-  }
-
-  return (
-    <Panel title="Announcements">
-      <p className="mb-4 text-sm text-muted-foreground">
-        Active announcements appear as a banner at the top of the app for everyone using Track Debt.
-      </p>
-      <div className="space-y-3 rounded-xl border p-4">
-        <textarea
-          rows={3}
-          placeholder="Announcement message"
-          value={form.message}
-          onChange={(e) => setForm({ ...form, message: e.target.value })}
-          className="w-full rounded-lg border px-3 py-2"
-        />
-        <div className="grid gap-3 md:grid-cols-4">
-          <input
-            placeholder="Link (optional)"
-            value={form.link ?? ""}
-            onChange={(e) => setForm({ ...form, link: e.target.value })}
-            className="rounded-lg border px-3 py-2"
-          />
-          <input
-            type="number"
-            value={form.priority}
-            onChange={(e) => setForm({ ...form, priority: Number(e.target.value) })}
-            className="rounded-lg border px-3 py-2"
-          />
-          <input
-            type="datetime-local"
-            value={form.starts_at ? form.starts_at.slice(0, 16) : ""}
-            onChange={(e) => setForm({ ...form, starts_at: e.target.value ? new Date(e.target.value).toISOString() : null })}
-            className="rounded-lg border px-3 py-2"
-          />
-          <input
-            type="datetime-local"
-            value={form.ends_at ? form.ends_at.slice(0, 16) : ""}
-            onChange={(e) => setForm({ ...form, ends_at: e.target.value ? new Date(e.target.value).toISOString() : null })}
-            className="rounded-lg border px-3 py-2"
-          />
-        </div>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} /> Active
-        </label>
-        <div className="flex gap-2">
-          <button onClick={save} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground">
-            {form.id ? "Update" : "Create"}
-          </button>
-          {form.id && (
-            <button onClick={() => setForm(empty)} className="rounded-lg border px-4 py-2">
-              Cancel
-            </button>
-          )}
-        </div>
-      </div>
-      <div className="mt-5 space-y-2">
-        {announcements.map((a) => (
-          <div key={a.id} className="flex items-center justify-between rounded-xl border p-3">
-            <div>
-              <p className="font-medium">{a.message}</p>
-              <p className="text-xs text-muted-foreground">
-                Priority {a.priority} · {a.is_active ? "Active" : "Inactive"}
-              </p>
-            </div>
-            <div className="space-x-3">
-              <button className="underline" onClick={() => setForm(a)}>
-                Edit
-              </button>
-              <button className="underline" onClick={() => void remove(a.id)}>
-                Delete
-              </button>
-            </div>
-          </div>
-        ))}
-        {announcements.length === 0 && <p className="text-sm text-muted-foreground">No announcements yet.</p>}
-      </div>
-    </Panel>
-  );
-}
-
 function BroadcastsPanel({
   broadcasts,
+  users,
   busy,
   action,
 }: {
   broadcasts: Broadcast[];
+  users: UserRow[];
   busy: boolean;
   action: (body: Record<string, unknown>, successMessage: string) => Promise<void>;
 }) {
@@ -838,23 +722,41 @@ function BroadcastsPanel({
   const [message, setMessage] = useState("");
   const [link, setLink] = useState("");
   const [audience, setAudience] = useState("all");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [userSearch, setUserSearch] = useState("");
+  const [category, setCategory] = useState("General");
 
   function send() {
     if (!title.trim() || !message.trim()) {
       toast.error("Add a title and a message.");
       return;
     }
-    void action({ action: "broadcast", title, message, link, audience }, "Notification sent.").then(() => {
+    if (audience === "selected" && selected.length === 0) {
+      toast.error("Choose at least one user.");
+      return;
+    }
+    const fullTitle = category === "General" ? title.trim() : `${category}: ${title.trim()}`;
+    void action({ action: "broadcast", title: fullTitle, message, link, audience, userIds: selected }, "Notification sent.").then(() => {
       setTitle("");
       setMessage("");
       setLink("");
+      setSelected([]);
     });
   }
 
   return (
     <section>
-      <h2 className="mb-4 text-lg font-semibold">In-app broadcasts</h2>
+      <h2 className="mb-1 text-lg font-semibold">Announcements & alerts</h2>
+      <p className="mb-4 text-sm text-muted-foreground">
+        Messages go to each user's notification box in the app and pop up as a phone notification when they have notifications switched on.
+      </p>
       <div className="space-y-3 rounded-xl border bg-background p-5">
+        <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full rounded-lg border px-3 py-2">
+          <option value="General">General announcement</option>
+          <option value="Maintenance">Maintenance</option>
+          <option value="New upgrade">New upgrade</option>
+          <option value="Important">Important notice</option>
+        </select>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -879,8 +781,36 @@ function BroadcastsPanel({
             <option value="all">All registered users</option>
             <option value="free">Free users</option>
             <option value="plus">Plus users</option>
+            <option value="selected">Selected users</option>
           </select>
         </div>
+        {audience === "selected" && (
+          <div className="rounded-lg border p-3">
+            <input
+              value={userSearch}
+              onChange={(e) => setUserSearch(e.target.value)}
+              placeholder="Search users by email"
+              className="mb-2 w-full rounded-lg border px-3 py-2"
+            />
+            <div className="max-h-56 space-y-1 overflow-y-auto">
+              {users
+                .filter((u) => u.email?.toLowerCase().includes(userSearch.toLowerCase()))
+                .map((u) => (
+                  <label key={u.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(u.id)}
+                      onChange={(e) =>
+                        setSelected((prev) => (e.target.checked ? [...prev, u.id] : prev.filter((id) => id !== u.id)))
+                      }
+                    />
+                    {u.email}
+                  </label>
+                ))}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">{selected.length} selected</p>
+          </div>
+        )}
         <button disabled={busy} onClick={send} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50">
           Send notification
         </button>

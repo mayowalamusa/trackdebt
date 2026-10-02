@@ -236,7 +236,23 @@ export function useInAppNotifications() {
     };
     void load();
     const listener = client.auth.onAuthStateChange(() => { setCloudLoaded(false); void load(); });
-    return () => { active = false; listener.data.subscription.unsubscribe(); };
+    // Pick up new admin broadcasts while the app is open.
+    const refresh = async () => {
+      if (!signedIn.current || loadingCloud.current) return;
+      try {
+        const cloud = await loadCloudNotifications();
+        if (!active || !cloud.length) return;
+        setNotifications((prev) => {
+          const known = new Set(prev.map((n) => n.id));
+          const fresh = cloud.filter((n) => !known.has(n.id));
+          return fresh.length ? [...fresh, ...prev] : prev;
+        });
+      } catch { /* offline — try again later */ }
+    };
+    const timer = setInterval(() => void refresh(), 120_000);
+    const onVisible = () => { if (document.visibilityState === "visible") void refresh(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { active = false; clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); listener.data.subscription.unsubscribe(); };
   }, []);
   useEffect(() => {
     if (!localLoaded || !cloudLoaded || loadingCloud.current || !signedIn.current) return;
