@@ -152,6 +152,45 @@ export type Database = {
         }
         Relationships: []
       }
+      collected_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          customer_name: string
+          customer_ref: string
+          id: string
+          paid_at: string
+          reference: string
+          synced_at: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          customer_name?: string
+          customer_ref: string
+          id?: string
+          paid_at?: string
+          reference: string
+          synced_at?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          customer_name?: string
+          customer_ref?: string
+          id?: string
+          paid_at?: string
+          reference?: string
+          synced_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           created_at: string
@@ -368,6 +407,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      paystack_subaccounts: {
+        Row: {
+          account_name: string
+          account_number: string
+          bank_code: string
+          bank_name: string
+          business_name: string
+          created_at: string
+          percentage_charge: number
+          subaccount_code: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_name?: string
+          account_number: string
+          bank_code: string
+          bank_name?: string
+          business_name: string
+          created_at?: string
+          percentage_charge?: number
+          subaccount_code: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_name?: string
+          account_number?: string
+          bank_code?: string
+          bank_name?: string
+          business_name?: string
+          created_at?: string
+          percentage_charge?: number
+          subaccount_code?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
