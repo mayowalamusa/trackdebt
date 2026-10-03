@@ -1,3 +1,14 @@
+-- Runs after the base Track Debt schema migration so account lifecycle objects can be applied independently.
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  display_name text,
+  account_status text not null default 'active',
+  deletion_requested_at timestamptz,
+  restorable_until timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 alter table public.profiles add column if not exists deleted_at timestamptz;
 alter table public.profiles add column if not exists deletion_expires_at timestamptz;
 
