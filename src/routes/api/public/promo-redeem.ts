@@ -5,7 +5,7 @@ import { findPromo } from "@/lib/promo.server";
 import { issueEntitlementToken } from "@/lib/entitlement.server";
 import { createSupabaseAdmin } from "@/lib/supabase.server";
 
-const InputSchema = z.object({ code: z.string().trim().min(1).max(64).regex(/^[A-Za-z0-9_-]+$/) });
+const InputSchema = z.object({ code: z.string().trim().min(1).max(64).regex(/^[A-Za-z0-9 _-]+$/).transform((value) => value.replace(/\\s+/g, " ")) });
 
 type DbPromo = {
   id: string;
@@ -42,7 +42,7 @@ export const Route = createFileRoute("/api/public/promo-redeem")({
         let dbPromo: DbPromo | null = null;
 
         if (admin) {
-          // Codes only contain [A-Za-z0-9_-]; escape "_" so ilike matches it literally.
+          // Codes allow letters, digits, spaces, underscores, and hyphens. Escape "_" so ilike matches it literally.
           const { data, error } = await admin
             .from("promo_codes")
             .select("id,code,plan,days,max_uses,uses_count,expires_at,is_active")
