@@ -263,17 +263,20 @@ function extractAmount(transcript: string): { amount: number; segment: string } 
     /(?:credit\s+sale|sale|payment|paid|repayment|debt|amount)\s+(?:of\s+)?(.+)/i,
   );
   const candidate = keywordMatch?.[1] ?? clean;
-
   const stopMatch = candidate.match(
-    /^(.*?)(?=\s+(?:due|today|tomorrow|in\s+\d+\s+days?|note|notes?|because|for\s+customer)\b|$)/i,
+    /^(.*?)(?=\s+(?:due|today|tomorrow|in\s+\d+\s+days?|for\s+\d+\s+days?|note|notes?|because|for\s+customer)\b|$)/i,
   );
   const amountSegment = (stopMatch?.[1] ?? candidate).trim();
 
-  const numberMatch = amountSegment.match(/\d[\d,]*(?:\.\d+)?/);
-  if (numberMatch) {
-    const amount = Number(numberMatch[0].replace(/,/g, ""));
+  // Only accept digits at the start of the amount phrase. Later numbers may
+  // describe the due term rather than the amount (e.g. "five thousand for 7 days").
+  const numericPrefix = amountSegment.match(
+    /^(?:the\s+|sum of\s+|amount of\s+)?(\d[\d,]*(?:\.\d+)?)/i,
+  );
+  if (numericPrefix) {
+    const amount = Number(numericPrefix[1].replace(/,/g, ""));
     return Number.isFinite(amount) && amount > 0
-      ? { amount, segment: amountSegment }
+      ? { amount, segment: numericPrefix[1] }
       : null;
   }
 
@@ -305,15 +308,17 @@ function extractTermKey(transcript: string): ParsedVoiceTxn["termKey"] {
 
 function extractNote(transcript: string, amountSegment: string): string {
   const clean = cleanTranscript(transcript);
-  const afterAmount = clean.slice(
-    clean.toLowerCase().indexOf(amountSegment.toLowerCase()) + amountSegment.length,
+  const explicitNote = clean.match(
+    /(?:note|notes|description|because)\s+(?:is\s+)?(.+?)(?=\s+(?:due|today|tomorrow|in\s+\d+\s+days?|for\s+\d+\s+days?)\b|$)/i,
   );
+  if (explicitNote?.[1]) return explicitNote[1].trim();
 
-  const noteMatch = afterAmount.match(
-    /(?:for|note|notes?|because|description)\s+(?:is\s+)?(.+?)(?=\s+(?:due|today|tomorrow|in\s+\d+\s+days?)\b|$)/i,
+  const amountIndex = clean.toLowerCase().indexOf(amountSegment.toLowerCase());
+  const afterAmount = amountIndex >= 0 ? clean.slice(amountIndex + amountSegment.length) : "";
+  const forNote = afterAmount.match(
+    /\bfor\s+(?!\d+\s+days?\b)(.+?)(?=\s+(?:due|today|tomorrow|in\s+\d+\s+days?)\b|$)/i,
   );
-
-  return (noteMatch?.[1] ?? "").trim();
+  return (forNote?.[1] ?? "").trim();
 }
 
 export function parseCustomerVoiceTranscript(transcript: string): ParsedVoiceCustomer {
