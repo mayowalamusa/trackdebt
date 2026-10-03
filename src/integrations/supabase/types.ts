@@ -155,6 +155,7 @@ export type Database = {
       customers: {
         Row: {
           created_at: string
+          deleted_at: string | null
           id: string
           legacy_id: string | null
           name: string
@@ -165,6 +166,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           id?: string
           legacy_id?: string | null
           name: string
@@ -175,6 +177,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           id?: string
           legacy_id?: string | null
           name?: string
