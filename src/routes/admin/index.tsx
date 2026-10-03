@@ -588,7 +588,7 @@ function PromoPanel({ promos, onSaved }: { promos: Promo[]; onSaved: () => Promi
       return;
     }
     const payload = {
-      code: form.code.trim().toUpperCase(),
+      code: form.code.trim().replace(/\\s+/g, " ").toUpperCase(),
       plan: form.plan,
       days: Number(form.days),
       max_uses: form.max_uses || null,
