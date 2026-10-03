@@ -664,18 +664,32 @@ function DebtTracker() {
     for (const c of customers) {
       const balance = Math.max(balanceOf(c), 0);
       outstanding += balance;
-      if (isOverdue(c)) {
+
+      let customerOverdueAmount = 0;
+      let customerDueTodayAmount = 0;
+      let customerDueWeekAmount = 0;
+      for (const sale of openSales(c)) {
+        const due = dueInfoOfTxn(sale.txn, sale.outstanding);
+        if (due.status === "overdue") customerOverdueAmount += sale.outstanding;
+        if (due.status === "today") customerDueTodayAmount += sale.outstanding;
+        if (due.days !== undefined && due.days >= 0 && due.days <= 7) {
+          customerDueWeekAmount += sale.outstanding;
+        }
+      }
+
+      if (customerOverdueAmount > 0) {
         overdue += 1;
-        overdueAmount += balance;
+        overdueAmount += customerOverdueAmount;
       }
-      if (isDueToday(c)) {
+      if (customerDueTodayAmount > 0) {
         dueToday += 1;
-        dueTodayAmount += balance;
+        dueTodayAmount += customerDueTodayAmount;
       }
-      if (isDueThisWeek(c)) {
+      if (customerDueWeekAmount > 0) {
         dueWeek += 1;
-        dueWeekAmount += balance;
+        dueWeekAmount += customerDueWeekAmount;
       }
+
       for (const t of c.txns) {
         if (thisMonth(t.date)) {
           if (t.type === "payment") collections += t.amount;
