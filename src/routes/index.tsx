@@ -3002,7 +3002,7 @@ function DebtTracker() {
                   onClick={() => setVoiceReview(null)}
                   className="rounded-lg py-3 text-sm font-semibold border border-line bg-paper"
                 >
-                  Edit Details
+                  Cancel
                 </button>
                 <button
                   onClick={() => {
