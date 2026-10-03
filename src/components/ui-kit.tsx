@@ -53,11 +53,13 @@ export const Stat = memo(function Stat({
   icon,
   label,
   value,
+  secondaryValue,
   tone,
 }: {
   icon: ReactNode;
   label: string;
   value: string;
+  secondaryValue?: string;
   tone?: "debt" | "paid" | "warn" | undefined;
 }) {
   return (
@@ -78,6 +80,9 @@ export const Stat = memo(function Stat({
       >
         {value}
       </p>
+      {secondaryValue && (
+        <p className="mono text-[11px] font-semibold text-ink-soft mt-0.5">{secondaryValue}</p>
+      )}
     </div>
   );
 });
