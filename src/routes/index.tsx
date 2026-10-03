@@ -96,6 +96,7 @@ import { DEVELOPER, SUPPORT_EMAIL, WEBSITE_URL } from "@/lib/app-config";
 import { SUPPORTED_CURRENCIES, getCurrency } from "@/lib/currency/currencies";
 import { getExchangeRate } from "@/lib/currency/rates";
 import { track } from "@/lib/analytics";
+import { parseCustomerVoiceTranscript, parseTxnVoiceTranscript, startVoiceRecognition, type VoiceSession } from "@/lib/voice-entry";
 import {
   defaultOnboarding,
   issueReceiptReference,
@@ -652,11 +653,37 @@ function DebtTracker() {
     let dueWeek = 0;
     let collections = 0;
     let creditSales = 0;
+    let overdueAmount = 0;
+    let dueTodayAmount = 0;
+    let dueWeekAmount = 0;
     for (const c of customers) {
       outstanding += Math.max(balanceOf(c), 0);
-      if (isOverdue(c)) overdue += 1;
-      if (isDueToday(c)) dueToday += 1;
-      if (isDueThisWeek(c)) dueWeek += 1;
+
+      let customerOverdueAmount = 0;
+      let customerDueTodayAmount = 0;
+      let customerDueWeekAmount = 0;
+      for (const sale of openSales(c)) {
+        const due = dueInfoOfTxn(sale.txn, sale.outstanding);
+        if (due.status === "overdue") customerOverdueAmount += sale.outstanding;
+        if (due.status === "today") customerDueTodayAmount += sale.outstanding;
+        if (due.days !== undefined && due.days >= 0 && due.days <= 7) {
+          customerDueWeekAmount += sale.outstanding;
+        }
+      }
+
+      if (customerOverdueAmount > 0) {
+        overdue += 1;
+        overdueAmount += customerOverdueAmount;
+      }
+      if (customerDueTodayAmount > 0) {
+        dueToday += 1;
+        dueTodayAmount += customerDueTodayAmount;
+      }
+      if (customerDueWeekAmount > 0) {
+        dueWeek += 1;
+        dueWeekAmount += customerDueWeekAmount;
+      }
+
       for (const t of c.txns) {
         if (thisMonth(t.date)) {
           if (t.type === "payment") collections += t.amount;
@@ -664,7 +691,7 @@ function DebtTracker() {
         }
       }
     }
-    return { outstanding, overdue, dueToday, dueWeek, collections, creditSales };
+    return { outstanding, overdue, overdueAmount, dueToday, dueTodayAmount, dueWeek, dueWeekAmount, collections, creditSales };
   }, [customers]);
 
   const filtered = useMemo(() => {
@@ -1175,9 +1202,25 @@ function DebtTracker() {
 
   /* ---------- voice assistance ---------- */
   const [voiceActive, setVoiceOverlay] = useState(false);
-  const [voiceReview, setVoiceReview] = useState<{ type: "customer" | "txn", data: any } | null>(null);
+  const [voiceReview, setVoiceReview] = useState<{ type: "customer" | "txn"; data: any } | null>(null);
+  const voiceSessionRef = useRef<VoiceSession | null>(null);
+  const voiceCancelledRef = useRef(false);
 
-  const startVoice = (type: "customer" | "txn") => {
+  useEffect(() => {
+    return () => {
+      voiceCancelledRef.current = true;
+      voiceSessionRef.current?.stop();
+    };
+  }, []);
+
+  const cancelVoice = () => {
+    voiceCancelledRef.current = true;
+    voiceSessionRef.current?.stop();
+    voiceSessionRef.current = null;
+    setVoiceOverlay(false);
+  };
+
+  const startVoice = async (type: "customer" | "txn") => {
     if (!entitlements.voiceEntry) {
       setGateFeature({
         title: "Voice Entry",
@@ -1185,34 +1228,47 @@ function DebtTracker() {
       });
       return;
     }
+
+    voiceCancelledRef.current = false;
+    setVoiceReview(null);
     setVoiceOverlay(true);
-    // Simulate processing after 3 seconds
-    setTimeout(() => {
-      setVoiceOverlay(false);
-      if (type === "customer") {
-        setVoiceReview({
-          type: "customer",
-          data: { name: "Ngozi Okafor", phone: "08031234567", notes: "Extracted from voice" }
-        });
-      } else {
-        setVoiceReview({
-          type: "txn",
-          data: { amount: "85000", note: "2 bags cement", termKey: "d14" }
-        });
+    const session = startVoiceRecognition();
+    voiceSessionRef.current = session;
+
+    try {
+      const transcript = await session.promise;
+      if (voiceCancelledRef.current) return;
+      const data =
+        type === "customer"
+          ? parseCustomerVoiceTranscript(transcript)
+          : parseTxnVoiceTranscript(transcript);
+      setVoiceReview({ type, data: { ...data, transcript } });
+    } catch (error) {
+      if (!voiceCancelledRef.current) {
+        toast.error(error instanceof Error ? error.message : "Voice input failed. Please try again.");
       }
-    }, 3000);
+    } finally {
+      voiceSessionRef.current = null;
+      if (!voiceCancelledRef.current) setVoiceOverlay(false);
+    }
   };
 
   const applyVoiceCustomer = () => {
-    if (!voiceReview) return;
-    setForm({ ...emptyForm, name: voiceReview.data.name, phone: voiceReview.data.phone, notes: voiceReview.data.notes });
+    if (!voiceReview || voiceReview.type !== "customer") return;
+    setForm({
+      ...emptyForm,
+      name: voiceReview.data.name,
+      phone: voiceReview.data.phone,
+      notes: voiceReview.data.notes,
+    });
     setVoiceReview(null);
     go("addCustomer");
   };
 
   const applyVoiceTxn = () => {
-    if (!voiceReview) return;
+    if (!voiceReview || voiceReview.type !== "txn") return;
     setForm({ ...emptyForm, amount: voiceReview.data.amount, note: voiceReview.data.note });
+    setTxnType(voiceReview.data.type);
     setTermKey(voiceReview.data.termKey);
     setVoiceReview(null);
     go("addTxn");
@@ -1322,30 +1378,33 @@ function DebtTracker() {
                 <Stat
                   icon={<CalendarClock size={13} />}
                   label="Due today"
-                  value={String(stats.dueToday)}
+                  value={`${stats.dueToday} ${stats.dueToday === 1 ? "customer" : "customers"}`}
+                  secondaryValue={money(stats.dueTodayAmount)}
                   tone={stats.dueToday ? "warn" : undefined}
                 />
                 <Stat
                   icon={<CalendarDays size={13} />}
                   label="Due this week"
-                  value={String(stats.dueWeek)}
+                  value={`${stats.dueWeek} ${stats.dueWeek === 1 ? "customer" : "customers"}`}
+                  secondaryValue={money(stats.dueWeekAmount)}
                   tone={stats.dueWeek ? "warn" : undefined}
                 />
                 <Stat
                   icon={<AlertTriangle size={13} />}
                   label="Overdue"
-                  value={String(stats.overdue)}
+                  value={`${stats.overdue} ${stats.overdue === 1 ? "customer" : "customers"}`}
+                  secondaryValue={money(stats.overdueAmount)}
                   tone={stats.overdue ? "debt" : undefined}
                 />
                 <Stat
                   icon={<TrendingUp size={13} />}
-                  label="Collected (mo.)"
+                  label="Collected this month"
                   value={money(stats.collections)}
                   tone="paid"
                 />
                 <Stat
                   icon={<TrendingDown size={13} />}
-                  label="Credit sales (mo.)"
+                  label="Credit sales this month"
                   value={money(stats.creditSales)}
                   tone="debt"
                 />
@@ -2883,7 +2942,7 @@ function DebtTracker() {
               <Mic size={40} />
             </div>
             <h3 className="text-xl font-bold mb-2">Listening...</h3>
-            <p className="text-center text-paper-raised/60">Say something like: "Add a new customer named Chidi" or "Record a sale of 5000 money for Amaka."</p>
+            <p className="text-center text-paper-raised/60">Speak naturally. For example: “Add a customer named Chidi with phone 08031234567” or “Record a sale of 5000 due in 7 days with note cement.”</p>
             <button
               onClick={() => setVoiceOverlay(false)}
               className="mt-12 text-sm font-semibold underline opacity-70"
@@ -2899,6 +2958,11 @@ function DebtTracker() {
               <div className="flex justify-between items-start mb-6">
                 <h3 className="text-lg font-bold">Review {voiceReview.type === "customer" ? "Customer" : "Transaction"}</h3>
                 <button onClick={() => setVoiceReview(null)}><X size={20} /></button>
+              </div>
+
+              <div className="mb-4 rounded-lg border border-line bg-paper px-4 py-3">
+                <p className="text-[10px] font-bold tracking-widest text-ink-soft uppercase mb-1">What I heard</p>
+                <p className="text-sm leading-relaxed">{voiceReview.data.transcript}</p>
               </div>
 
               <div className="space-y-4 mb-8 bg-paper p-4 rounded-lg border border-line">
@@ -2935,17 +2999,7 @@ function DebtTracker() {
 
               <div className="grid grid-cols-2 gap-3">
                 <button
-                  onClick={() => {
-                    if (voiceReview.type === "customer") {
-                      setForm({ ...emptyForm, name: voiceReview.data.name, phone: voiceReview.data.phone, notes: voiceReview.data.notes });
-                      go("addCustomer");
-                    } else {
-                      setForm({ ...emptyForm, amount: voiceReview.data.amount, note: voiceReview.data.note });
-                      setTermKey(voiceReview.data.termKey);
-                      go("addTxn");
-                    }
-                    setVoiceReview(null);
-                  }}
+                  onClick={() => setVoiceReview(null)}
                   className="rounded-lg py-3 text-sm font-semibold border border-line bg-paper"
                 >
                   Edit Details
@@ -2957,7 +3011,7 @@ function DebtTracker() {
                   }}
                   className="btn-primary rounded-lg py-3 text-sm font-semibold"
                 >
-                  Save {voiceReview.type === "customer" ? "Customer" : "Debt"}
+                  Continue to form
                 </button>
               </div>
             </div>
