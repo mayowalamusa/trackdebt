@@ -145,17 +145,20 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       if (!active) return;
       if (!nextSession) {
         if (hadSession.current) {
-          // A signed-out device must not retain the previous account's business data.
+          // Clear local records before switching back to local mode. Avoid a hard
+          // reload inside Supabase's auth callback, which can leave the SPA blank.
           clearLocalTrackDebtData();
         }
+        hadSession.current = false;
         deactivateCloudStorage();
-        if (hadSession.current) {
-          window.location.reload();
-          return;
-        }
-      } else {
-        hadSession.current = true;
+        setSession(null);
+        setPlusReady(false);
+        setEntitlementLoaded(true);
+        setMigrationReady(true);
+        setLoaded(true);
+        return;
       }
+      hadSession.current = true;
       setSession(nextSession);
       setMigrationReady(false);
       setLoaded(true);
@@ -243,5 +246,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (session && accountStatus === "active" && !migrationReady && !hasLocalBusinessData()) {
     return <main className="min-h-screen bg-background flex items-center justify-center"><p className="text-sm text-ink-soft">Preparing your account…</p></main>;
   }
-  return <>{children}</>;
+  // Remount app state when the active account changes or the user signs out,
+  // so in-memory React state cannot keep showing the previous account's records.
+  return <div key={session?.user.id ?? "local"} className="contents">{children}</div>;
 }
