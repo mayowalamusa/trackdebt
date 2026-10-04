@@ -26,6 +26,10 @@ import { Route as ApiPaystackInitializeRouteImport } from './routes/api/paystack
 import { Route as ApiPaystackStatusRouteImport } from './routes/api/paystack/status'
 import { Route as ApiPaystackWebhookRouteImport } from './routes/api/paystack/webhook'
 import { Route as ApiPublicPromoRedeemRouteImport } from './routes/api/public/promo-redeem'
+import { Route as ApiPaystackCollectBanksRouteImport } from './routes/api/paystack/collect/banks'
+import { Route as ApiPaystackCollectLinkRouteImport } from './routes/api/paystack/collect/link'
+import { Route as ApiPaystackCollectPendingRouteImport } from './routes/api/paystack/collect/pending'
+import { Route as ApiPaystackCollectSetupRouteImport } from './routes/api/paystack/collect/setup'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -112,6 +116,27 @@ const ApiPublicPromoRedeemRoute = ApiPublicPromoRedeemRouteImport.update({
   path: '/api/public/promo-redeem',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPaystackCollectBanksRoute = ApiPaystackCollectBanksRouteImport.update({
+  id: '/api/paystack/collect/banks',
+  path: '/api/paystack/collect/banks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPaystackCollectLinkRoute = ApiPaystackCollectLinkRouteImport.update({
+  id: '/api/paystack/collect/link',
+  path: '/api/paystack/collect/link',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPaystackCollectPendingRoute =
+  ApiPaystackCollectPendingRouteImport.update({
+    id: '/api/paystack/collect/pending',
+    path: '/api/paystack/collect/pending',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPaystackCollectSetupRoute = ApiPaystackCollectSetupRouteImport.update({
+  id: '/api/paystack/collect/setup',
+  path: '/api/paystack/collect/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -131,6 +156,10 @@ export interface FileRoutesByFullPath {
   '/api/paystack/status': typeof ApiPaystackStatusRoute
   '/api/paystack/webhook': typeof ApiPaystackWebhookRoute
   '/api/public/promo-redeem': typeof ApiPublicPromoRedeemRoute
+  '/api/paystack/collect/banks': typeof ApiPaystackCollectBanksRoute
+  '/api/paystack/collect/link': typeof ApiPaystackCollectLinkRoute
+  '/api/paystack/collect/pending': typeof ApiPaystackCollectPendingRoute
+  '/api/paystack/collect/setup': typeof ApiPaystackCollectSetupRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -150,6 +179,10 @@ export interface FileRoutesByTo {
   '/api/paystack/status': typeof ApiPaystackStatusRoute
   '/api/paystack/webhook': typeof ApiPaystackWebhookRoute
   '/api/public/promo-redeem': typeof ApiPublicPromoRedeemRoute
+  '/api/paystack/collect/banks': typeof ApiPaystackCollectBanksRoute
+  '/api/paystack/collect/link': typeof ApiPaystackCollectLinkRoute
+  '/api/paystack/collect/pending': typeof ApiPaystackCollectPendingRoute
+  '/api/paystack/collect/setup': typeof ApiPaystackCollectSetupRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -170,6 +203,10 @@ export interface FileRoutesById {
   '/api/paystack/status': typeof ApiPaystackStatusRoute
   '/api/paystack/webhook': typeof ApiPaystackWebhookRoute
   '/api/public/promo-redeem': typeof ApiPublicPromoRedeemRoute
+  '/api/paystack/collect/banks': typeof ApiPaystackCollectBanksRoute
+  '/api/paystack/collect/link': typeof ApiPaystackCollectLinkRoute
+  '/api/paystack/collect/pending': typeof ApiPaystackCollectPendingRoute
+  '/api/paystack/collect/setup': typeof ApiPaystackCollectSetupRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -191,6 +228,10 @@ export interface FileRouteTypes {
     | '/api/paystack/status'
     | '/api/paystack/webhook'
     | '/api/public/promo-redeem'
+    | '/api/paystack/collect/banks'
+    | '/api/paystack/collect/link'
+    | '/api/paystack/collect/pending'
+    | '/api/paystack/collect/setup'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -210,6 +251,10 @@ export interface FileRouteTypes {
     | '/api/paystack/status'
     | '/api/paystack/webhook'
     | '/api/public/promo-redeem'
+    | '/api/paystack/collect/banks'
+    | '/api/paystack/collect/link'
+    | '/api/paystack/collect/pending'
+    | '/api/paystack/collect/setup'
   id:
     | '__root__'
     | '/'
@@ -229,6 +274,10 @@ export interface FileRouteTypes {
     | '/api/paystack/status'
     | '/api/paystack/webhook'
     | '/api/public/promo-redeem'
+    | '/api/paystack/collect/banks'
+    | '/api/paystack/collect/link'
+    | '/api/paystack/collect/pending'
+    | '/api/paystack/collect/setup'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -249,6 +298,10 @@ export interface RootRouteChildren {
   ApiPaystackStatusRoute: typeof ApiPaystackStatusRoute
   ApiPaystackWebhookRoute: typeof ApiPaystackWebhookRoute
   ApiPublicPromoRedeemRoute: typeof ApiPublicPromoRedeemRoute
+  ApiPaystackCollectBanksRoute: typeof ApiPaystackCollectBanksRoute
+  ApiPaystackCollectLinkRoute: typeof ApiPaystackCollectLinkRoute
+  ApiPaystackCollectPendingRoute: typeof ApiPaystackCollectPendingRoute
+  ApiPaystackCollectSetupRoute: typeof ApiPaystackCollectSetupRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -372,6 +425,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPromoRedeemRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/paystack/collect/banks': {
+      id: '/api/paystack/collect/banks'
+      path: '/api/paystack/collect/banks'
+      fullPath: '/api/paystack/collect/banks'
+      preLoaderRoute: typeof ApiPaystackCollectBanksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/paystack/collect/link': {
+      id: '/api/paystack/collect/link'
+      path: '/api/paystack/collect/link'
+      fullPath: '/api/paystack/collect/link'
+      preLoaderRoute: typeof ApiPaystackCollectLinkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/paystack/collect/pending': {
+      id: '/api/paystack/collect/pending'
+      path: '/api/paystack/collect/pending'
+      fullPath: '/api/paystack/collect/pending'
+      preLoaderRoute: typeof ApiPaystackCollectPendingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/paystack/collect/setup': {
+      id: '/api/paystack/collect/setup'
+      path: '/api/paystack/collect/setup'
+      fullPath: '/api/paystack/collect/setup'
+      preLoaderRoute: typeof ApiPaystackCollectSetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -393,6 +474,10 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPaystackStatusRoute: ApiPaystackStatusRoute,
   ApiPaystackWebhookRoute: ApiPaystackWebhookRoute,
   ApiPublicPromoRedeemRoute: ApiPublicPromoRedeemRoute,
+  ApiPaystackCollectBanksRoute: ApiPaystackCollectBanksRoute,
+  ApiPaystackCollectLinkRoute: ApiPaystackCollectLinkRoute,
+  ApiPaystackCollectPendingRoute: ApiPaystackCollectPendingRoute,
+  ApiPaystackCollectSetupRoute: ApiPaystackCollectSetupRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -43,6 +43,39 @@ export const Route = createFileRoute("/api/paystack/webhook")({
           return Response.json({ ok: false, error: "Could not record webhook." }, { status: 503 });
         }
 
+        const meta = data.metadata && typeof data.metadata === "object" ? (data.metadata as Record<string, unknown>) : null;
+        if (event === "charge.success" && meta?.["kind"] === "debt_payment") {
+          const ownerId = typeof meta["user_id"] === "string" ? meta["user_id"] : null;
+          const customerRef = typeof meta["customer_id"] === "string" ? meta["customer_id"] : null;
+          if (data.status !== "success" || !ownerId || !customerRef || !data.reference || !data.amount) {
+            return Response.json({ ok: true, ignored: "debt_payment_incomplete" });
+          }
+          const { error } = await admin.from("collected_payments").insert({
+            user_id: ownerId,
+            customer_ref: customerRef,
+            customer_name: typeof meta["customer_name"] === "string" ? meta["customer_name"] : "",
+            amount: data.amount / 100,
+            currency: data.currency ?? "NGN",
+            reference: data.reference,
+            paid_at: data.paid_at ?? new Date().toISOString(),
+          });
+          if (error && error.code !== "23505") {
+            console.error(error);
+            return Response.json({ ok: false, error: "Could not record payment." }, { status: 503 });
+          }
+          await admin.from("notifications").insert({
+            user_id: ownerId,
+            legacy_id: `collected:${data.reference}`,
+            type: "payment_received",
+            title: "Payment received",
+            body: `${typeof meta["customer_name"] === "string" && meta["customer_name"] ? meta["customer_name"] : "A customer"} paid ₦${(data.amount / 100).toLocaleString("en-NG")} via Paystack.`,
+            scheduled_for: new Date().toISOString(),
+            read: false,
+            status: "scheduled",
+          }).then(({ error: e }) => e && console.error(e));
+          return Response.json({ ok: true });
+        }
+
         if (event === "charge.success") {
           if (!isValidPlusCharge(data)) return Response.json({ ok: true, ignored: "amount_or_currency" });
           const userId = metadataUserId(data);
