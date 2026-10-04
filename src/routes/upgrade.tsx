@@ -1,3 +1,4 @@
+import { isValidEmail } from "@/lib/input-validation";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
@@ -208,9 +209,15 @@ function UpgradePage() {
                 <h3 className="font-semibold">Sign in to Track Debt</h3>
               </div>
               <p className="text-xs text-ink-soft mb-4">Sign in to access your account and manage your plan across devices.</p>
-              <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" required placeholder="Email address" className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm mb-2" />
-              <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" required minLength={6} placeholder="Password" className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm" />
-              <button type="submit" disabled={busy} className="w-full mt-3 rounded-lg bg-ink py-3 text-sm font-semibold text-paper disabled:opacity-50">
+              <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" required autoComplete="email" aria-describedby="upgrade-email-help" placeholder="Email address" className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm mb-1" />
+              <p id="upgrade-email-help" className="text-[11px] text-ink-soft mb-2">Enter a valid email address, such as name@example.com.</p>
+              {authMode === "sign-in" && (
+                <>
+                  <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" required minLength={6} autoComplete="current-password" placeholder="Password (at least 6 characters)" aria-describedby="upgrade-password-help" className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm" />
+                  <p id="upgrade-password-help" className="text-[11px] text-ink-soft mt-1">Enter the password for your account.</p>
+                </>
+              )}
+              <button type="submit" disabled={busy || !isValidEmail(email) || (authMode === "sign-in" && password.length < 6)} className="w-full mt-3 rounded-lg bg-ink py-3 text-sm font-semibold text-paper disabled:opacity-50">
                 {busy ? "Please wait…" : authMode === "recovery" ? "Send recovery link" : "Sign in"}
               </button>
               <button type="button" onClick={() => setAuthMode(authMode === "recovery" ? "sign-in" : "recovery")} className="w-full py-2 text-xs text-ink-soft">

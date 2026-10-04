@@ -89,6 +89,7 @@ import { redeemPromoCode } from "@/lib/promo-redeem";
 import { generateReceiptPdf, receiptSummary } from "@/lib/receipts";
 import { downloadFile } from "@/lib/download";
 import { isProbablyValidPhone, normalizeForStorage } from "@/lib/phone";
+import { isValidEmail, isValidPromoCode, isValidSignupPassword, isValidPositiveAmount, normalizeDecimalInput, normalizePromoCode } from "@/lib/input-validation";
 import { paymentService, stateLabel, planLabel } from "@/lib/subscription";
 import { currentSession } from "@/lib/subscription-api";
 import { PaystackBankSetup, createPayLink, useCollectedPaymentsSync } from "@/components/paystack-collect";
@@ -152,13 +153,15 @@ import {
 function LocalInput({
   initialValue,
   onBlur,
+  onValueChange,
   transform,
   ...props
 }: {
   initialValue: string;
   onBlur: (val: string) => void;
+  onValueChange?: (val: string) => void;
   transform?: (val: string) => string;
-} & Omit<React.InputHTMLAttributes<HTMLInputElement>, "onBlur">) {
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, "onBlur" | "onChange">) {
   const [val, setVal] = useState(initialValue);
   const isFocused = useRef(false);
 
@@ -178,6 +181,7 @@ function LocalInput({
       onChange={(e) => {
         const next = transform ? transform(e.target.value) : e.target.value;
         setVal(next);
+        onValueChange?.(next);
       }}
       onBlur={(_e) => {
         isFocused.current = false;
@@ -446,9 +450,14 @@ function AccountScreen({ onClose }: { onClose: () => void }) {
               onChange={(event) => setEmail(event.target.value)}
               type="email"
               required
+              autoComplete="email"
+              aria-describedby="account-email-help"
               placeholder="Email address"
               className="w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-sm mt-5"
             />
+            <p id="account-email-help" className="mt-1 text-[11px] text-ink-soft">
+              Enter a valid email address, such as name@example.com.
+            </p>
             <div className="relative mt-2">
               <input
                 value={password}
@@ -456,6 +465,8 @@ function AccountScreen({ onClose }: { onClose: () => void }) {
                 type={showPassword ? "text" : "password"}
                 required
                 minLength={6}
+                autoComplete={mode === "sign-up" ? "new-password" : "current-password"}
+                aria-describedby="account-password-help"
                 placeholder="Password (at least 6 characters)"
                 className="w-full rounded-lg border border-line bg-paper px-3 py-2.5 pr-11 text-sm"
                 aria-label="Password"
@@ -470,15 +481,13 @@ function AccountScreen({ onClose }: { onClose: () => void }) {
                 {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
               </button>
             </div>
-            {mode === "sign-up" && (
-              <p className="mt-1.5 text-[11px] text-ink-soft">
-                Password must contain at least 6 characters, including both letters and numbers.
-              </p>
-            )}
+            <p id="account-password-help" className="mt-1.5 text-[11px] text-ink-soft">
+              {mode === "sign-up" ? "Use at least 6 characters, including at least one letter and one number." : "Enter the password for this account."}
+            </p>
             <button
               type="button"
               onClick={() => void authenticate()}
-              disabled={busy || (mode === "sign-up" && !registrationEnabled)}
+              disabled={busy || !isValidEmail(email) || (mode === "sign-up" ? !registrationEnabled || !isValidSignupPassword(password) : !password.length)}
               className="btn-primary w-full rounded-lg py-3 text-sm font-semibold mt-3 disabled:opacity-50"
             >
               {busy ? "Please wait…" : mode === "sign-up" ? "Create free account" : "Sign in"}
@@ -562,9 +571,9 @@ function DebtTracker() {
   const [inAppNotifs, setInAppNotifs] = useInAppNotifications();
   const inAppNotifsRef = useRef(inAppNotifs);
   useEffect(() => { inAppNotifsRef.current = inAppNotifs; }, [inAppNotifs]);
-  const { entitlements, loaded: entitlementsLoaded } = useEntitlements();
-  useCollectedPaymentsSync(entitlements.plan !== "free", setCustomers);
   const [promo, setPromo] = usePromoEntitlements();
+  const { entitlements, loaded: entitlementsLoaded } = useEntitlements(promo);
+  useCollectedPaymentsSync(entitlements.plan !== "free", setCustomers);
   const [promoCode, setPromoCode] = useState("");
   const [redeeming, setRedeeming] = useState(false);
 
@@ -1029,6 +1038,7 @@ function DebtTracker() {
           status: ctx.status,
           tone: reminderTone,
           ...(session?.access_token ? { accessToken: session.access_token } : {}),
+          promoToken: promo?.token,
         },
       });
       if (res.ok) {
@@ -1581,15 +1591,24 @@ function DebtTracker() {
             <Field label="PROMO CODE">
               <LocalInput
                 initialValue={promoCode}
-                onBlur={(val) => setPromoCode(val.trim().toUpperCase())}
-                placeholder="Enter your promo code"
+                onBlur={(val) => setPromoCode(normalizePromoCode(val))}
+                onValueChange={(val) => setPromoCode(normalizePromoCode(val))}
+                transform={normalizePromoCode}
+                maxLength={64}
+                autoCapitalize="characters"
+                autoComplete="off"
+                aria-describedby="promo-code-help"
+                placeholder="e.g. TRACKDEBT2026"
                 className="input-field w-full rounded px-3 py-2.5 text-sm mono uppercase"
               />
+              <p id="promo-code-help" className="mt-1.5 text-[11px] text-ink-soft">
+                Use letters A–Z, numbers 0–9, hyphens (-) or underscores (_). Do not use spaces.
+              </p>
             </Field>
 
             <button
               onClick={redeemPromo}
-              disabled={!promoCode.trim() || redeeming}
+              disabled={!isValidPromoCode(promoCode) || redeeming}
               className="btn-primary w-full rounded py-3 text-sm font-semibold mt-4 disabled:opacity-40 transition-transform active:scale-[0.99]"
             >
               {redeeming ? "Verifying code..." : "Redeem Code"}
@@ -1662,20 +1681,30 @@ function DebtTracker() {
             <Field label="PHONE">
               <LocalInput
                 initialValue={profile.phone}
-                onBlur={(val) => setP({ phone: val.trim() })}
+                onBlur={(val) => {
+                  if (!val.trim() || isProbablyValidPhone(val)) setP({ phone: val.trim() });
+                  else toast.error("Enter a valid phone number with 7–15 digits, or leave it blank.");
+                }}
                 inputMode="tel"
-                placeholder="080..."
+                autoComplete="tel"
+                placeholder="08012345678"
                 className="input-field w-full rounded px-3 py-2.5 text-sm"
               />
+              <p className="mt-1.5 text-[11px] text-ink-soft">Optional. Use 7–15 digits; country codes, spaces and hyphens are okay.</p>
             </Field>
             <Field label="EMAIL">
               <LocalInput
                 initialValue={profile.email}
-                onBlur={(val) => setP({ email: val.trim() })}
+                onBlur={(val) => {
+                  if (!val.trim() || isValidEmail(val)) setP({ email: val.trim() });
+                  else toast.error("Enter a valid email address, or leave it blank.");
+                }}
                 inputMode="email"
+                autoComplete="email"
                 placeholder="you@business.com"
                 className="input-field w-full rounded px-3 py-2.5 text-sm"
               />
+              <p className="mt-1.5 text-[11px] text-ink-soft">Optional. Use an email address such as name@example.com.</p>
             </Field>
             <Field label="ADDRESS">
               <LocalTextarea
@@ -1733,10 +1762,13 @@ function DebtTracker() {
               <LocalInput
                 initialValue={profile.accountNumber}
                 onBlur={(val) => setP({ accountNumber: val.trim() })}
+                transform={(val) => val.replace(/\D/g, "")}
                 inputMode="numeric"
                 placeholder="0123456789"
+                maxLength={20}
                 className="input-field w-full rounded px-3 py-2.5 text-sm mono"
               />
+              <p className="mt-1.5 text-[11px] text-ink-soft">Digits only. Enter the account number exactly as provided by your bank.</p>
             </Field>
             <Field label="ACCOUNT NAME">
               <LocalInput
@@ -2414,7 +2446,8 @@ function DebtTracker() {
             <Field label="NAME">
               <LocalInput
                 initialValue={form.name}
-                onBlur={(val) => setForm({ ...form, name: val.trim() })}
+                onBlur={(val) => setForm((current) => ({ ...current, name: val.trim() }))}
+                onValueChange={(val) => setForm((current) => ({ ...current, name: val }))}
                 placeholder="e.g. Chidi Electronics"
                 className="input-field w-full rounded px-3 py-2.5 text-sm"
               />
@@ -2422,16 +2455,18 @@ function DebtTracker() {
             <Field label="WHATSAPP NUMBER">
               <LocalInput
                 initialValue={form.phone}
-                onBlur={(val) => setForm({ ...form, phone: val.trim() })}
-                placeholder="080..."
+                onBlur={(val) => setForm((current) => ({ ...current, phone: val.trim() }))}
+                onValueChange={(val) => setForm((current) => ({ ...current, phone: val }))}
+                placeholder="08012345678"
                 inputMode="tel"
+                autoComplete="tel"
+                aria-describedby="customer-phone-help"
                 className="input-field w-full rounded px-3 py-2.5 text-sm"
               />
-              {form.phone.trim() && !isProbablyValidPhone(form.phone) && (
-                <p className="text-[11px] text-debt mt-1.5">
-                  That doesn&rsquo;t look like a valid phone number.
-                </p>
-              )}
+              <p id="customer-phone-help" className={`text-[11px] mt-1.5 ${form.phone.trim() && !isProbablyValidPhone(form.phone) ? "text-debt" : "text-ink-soft"}`}>
+                Enter 7–15 digits. You may include a country code, spaces or hyphens.
+                {form.phone.trim() && !isProbablyValidPhone(form.phone) ? " Check the number before saving." : ""}
+              </p>
             </Field>
             <Field label="NOTES (OPTIONAL)">
               <LocalTextarea
@@ -2548,12 +2583,17 @@ function DebtTracker() {
             <Field label={`AMOUNT (${getCurrency(profile.currency).symbol})`}>
               <LocalInput
                 initialValue={form.amount}
-                onBlur={(val) => setForm({ ...form, amount: val })}
-                transform={(val) => val.replace(/[^0-9.]/g, "")}
+                onBlur={(val) => setForm((current) => ({ ...current, amount: val }))}
+                onValueChange={(val) => setForm((current) => ({ ...current, amount: val }))}
+                transform={normalizeDecimalInput}
                 placeholder="0"
                 inputMode="decimal"
+                aria-describedby="txn-amount-help"
                 className="input-field mono w-full rounded px-3 py-3 text-2xl font-bold"
               />
+              <p id="txn-amount-help" className="mt-1.5 text-[11px] text-ink-soft">
+                Enter numbers only; decimals are allowed. The amount must be greater than zero.
+              </p>
             </Field>
             <Field label="NOTE (OPTIONAL)">
               <LocalInput
@@ -2609,7 +2649,7 @@ function DebtTracker() {
 
             <button
               onClick={screen === "editTxn" ? saveTxnEdit : addTxn}
-              disabled={!parseFloat(form.amount)}
+              disabled={!isValidPositiveAmount(form.amount) || (txnType === "sale" && termKey === "custom" && !customDueDate)}
               className="btn-primary w-full rounded py-3 text-sm font-semibold disabled:opacity-40 transition-transform active:scale-[0.99]"
             >
               {screen === "editTxn" ? "Save changes" : "Save entry"}

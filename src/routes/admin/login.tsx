@@ -1,3 +1,4 @@
+import { isValidEmail } from "@/lib/input-validation";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { FormEvent, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,9 +69,12 @@ function AdminLogin() {
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="w-full rounded-lg border bg-background px-3 py-2.5 outline-none focus:ring-2 focus:ring-primary/30"
               autoComplete="email"
+              placeholder="admin@example.com"
+              aria-describedby="admin-email-help"
+              className="w-full rounded-lg border bg-background px-3 py-2.5 outline-none focus:ring-2 focus:ring-primary/30"
             />
+            <span id="admin-email-help" className="mt-1.5 block text-xs text-muted-foreground">Enter a valid administrator email address.</span>
           </label>
 
           <label className="block">
@@ -80,9 +84,11 @@ function AdminLogin() {
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="w-full rounded-lg border bg-background px-3 py-2.5 outline-none focus:ring-2 focus:ring-primary/30"
               autoComplete="current-password"
+              placeholder="Enter your password"
+              className="w-full rounded-lg border bg-background px-3 py-2.5 outline-none focus:ring-2 focus:ring-primary/30"
             />
+            <span className="mt-1.5 block text-xs text-muted-foreground">Enter the password for your administrator account.</span>
           </label>
 
           {error && (
@@ -92,7 +98,7 @@ function AdminLogin() {
           )}
 
           <button
-            disabled={loading}
+            disabled={loading || !isValidEmail(email) || !password.length}
             className="w-full rounded-lg bg-primary px-4 py-2.5 font-medium text-primary-foreground disabled:opacity-60"
           >
             {loading ? "Signing in…" : "Sign in"}

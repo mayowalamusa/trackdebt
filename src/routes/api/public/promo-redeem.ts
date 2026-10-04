@@ -5,7 +5,7 @@ import { findPromo } from "@/lib/promo.server";
 import { issueEntitlementToken } from "@/lib/entitlement.server";
 import { createSupabaseAdmin } from "@/lib/supabase.server";
 
-const InputSchema = z.object({ code: z.string().trim().min(1).max(64).regex(/^[A-Za-z0-9 _-]+$/).transform((value) => value.replace(/\\s+/g, " ")) });
+const InputSchema = z.object({ code: z.string().trim().min(1).max(64).regex(/^[A-Za-z0-9_-]+$/) });
 
 type DbPromo = {
   id: string;
@@ -42,7 +42,7 @@ export const Route = createFileRoute("/api/public/promo-redeem")({
         let dbPromo: DbPromo | null = null;
 
         if (admin) {
-          // Codes allow letters, digits, spaces, underscores, and hyphens. Escape "_" so ilike matches it literally.
+          // Codes allow letters, digits, underscores, and hyphens only. Escape "_" so ilike matches it literally.
           const { data, error } = await admin
             .from("promo_codes")
             .select("id,code,plan,days,max_uses,uses_count,expires_at,is_active")
@@ -63,16 +63,6 @@ export const Route = createFileRoute("/api/public/promo-redeem")({
           if (dbPromo.max_uses != null && dbPromo.uses_count >= dbPromo.max_uses) {
             return Response.json({ ok: false, error: "This promo code has reached its usage limit." });
           }
-          // Optimistic concurrency: only count the use if nobody else redeemed in between.
-          const { data: updated, error: updateError } = await admin!
-            .from("promo_codes")
-            .update({ uses_count: dbPromo.uses_count + 1 })
-            .eq("id", dbPromo.id)
-            .eq("uses_count", dbPromo.uses_count)
-            .select("id");
-          if (updateError || !updated?.length) {
-            return Response.json({ ok: false, error: "Could not redeem that code right now. Please try again." });
-          }
           plan = dbPromo.plan;
           days = dbPromo.days;
           code = dbPromo.code.toUpperCase();
@@ -90,6 +80,20 @@ export const Route = createFileRoute("/api/public/promo-redeem")({
 
         if (!token) {
           return Response.json({ ok: false, error: "Promo codes are unavailable right now. Please try again later." });
+        }
+
+        // Only consume a database promo after a signed entitlement token was issued.
+        // Keep the optimistic concurrency check so simultaneous redemptions cannot exceed max_uses.
+        if (admin && dbPromo) {
+          const { data: updated, error: updateError } = await admin
+            .from("promo_codes")
+            .update({ uses_count: dbPromo.uses_count + 1 })
+            .eq("id", dbPromo.id)
+            .eq("uses_count", dbPromo.uses_count)
+            .select("id");
+          if (updateError || !updated?.length) {
+            return Response.json({ ok: false, error: "Could not redeem that code right now. Please try again." });
+          }
         }
 
         if (admin) {

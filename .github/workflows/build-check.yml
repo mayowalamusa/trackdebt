@@ -43,5 +43,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Test input validation
+        run: npm test -- src/lib/input-validation.test.ts
+
       - name: Build
         run: npm run build

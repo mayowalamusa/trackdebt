@@ -171,9 +171,11 @@ export function usePromoEntitlements() {
   return [promo, setPromo, loaded] as const;
 }
 
-export function useEntitlements() {
+export function useEntitlements(promoOverride?: PromoEntitlement | null) {
   const [serverEntitlement, setServerEntitlement] = useState<ServerEntitlement>(freeEntitlement);
-  const [loaded, setLoaded] = useState(false);
+  const [serverLoaded, setServerLoaded] = useState(false);
+  const [storedPromo, , promoLoaded] = usePromoEntitlements();
+  const promo = promoOverride === undefined ? storedPromo : promoOverride;
 
   useEffect(() => {
     let cancelled = false;
@@ -184,12 +186,12 @@ export function useEntitlements() {
       } catch {
         if (!cancelled) setServerEntitlement(freeEntitlement);
       } finally {
-        if (!cancelled) setLoaded(true);
+        if (!cancelled) setServerLoaded(true);
       }
     };
     void load();
     const subscription = supabase?.auth.onAuthStateChange(() => {
-      setLoaded(false);
+      setServerLoaded(false);
       void load();
     });
     return () => {
@@ -198,10 +200,18 @@ export function useEntitlements() {
     };
   }, []);
 
+  const promoActive = !!promo?.expiresAt && Date.parse(promo.expiresAt) > Date.now();
+  const effectivePlan =
+    serverEntitlement.plan === "plus"
+      ? "plus"
+      : promoActive
+        ? promo!.plan
+        : "free";
+
   return {
-    entitlements: getEntitlements(serverEntitlement.plan),
+    entitlements: getEntitlements(effectivePlan),
     subscription: serverEntitlement,
-    loaded,
+    loaded: serverLoaded && promoLoaded,
   };
 }
 
