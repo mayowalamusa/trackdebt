@@ -3,7 +3,7 @@ import { defaultNotificationSettings, type InAppNotification, type NotificationS
 import type { BusinessProfile, Customer } from "./ledger";
 import type { ReminderRecord } from "./reminders";
 import { emptyProfile } from "./ledger";
-import { hasCloudMigration, loadCloudSnapshot, syncCloudCustomers, syncCloudNotifications, syncCloudPreferences, syncCloudProfile, syncCloudReminders, ensureCloudProfile, recordCloudMigration } from "./cloud-data";
+import { loadCloudSnapshot, syncCloudCustomers, syncCloudNotifications, syncCloudPreferences, syncCloudProfile, syncCloudReminders, ensureCloudProfile, recordCloudMigration } from "./cloud-data";
 import { activateCloudStorage, deactivateCloudStorage } from "./storage-mode";
 
 const MIGRATION_PREFIX = "trackdebt.v4.cloudMigration.";
@@ -29,7 +29,9 @@ export function hasLocalBusinessData(): boolean {
       validate: (value) => !!value && typeof value === "object" && !Array.isArray(value),
     }).value;
     const reminders = readJSON<ReminderRecord[]>("trackdebt.v3.reminders", [], { validate: Array.isArray }).value;
-    const hasProfile = Object.values(profile).some((value) => String(value ?? "").trim().length > 0);
+    // Currency has a default value, so it must not make an otherwise-empty profile count as user data.
+    const profileFields = [profile.name, profile.logo, profile.phone, profile.address, profile.email, profile.category, profile.bankName, profile.accountNumber, profile.accountName, profile.paystackLink];
+    const hasProfile = profileFields.some((value) => String(value ?? "").trim().length > 0);
     return customers.length > 0 || reminders.length > 0 || hasProfile;
   } catch {
     return false;
@@ -71,12 +73,9 @@ export function wipeLocalDataAndActivateCloud(userId: string): void {
 }
 
 export async function migrateLocalData(userId: string): Promise<void> {
-  if (hasCompletedMigration(userId)) {
-    activateCloudStorage(userId);
-    return;
-  }
-  if (await hasCloudMigration(userId)) {
-    clearLocalTrackDebtData();
+  // A completed migration only records that an earlier batch was handled.
+  // If fresh local data exists later (for example, after logging out), merge it too.
+  if (!hasLocalBusinessData()) {
     window.localStorage.setItem(migrationKey(userId), "completed");
     activateCloudStorage(userId);
     return;
