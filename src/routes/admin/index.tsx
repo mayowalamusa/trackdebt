@@ -641,6 +641,7 @@ function PromoPanel({ promos, onSaved }: { promos: Promo[]; onSaved: () => Promi
             className="w-full rounded-lg border px-3 py-2"
           />
           <p id="admin-promo-code-help" className="mt-1 text-xs text-muted-foreground">Letters A–Z, numbers 0–9, hyphens (-) and underscores (_) only. No spaces.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Duration: whole number of days (minimum 1). Maximum uses is optional; if set, it must be a whole number of at least 1.</p>
         </div>
         <select value={form.plan} onChange={(e) => setForm({ ...form, plan: e.target.value })} className="rounded-lg border px-3 py-2">
           <option value="plus">Plus</option>
@@ -649,6 +650,9 @@ function PromoPanel({ promos, onSaved }: { promos: Promo[]; onSaved: () => Promi
         <input
           type="number"
           min="1"
+          step="1"
+          aria-label="Promo duration in days"
+          title="Enter a whole number of days, at least 1."
           value={form.days}
           onChange={(e) => setForm({ ...form, days: e.target.value === "" ? 0 : Number(e.target.value) })}
           className="rounded-lg border px-3 py-2"
@@ -656,7 +660,10 @@ function PromoPanel({ promos, onSaved }: { promos: Promo[]; onSaved: () => Promi
         <input
           type="number"
           min="1"
-          placeholder="Max uses"
+          step="1"
+          aria-label="Maximum promo redemptions (optional)"
+          title="Optional. If set, enter a whole number of uses, at least 1."
+          placeholder="Max uses (optional)"
           value={form.max_uses ?? ""}
           onChange={(e) => setForm({ ...form, max_uses: e.target.value ? Number(e.target.value) : null })}
           className="rounded-lg border px-3 py-2"
