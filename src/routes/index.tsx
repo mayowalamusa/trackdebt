@@ -91,6 +91,7 @@ import { downloadFile } from "@/lib/download";
 import { isProbablyValidPhone, normalizeForStorage } from "@/lib/phone";
 import { paymentService, stateLabel, planLabel } from "@/lib/subscription";
 import { currentSession } from "@/lib/subscription-api";
+import { PaystackBankSetup, createPayLink, useCollectedPaymentsSync } from "@/components/paystack-collect";
 import { supabase } from "@/lib/supabase";
 import { DEVELOPER, SUPPORT_EMAIL, WEBSITE_URL } from "@/lib/app-config";
 import { SUPPORTED_CURRENCIES, getCurrency } from "@/lib/currency/currencies";
@@ -562,6 +563,7 @@ function DebtTracker() {
   const inAppNotifsRef = useRef(inAppNotifs);
   useEffect(() => { inAppNotifsRef.current = inAppNotifs; }, [inAppNotifs]);
   const { entitlements, loaded: entitlementsLoaded } = useEntitlements();
+  useCollectedPaymentsSync(entitlements.plan !== "free", setCustomers);
   const [promo, setPromo] = usePromoEntitlements();
   const [promoCode, setPromoCode] = useState("");
   const [redeeming, setRedeeming] = useState(false);
@@ -1748,6 +1750,27 @@ function DebtTracker() {
               Included automatically in every reminder so customers know where to pay.
             </p>
 
+            <p className="mono text-[11px] tracking-widest text-ink-soft mt-6 mb-3">
+              COLLECT WITH PAYSTACK (PLUS)
+            </p>
+            {entitlements.plan !== "free" && (
+              <Field label="YOUR PAYSTACK PAYMENT LINK (OPTIONAL)">
+                <LocalInput
+                  initialValue={profile.paystackLink ?? ""}
+                  onBlur={(val) => {
+                    const v = val.trim();
+                    setP({ paystackLink: v && !/^https:\/\//i.test(v) ? `https://${v.replace(/^http:\/\//i, "")}` : v });
+                  }}
+                  placeholder="https://paystack.shop/pay/your-store"
+                  className="input-field w-full rounded px-3 py-2.5 text-sm"
+                />
+              </Field>
+            )}
+            <p className="text-[11px] text-ink-soft leading-relaxed -mt-1 mb-3">
+              Get paid into your bank: connect it once, then tap "Add Paystack pay link" when you send a reminder. Payments are recorded for you automatically.
+            </p>
+            <PaystackBankSetup isPlus={entitlements.plan !== "free"} businessName={profile.name} />
+
             <p className="text-[11px] text-ink-soft leading-relaxed mt-2 mb-6">
               These details appear on your receipts, statements and WhatsApp reminders. Registered accounts sync
               business data to the cloud; visitor data stays on this device.
@@ -2911,6 +2934,22 @@ function DebtTracker() {
               className="input-field w-full rounded px-3 py-2.5 text-sm resize-none mb-5 leading-relaxed"
             />
 
+            {entitlements.plan !== "free" && balanceOf(selected) > 0 && (
+              <button
+                onClick={async () => {
+                  try {
+                    const url = await createPayLink({ id: selected.id, name: selected.name }, balanceOf(selected));
+                    setReminderMessage((m) => `${m.trim()}\n\n*Pay ${money(balanceOf(selected))} now:* ${url}`);
+                    toast.success("Pay link added to your message.");
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "Could not create the pay link.");
+                  }
+                }}
+                className="w-full rounded py-2.5 text-sm font-semibold border border-line bg-paper-raised mb-2"
+              >
+                Add Paystack pay link
+              </button>
+            )}
             <button
               onClick={sendReminder}
               disabled={!reminderMessage.trim()}

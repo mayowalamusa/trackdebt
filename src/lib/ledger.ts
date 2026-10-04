@@ -58,6 +58,8 @@ export type BusinessProfile = {
   bankName: string;
   accountNumber: string;
   accountName: string;
+  /** Optional Paystack payment page link added to reminders. */
+  paystackLink?: string;
   /** Operating/display currency for this business. */
   currency: CurrencyCode;
 };
@@ -185,8 +187,10 @@ export const profileFooter = (p: BusinessProfile) =>
  *  omitting whichever parts are blank. Empty string if nothing is set. */
 export const paymentDetailsLine = (p: BusinessProfile) => {
   const parts = [p.bankName, p.accountNumber, p.accountName].filter(Boolean);
-  if (!parts.length) return "";
-  return `*Payment details:* ${parts.join(" · ")}`;
+  const lines: string[] = [];
+  if (parts.length) lines.push(`*Payment details:* ${parts.join(" · ")}`);
+  if (p.paystackLink) lines.push(`*Pay online:* ${p.paystackLink}`);
+  return lines.join("\n");
 };
 
 export const txnLabel = (t: Txn) =>
