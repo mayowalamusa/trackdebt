@@ -1681,20 +1681,30 @@ function DebtTracker() {
             <Field label="PHONE">
               <LocalInput
                 initialValue={profile.phone}
-                onBlur={(val) => setP({ phone: val.trim() })}
+                onBlur={(val) => {
+                  if (!val.trim() || isProbablyValidPhone(val)) setP({ phone: val.trim() });
+                  else toast.error("Enter a valid phone number with 7–15 digits, or leave it blank.");
+                }}
                 inputMode="tel"
-                placeholder="080..."
+                autoComplete="tel"
+                placeholder="08012345678"
                 className="input-field w-full rounded px-3 py-2.5 text-sm"
               />
+              <p className="mt-1.5 text-[11px] text-ink-soft">Optional. Use 7–15 digits; country codes, spaces and hyphens are okay.</p>
             </Field>
             <Field label="EMAIL">
               <LocalInput
                 initialValue={profile.email}
-                onBlur={(val) => setP({ email: val.trim() })}
+                onBlur={(val) => {
+                  if (!val.trim() || isValidEmail(val)) setP({ email: val.trim() });
+                  else toast.error("Enter a valid email address, or leave it blank.");
+                }}
                 inputMode="email"
+                autoComplete="email"
                 placeholder="you@business.com"
                 className="input-field w-full rounded px-3 py-2.5 text-sm"
               />
+              <p className="mt-1.5 text-[11px] text-ink-soft">Optional. Use an email address such as name@example.com.</p>
             </Field>
             <Field label="ADDRESS">
               <LocalTextarea
@@ -1752,10 +1762,13 @@ function DebtTracker() {
               <LocalInput
                 initialValue={profile.accountNumber}
                 onBlur={(val) => setP({ accountNumber: val.trim() })}
+                transform={(val) => val.replace(/\D/g, "")}
                 inputMode="numeric"
                 placeholder="0123456789"
+                maxLength={20}
                 className="input-field w-full rounded px-3 py-2.5 text-sm mono"
               />
+              <p className="mt-1.5 text-[11px] text-ink-soft">Digits only. Enter the account number exactly as provided by your bank.</p>
             </Field>
             <Field label="ACCOUNT NAME">
               <LocalInput
