@@ -236,7 +236,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       <p className="text-sm font-semibold text-ink-soft tracking-wide">Track Debt</p>
     </main>
   );
-  if (!session) return <>{children}</>;
+  if (!session) return <div key="local" className="contents">{children}</div>;
   if (accountStatus === "suspended") return <main className="min-h-screen bg-background flex items-center justify-center p-6"><div className="max-w-sm text-center"><h1 className="text-xl font-bold">Account suspended</h1><p className="mt-2 text-sm text-ink-soft">Your Track Debt account has been suspended. Contact support if you believe this was a mistake.</p></div></main>;
   if (accountStatus === "deletion_pending") return <RestoreAccountPrompt deadline={restorableUntil} />;
   if (accountStatus === "deleted") return <main className="min-h-screen bg-background flex items-center justify-center p-6"><p className="max-w-sm text-center text-sm text-ink-soft">This account is no longer available.</p></main>;
