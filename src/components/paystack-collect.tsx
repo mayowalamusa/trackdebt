@@ -76,8 +76,9 @@ export function PaystackBankSetup({ isPlus, businessName }: { isPlus: boolean; b
         <option value="">Choose your bank</option>
         {banks.map((b) => <option key={b.code + b.name} value={b.code}>{b.name}</option>)}
       </select>
-      <input value={number} onChange={(e) => setNumber(e.target.value.replace(/\D/g, "").slice(0, 10))} inputMode="numeric" placeholder="10-digit account number" className="input-field w-full rounded px-3 py-2.5 text-sm mono" />
-      <button onClick={save} disabled={busy || !bankCode || number.length !== 10} className="btn-primary w-full rounded py-2.5 text-sm font-semibold disabled:opacity-40">
+      <input value={number} onChange={(e) => setNumber(e.target.value.replace(/\D/g, "").slice(0, 10))} inputMode="numeric" pattern="[0-9]{10}" maxLength={10} autoComplete="off" aria-describedby="collect-account-help" placeholder="10-digit account number" className="input-field w-full rounded px-3 py-2.5 text-sm mono" />
+      <p id="collect-account-help" className="mt-1.5 text-[11px] text-ink-soft">Enter exactly 10 digits. Letters and symbols are removed automatically.</p>
+      <button onClick={save} disabled={busy || !bankCode || !/^[0-9]{10}$/.test(number)} className="btn-primary w-full rounded py-2.5 text-sm font-semibold disabled:opacity-40">
         {busy ? "Checking…" : "Connect bank account"}
       </button>
       {fee !== null && <p className="text-[11px] text-ink-soft">Track Debt keeps {fee}% of each payment. Paystack's own charge also comes out of the payment.</p>}
