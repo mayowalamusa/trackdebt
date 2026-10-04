@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { buildReminderPrompt, createLovableAiGatewayProvider } from "./ai-gateway.server";
 import { getEntitlement } from "./subscription.server";
+import { verifyEntitlementToken } from "./entitlement.server";
 import { createSupabaseAdmin, userFromAccessToken } from "./supabase.server";
 
 const InputSchema = z.object({
@@ -16,6 +17,7 @@ const InputSchema = z.object({
   status: z.string(),
   tone: z.enum(["friendly", "professional", "firm"]),
   accessToken: z.string().min(1).optional(),
+  promoToken: z.string().min(1).optional(),
 });
 
 export const generateReminder = createServerFn({ method: "POST" })
@@ -24,7 +26,9 @@ export const generateReminder = createServerFn({ method: "POST" })
     const admin = createSupabaseAdmin();
     const user = await userFromAccessToken(data.accessToken ?? null);
     const entitlement = admin && user ? await getEntitlement(admin, user.id) : null;
-    if (!entitlement || entitlement.plan !== "plus") {
+    const promoClaims = data.promoToken ? await verifyEntitlementToken(data.promoToken) : null;
+    const hasValidPromo = promoClaims?.plan === "plus" || promoClaims?.plan === "premium";
+    if ((!entitlement || entitlement.plan !== "plus") && !hasValidPromo) {
       return {
         ok: false as const,
         error: "AI reminders are available on Track Debt Plus and Premium.",
