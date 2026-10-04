@@ -73,7 +73,6 @@ function AdminLogin() {
               placeholder="admin@example.com"
               aria-describedby="admin-email-help"
               className="w-full rounded-lg border bg-background px-3 py-2.5 outline-none focus:ring-2 focus:ring-primary/30"
-              autoComplete="email"
             />
             <span id="admin-email-help" className="mt-1.5 block text-xs text-muted-foreground">Enter a valid administrator email address.</span>
           </label>
@@ -88,8 +87,8 @@ function AdminLogin() {
               autoComplete="current-password"
               placeholder="Enter your password"
               className="w-full rounded-lg border bg-background px-3 py-2.5 outline-none focus:ring-2 focus:ring-primary/30"
-              autoComplete="current-password"
             />
+            <span className="mt-1.5 block text-xs text-muted-foreground">Enter the password for your administrator account.</span>
           </label>
 
           {error && (
