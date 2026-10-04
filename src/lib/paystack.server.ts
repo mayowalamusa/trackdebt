@@ -68,25 +68,40 @@ export async function initializePlusCheckout(input: {
   const plan = process.env["PAYSTACK_PLUS_PLAN_CODE"];
   if (!secret || !plan) throw new Error("Paystack server configuration is incomplete.");
 
-  const response = await fetch("https://api.paystack.co/transaction/initialize", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email: input.email,
-      amount: PLUS_AMOUNT_KOBO,
-      currency: PLUS_CURRENCY,
-      plan,
-      callback_url: input.callbackUrl,
-      metadata: { user_id: input.userId, product: "trackdebt_plus" },
-    }),
-  });
-  const result = (await response.json()) as {
+  let response: Response;
+  try {
+    response = await fetch("https://api.paystack.co/transaction/initialize", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: input.email,
+        // The plan owns the recurring price. Omitting amount prevents a mismatch
+        // between the one-off amount and the configured Paystack plan.
+        currency: PLUS_CURRENCY,
+        plan,
+        callback_url: input.callbackUrl,
+        metadata: { user_id: input.userId, product: "trackdebt_plus" },
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch {
+    throw new Error("Paystack could not be reached. Check the server connection and try again.");
+  }
+
+  let result: {
     status?: boolean;
     message?: string;
     data?: { authorization_url?: string; access_code?: string; reference?: string };
   };
+  try {
+    result = (await response.json()) as typeof result;
+  } catch {
+    throw new Error(`Paystack returned an unreadable response (HTTP ${response.status}).`);
+  }
   if (!response.ok || !result.status || !result.data?.authorization_url || !result.data.reference) {
-    throw new Error(result.message ?? "Paystack checkout could not be started.");
+    // Paystack's message is safe to show: it describes the API rejection and
+    // contains no request credentials. It helps identify invalid live keys/plans.
+    throw new Error(result.message ?? `Paystack rejected checkout initialization (HTTP ${response.status}).`);
   }
   return result.data;
 }

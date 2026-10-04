@@ -29,8 +29,9 @@ export const Route = createFileRoute("/api/paystack/initialize")({
           const checkout = await initializePlusCheckout({ email: user.email, userId: user.id, callbackUrl: parsed.toString() });
           return Response.json({ ok: true, ...checkout });
         } catch (error) {
-          console.error(error);
-          return Response.json({ ok: false, error: "Could not start Paystack checkout." }, { status: 502 });
+          console.error("Paystack checkout initialization failed:", error);
+          const message = error instanceof Error ? error.message : "Could not start Paystack checkout.";
+          return Response.json({ ok: false, error: message }, { status: 502 });
         }
       },
     },
