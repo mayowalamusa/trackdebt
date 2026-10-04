@@ -2100,7 +2100,13 @@ function DebtTracker() {
             <SettingsRow
               icon={<Crown size={17} />}
               label="Current Plan"
-              value={stateLabel(sub)}
+              value={
+                promo?.expiresAt && Date.parse(promo.expiresAt) > Date.now()
+                  ? `${planLabel(promo.plan)} (Promo · until ${new Date(promo.expiresAt).toLocaleDateString()})`
+                  : entitlements.plan !== "free"
+                    ? planLabel(entitlements.plan)
+                    : stateLabel(sub)
+              }
               tone={entitlements.plan !== "free" ? "paid" : undefined}
               onClick={() => {}}
             />
