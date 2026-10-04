@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
-import { activateCloudOnlyStorage, hasCompletedMigration, hasLocalBusinessData, migrateLocalData, wipeLocalDataAndActivateCloud } from "@/lib/local-migration";
+import { activateCloudOnlyStorage, clearLocalTrackDebtData, hasLocalBusinessData, migrateLocalData, wipeLocalDataAndActivateCloud } from "@/lib/local-migration";
 import { deactivateCloudStorage } from "@/lib/storage-mode";
 import { ensureCloudProfile } from "@/lib/cloud-data";
 import { fetchAccountStatus, fetchServerEntitlement, restoreAccount } from "@/lib/subscription-api";
@@ -144,6 +144,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     const listener = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!active) return;
       if (!nextSession) {
+        if (hadSession.current) {
+          // A signed-out device must not retain the previous account's business data.
+          clearLocalTrackDebtData();
+        }
         deactivateCloudStorage();
         if (hadSession.current) {
           window.location.reload();
@@ -199,10 +203,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!session || !entitlementLoaded || accountStatus !== "active") return;
-    if (hasCompletedMigration(session.user.id)) {
-      setMigrationReady(true);
-      return;
-    }
+    // Migration history must not suppress the prompt when new local data has
+    // been created since a previous login/logout cycle.
     if (!hasLocalBusinessData()) {
       try {
         activateCloudOnlyStorage(session.user.id);
@@ -235,10 +237,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (accountStatus === "suspended") return <main className="min-h-screen bg-background flex items-center justify-center p-6"><div className="max-w-sm text-center"><h1 className="text-xl font-bold">Account suspended</h1><p className="mt-2 text-sm text-ink-soft">Your Track Debt account has been suspended. Contact support if you believe this was a mistake.</p></div></main>;
   if (accountStatus === "deletion_pending") return <RestoreAccountPrompt deadline={restorableUntil} />;
   if (accountStatus === "deleted") return <main className="min-h-screen bg-background flex items-center justify-center p-6"><p className="max-w-sm text-center text-sm text-ink-soft">This account is no longer available.</p></main>;
-  if (session && entitlementLoaded && accountStatus === "active" && !hasCompletedMigration(session.user.id) && hasLocalBusinessData()) {
+  if (session && entitlementLoaded && accountStatus === "active" && hasLocalBusinessData()) {
     return <CloudMigrationPrompt userId={session.user.id} onComplete={() => setMigrationReady(true)} />;
   }
-  if (session && accountStatus === "active" && !migrationReady && !hasCompletedMigration(session.user.id)) {
+  if (session && accountStatus === "active" && !migrationReady && !hasLocalBusinessData()) {
     return <main className="min-h-screen bg-background flex items-center justify-center"><p className="text-sm text-ink-soft">Preparing your account…</p></main>;
   }
   return <>{children}</>;
