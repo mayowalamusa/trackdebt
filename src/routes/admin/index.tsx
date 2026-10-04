@@ -1,3 +1,4 @@
+import { isValidPromoCode, normalizePromoCode } from "@/lib/input-validation";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -583,12 +584,12 @@ function PromoPanel({ promos, onSaved }: { promos: Promo[]; onSaved: () => Promi
   const [form, setForm] = useState<Promo>(empty);
 
   async function save() {
-    if (!form.code.trim()) {
-      toast.error("Enter a code first.");
+    if (!isValidPromoCode(form.code)) {
+      toast.error("Use 1–64 letters, numbers, hyphens or underscores. Spaces are not allowed.");
       return;
     }
     const payload = {
-      code: form.code.trim().replace(/\\s+/g, " ").toUpperCase(),
+      code: normalizePromoCode(form.code),
       plan: form.plan,
       days: Number(form.days),
       max_uses: form.max_uses || null,
@@ -628,12 +629,19 @@ function PromoPanel({ promos, onSaved }: { promos: Promo[]; onSaved: () => Promi
   return (
     <Panel title="Promo codes">
       <div className="grid gap-3 rounded-xl border p-4 md:grid-cols-5">
-        <input
-          placeholder="CODE"
-          value={form.code}
-          onChange={(e) => setForm({ ...form, code: e.target.value })}
-          className="rounded-lg border px-3 py-2"
-        />
+        <div>
+          <input
+            placeholder="e.g. TRACKDEBT2026"
+            value={form.code}
+            maxLength={64}
+            autoCapitalize="characters"
+            autoComplete="off"
+            aria-describedby="admin-promo-code-help"
+            onChange={(e) => setForm({ ...form, code: normalizePromoCode(e.target.value) })}
+            className="w-full rounded-lg border px-3 py-2"
+          />
+          <p id="admin-promo-code-help" className="mt-1 text-xs text-muted-foreground">Letters A–Z, numbers 0–9, hyphens (-) and underscores (_) only. No spaces.</p>
+        </div>
         <select value={form.plan} onChange={(e) => setForm({ ...form, plan: e.target.value })} className="rounded-lg border px-3 py-2">
           <option value="plus">Plus</option>
           <option value="premium">Premium</option>
@@ -642,7 +650,7 @@ function PromoPanel({ promos, onSaved }: { promos: Promo[]; onSaved: () => Promi
           type="number"
           min="1"
           value={form.days}
-          onChange={(e) => setForm({ ...form, days: Number(e.target.value) })}
+          onChange={(e) => setForm({ ...form, days: e.target.value === "" ? 0 : Number(e.target.value) })}
           className="rounded-lg border px-3 py-2"
         />
         <input
@@ -653,7 +661,7 @@ function PromoPanel({ promos, onSaved }: { promos: Promo[]; onSaved: () => Promi
           onChange={(e) => setForm({ ...form, max_uses: e.target.value ? Number(e.target.value) : null })}
           className="rounded-lg border px-3 py-2"
         />
-        <button onClick={save} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground">
+        <button onClick={save} disabled={!isValidPromoCode(form.code) || !Number.isInteger(form.days) || form.days < 1 || (form.max_uses !== null && (!Number.isInteger(form.max_uses) || form.max_uses < 1))} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50">
           {form.id ? "Update" : "Create"}
         </button>
       </div>
