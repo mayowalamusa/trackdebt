@@ -2,7 +2,7 @@
  *  Change values here only — never hard-code pricing or ad ids in components. */
 
 /** Set to false when Plus payments are ready to go live. */
-export const PLUS_COMING_SOON = true;
+export const PLUS_COMING_SOON = false;
 
 export type PlanId = "free" | "plus" | "premium";
 
