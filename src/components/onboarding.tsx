@@ -13,15 +13,21 @@ import {
 } from "@/lib/ledger";
 import { issueReceiptReference } from "@/lib/use-ledger-storage";
 import { Field } from "@/components/ui-kit";
+import { isValidEmail, isValidPositiveAmount, normalizeDecimalInput } from "@/lib/input-validation";
+import { isProbablyValidPhone } from "@/lib/phone";
 
 function LocalInput({
   initialValue,
   onBlur,
+  onValueChange,
+  transform,
   ...props
 }: {
   initialValue: string;
   onBlur: (val: string) => void;
-} & Omit<React.InputHTMLAttributes<HTMLInputElement>, "onBlur">) {
+  onValueChange?: (val: string) => void;
+  transform?: (val: string) => string;
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, "onBlur" | "onChange">) {
   const [val, setVal] = useState(initialValue);
   const isFocused = useRef(false);
 
@@ -38,7 +44,11 @@ function LocalInput({
         isFocused.current = true;
         props.onFocus?.(e);
       }}
-      onChange={(e) => setVal(e.target.value)}
+      onChange={(e) => {
+        const next = transform ? transform(e.target.value) : e.target.value;
+        setVal(next);
+        onValueChange?.(next);
+      }}
       onBlur={(e) => {
         isFocused.current = false;
         onBlur(val);
@@ -91,13 +101,13 @@ export function Onboarding({
   };
 
   const continueBusiness = () => {
-    if (!biz.name.trim()) return;
+    if (!biz.name.trim() || (biz.phone.trim() && !isProbablyValidPhone(biz.phone)) || (biz.email.trim() && !isValidEmail(biz.email))) return;
     setProfile((p) => ({ ...p, ...biz, name: biz.name.trim() }));
     setStep("customer");
   };
 
   const continueCustomer = () => {
-    if (!custName.trim() || !custPhone.trim()) return;
+    if (!custName.trim() || !isProbablyValidPhone(custPhone)) return;
     const id = "c" + Date.now();
     setCustomers((cs) => [
       ...cs,
@@ -241,6 +251,7 @@ export function Onboarding({
                     <LocalInput
                       initialValue={biz.name}
                       onBlur={(val) => setBiz((b) => ({ ...b, name: val.trim() }))}
+                      onValueChange={(val) => setBiz((b) => ({ ...b, name: val }))}
                       placeholder="e.g. Chidi Provisions Store"
                       className="input-field w-full rounded px-3 py-2.5 text-sm"
                     />
@@ -249,10 +260,14 @@ export function Onboarding({
                     <LocalInput
                       initialValue={biz.phone}
                       onBlur={(val) => setBiz((b) => ({ ...b, phone: val.trim() }))}
-                      placeholder="080..."
+                      onValueChange={(val) => setBiz((b) => ({ ...b, phone: val }))}
+                      placeholder="08012345678"
                       inputMode="tel"
+                      autoComplete="tel"
                       className="input-field w-full rounded px-3 py-2.5 text-sm"
                     />
+                    <p className="mt-1.5 text-[11px] text-ink-soft">Optional. If entered, use 7–15 digits; country codes, spaces and hyphens are okay.</p>
+                    {biz.phone.trim() && !isProbablyValidPhone(biz.phone) && <p className="mt-1 text-[11px] text-debt">Enter a valid phone number with 7–15 digits.</p>}
                   </Field>
                   <Field label="BUSINESS CATEGORY">
                     <div className="flex flex-wrap gap-1.5">
@@ -284,10 +299,14 @@ export function Onboarding({
                     <LocalInput
                       initialValue={biz.email}
                       onBlur={(val) => setBiz((b) => ({ ...b, email: val.trim() }))}
+                      onValueChange={(val) => setBiz((b) => ({ ...b, email: val }))}
                       placeholder="you@business.com"
                       inputMode="email"
+                      autoComplete="email"
                       className="input-field w-full rounded px-3 py-2.5 text-sm"
                     />
+                    <p className="mt-1.5 text-[11px] text-ink-soft">Optional. Enter a valid email address such as name@example.com.</p>
+                    {biz.email.trim() && !isValidEmail(biz.email) && <p className="mt-1 text-[11px] text-debt">Check the email address format.</p>}
                   </Field>
                 </>
               )}
@@ -298,6 +317,7 @@ export function Onboarding({
                     <LocalInput
                       initialValue={custName}
                       onBlur={(val) => setCustName(val.trim())}
+                      onValueChange={setCustName}
                       placeholder="e.g. Ngozi Okafor"
                       className="input-field w-full rounded px-3 py-2.5 text-sm"
                     />
@@ -306,10 +326,13 @@ export function Onboarding({
                     <LocalInput
                       initialValue={custPhone}
                       onBlur={(val) => setCustPhone(val.trim())}
-                      placeholder="080..."
+                      onValueChange={setCustPhone}
+                      placeholder="08012345678"
                       inputMode="tel"
+                      autoComplete="tel"
                       className="input-field w-full rounded px-3 py-2.5 text-sm"
                     />
+                    <p className={`mt-1.5 text-[11px] ${custPhone.trim() && !isProbablyValidPhone(custPhone) ? "text-debt" : "text-ink-soft"}`}>Enter a phone number with 7–15 digits. Country codes, spaces and hyphens are okay.</p>
                   </Field>
                   <Field label="CUSTOMER NOTES (OPTIONAL)">
                     <LocalInput
@@ -331,10 +354,14 @@ export function Onboarding({
                     <LocalInput
                       initialValue={amount}
                       onBlur={(val) => setAmount(val.trim())}
+                      onValueChange={setAmount}
+                      transform={normalizeDecimalInput}
                       placeholder="0"
                       inputMode="decimal"
+                      aria-describedby="onboarding-amount-help"
                       className="input-field w-full rounded px-3 py-2.5 text-sm mono"
                     />
+                    <p id="onboarding-amount-help" className="mt-1.5 text-[11px] text-ink-soft">Enter a positive amount using numbers only. Decimals are allowed.</p>
                   </Field>
                   <Field label="DESCRIPTION (OPTIONAL)">
                     <LocalInput
@@ -403,8 +430,9 @@ export function Onboarding({
                       : finishSetup
                 }
                 disabled={
-                  (step === "business" && !biz.name.trim()) ||
-                  (step === "customer" && (!custName.trim() || !custPhone.trim()))
+                  (step === "business" && (!biz.name.trim() || (biz.phone.trim() && !isProbablyValidPhone(biz.phone)) || (biz.email.trim() && !isValidEmail(biz.email)))) ||
+                  (step === "customer" && (!custName.trim() || !isProbablyValidPhone(custPhone))) ||
+                  (step === "sale" && (!isValidPositiveAmount(amount) || (termKey === "custom" && !customDueDate)))
                 }
                 className="btn-primary flex-1 min-h-12 rounded text-sm font-semibold disabled:opacity-40 transition-transform active:scale-[0.99]"
               >
