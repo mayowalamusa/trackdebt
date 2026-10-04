@@ -1,6 +1,6 @@
 /** Shared input validation and normalization used by forms and their action buttons. */
 export function isValidEmail(value: string): boolean {
-  return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value.trim());
+  return /^[^ \t\r\n@]+@[^ \t\r\n@]+\.[^ \t\r\n@]+$/.test(value.trim());
 }
 
 export function isValidSignupPassword(value: string): boolean {
@@ -19,7 +19,7 @@ export function normalizeDecimalInput(value: string): string {
   const cleaned = value.replace(/[^0-9.]/g, "");
   const dot = cleaned.indexOf(".");
   if (dot < 0) return cleaned;
-  return cleaned.slice(0, dot + 1) + cleaned.slice(dot + 1).replace(/\\./g, "");
+  return cleaned.slice(0, dot + 1) + cleaned.slice(dot + 1).split(".").join("");
 }
 
 export function isValidPositiveAmount(value: string): boolean {
