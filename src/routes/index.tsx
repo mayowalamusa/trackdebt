@@ -9,6 +9,8 @@ import {
   X,
   Pencil,
   Trash2,
+  Archive,
+  ArchiveRestore,
   Store,
   Receipt,
   StickyNote,
@@ -60,6 +62,8 @@ import {
   thisMonth,
   todayISO,
   waLink,
+  canAddActiveCustomer,
+  countActiveCustomers,
   type BusinessProfile,
   type Customer,
   type TermKey,
@@ -92,6 +96,8 @@ import { isProbablyValidPhone, normalizeForStorage } from "@/lib/phone";
 import { isValidEmail, isValidPromoCode, isValidSignupPassword, isValidPositiveAmount, normalizeDecimalInput, normalizePromoCode } from "@/lib/input-validation";
 import { paymentService, stateLabel, planLabel } from "@/lib/subscription";
 import { currentSession } from "@/lib/subscription-api";
+import { deleteCloudCustomer, deleteCloudTransaction } from "@/lib/cloud-data";
+import { claimStoredPromoEntitlement } from "@/lib/subscription-api";
 import { PaystackBankSetup, createPayLink, useCollectedPaymentsSync } from "@/components/paystack-collect";
 import { supabase } from "@/lib/supabase";
 import { DEVELOPER, SUPPORT_EMAIL, WEBSITE_URL } from "@/lib/app-config";
@@ -338,7 +344,7 @@ type Screen =
   | "account";
 
 
-type Filter = "all" | "outstanding" | "settled" | "overdue" | "dueToday" | "dueWeek";
+type Filter = "archived" | "all" | "outstanding" | "settled" | "overdue" | "dueToday" | "dueWeek";
 type Sort = "newest" | "highest";
 
 const emptyForm = { name: "", phone: "", notes: "", amount: "", note: "" };
@@ -717,6 +723,8 @@ function DebtTracker() {
             c.txns.some((t) => t.note.toLowerCase().includes(q));
           if (!hit) return false;
         }
+        if (filter === "archived") return !!c.archivedAt;
+        if (c.archivedAt) return false;
         const bal = balanceOf(c);
         if (filter === "outstanding") return bal > 0;
         if (filter === "settled") return bal <= 0;
@@ -732,9 +740,29 @@ function DebtTracker() {
       );
   }, [customers, query, filter, sort]);
 
+  /* ---------- active-customer limit ---------- */
+  const customerLimit = entitlements.maxActiveCustomers;
+  const activeCustomerCount = countActiveCustomers(customers);
+  const atCustomerLimit = !canAddActiveCustomer(customers, customerLimit);
+  /** Returns true (and shows an upgrade prompt) when the plan limit blocks a new active customer. */
+  const blockedByCustomerLimit = () => {
+    if (!atCustomerLimit) return false;
+    toast.error(`Free plan allows up to ${customerLimit} active customers. Archive a customer or upgrade to Plus for unlimited customers.`, {
+      action: { label: "Upgrade", onClick: () => { window.location.assign("/upgrade"); } },
+    });
+    return true;
+  };
+  const openAddCustomer = () => {
+    if (blockedByCustomerLimit()) return;
+    resetForm();
+    setOnboarding((o) => ({ ...o, tips: { ...o.tips, addCustomer: true } }));
+    go("addCustomer");
+  };
+
   /* ---------- mutations ---------- */
   const addCustomer = () => {
     if (!form.name.trim() || !form.phone.trim()) return;
+    if (blockedByCustomerLimit()) return;
     if (!isProbablyValidPhone(form.phone)) {
       toast.error("That phone number doesn't look right. Please check it and try again.");
       return;
@@ -784,7 +812,9 @@ function DebtTracker() {
     // Cancel all notifications for this customer's debts
     selected.txns.forEach(t => cancelDebtReminders(t.id));
 
-    setCustomers((cs) => cs.filter((c) => c.id !== selectedId));
+    const deletedId = selectedId;
+    setCustomers((cs) => cs.filter((c) => c.id !== deletedId));
+    void deleteCloudCustomer(deletedId);
     setSelectedId(null);
     toast.success("Customer deleted.");
 
@@ -892,6 +922,7 @@ function DebtTracker() {
         c.id === selectedId ? { ...c, txns: c.txns.filter((t) => t.id !== txnId) } : c,
       ),
     );
+    void deleteCloudTransaction(txnId);
     setConfirmDelete(null);
     toast.success("Transaction deleted.");
 
@@ -1199,6 +1230,8 @@ function DebtTracker() {
 
     if (res.ok) {
       setPromo({ plan: res.plan, expiresAt: res.expiresAt, code: res.code, token: res.token });
+      // Link the signed promo to a signed-in account once it is persisted locally.
+      window.setTimeout(() => void claimStoredPromoEntitlement(), 500);
       toast.success(
         `Congratulations! You've unlocked Track Debt ${res.plan === "plus" ? "Plus" : "Premium"}.`,
       );
@@ -1232,7 +1265,23 @@ function DebtTracker() {
     setVoiceOverlay(false);
   };
 
+  const toggleArchiveCustomer = () => {
+    if (!selected) return;
+    if (selected.archivedAt) {
+      if (blockedByCustomerLimit()) return;
+      const id = selected.id;
+      setCustomers((cs) => cs.map((c) => { if (c.id !== id) return c; const { archivedAt: _a, ...rest } = c; return rest; }));
+      toast.success("Customer restored to your active list.");
+    } else {
+      const id = selected.id;
+      const at = new Date().toISOString();
+      setCustomers((cs) => cs.map((c) => (c.id === id ? { ...c, archivedAt: at } : c)));
+      toast.success("Customer archived. Find them under the Archived filter.");
+    }
+  };
+
   const startVoice = async (type: "customer" | "txn") => {
+    if (type === "customer" && blockedByCustomerLimit()) return;
     if (!entitlements.voiceEntry) {
       setGateFeature({
         title: "Voice Entry",
@@ -1274,6 +1323,7 @@ function DebtTracker() {
       notes: voiceReview.data.notes,
     });
     setVoiceReview(null);
+    if (blockedByCustomerLimit()) return;
     go("addCustomer");
   };
 
@@ -1298,6 +1348,7 @@ function DebtTracker() {
         profile={profile}
         setProfile={setProfile}
         setCustomers={setCustomers}
+        customerLimit={customerLimit}
         onDone={() => setOnboarding((o) => ({ ...o, completed: true }))}
       />
     );
@@ -1457,6 +1508,7 @@ function DebtTracker() {
                         ["dueWeek", "Due this week"],
                         ["overdue", "Overdue"],
                         ["settled", "Settled"],
+                        ["archived", "Archived"],
                       ] as const
                     ).map(([key, label]) => (
                       <Chip
@@ -1478,6 +1530,16 @@ function DebtTracker() {
                       label="Highest debt"
                     />
                   </div>
+                  {customerLimit != null && (
+                    <div className="flex items-center justify-between gap-2 mt-2 text-[11px]">
+                      <span className={`mono ${atCustomerLimit ? "text-debt font-semibold" : "text-ink-soft"}`}>
+                        {activeCustomerCount} / {customerLimit} active customers
+                      </span>
+                      {atCustomerLimit ? (
+                        <Link to="/upgrade" className="font-semibold text-debt underline">Upgrade for unlimited</Link>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
 
                 <section>
@@ -1491,11 +1553,7 @@ function DebtTracker() {
                         Add your first customer to begin tracking credit sales.
                       </p>
                       <button
-                        onClick={() => {
-                          resetForm();
-                          setOnboarding((o) => ({ ...o, tips: { ...o.tips, addCustomer: true } }));
-                          go("addCustomer");
-                        }}
+                        onClick={openAddCustomer}
                         className="btn-primary rounded px-5 py-3 text-sm font-semibold mt-5 inline-flex items-center gap-2 transition-transform active:scale-[0.99]"
                       >
                         <Plus size={16} /> Add Customer
@@ -1564,11 +1622,7 @@ function DebtTracker() {
                 <Mic size={20} />
               </button>
               <button
-                onClick={() => {
-                  resetForm();
-                  setOnboarding((o) => ({ ...o, tips: { ...o.tips, addCustomer: true } }));
-                  go("addCustomer");
-                }}
+                onClick={openAddCustomer}
                 aria-label="Add customer"
                 className="btn-primary rounded-full flex items-center justify-center shadow-lg h-14 w-14 transition-transform active:scale-95"
               >
@@ -2518,12 +2572,20 @@ function DebtTracker() {
                     </div>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => setConfirmDelete("customer")}
-                    className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-debt py-1"
-                  >
-                    <Trash2 size={15} /> Delete customer
-                  </button>
+                  <div className="space-y-2">
+                    <button
+                      onClick={toggleArchiveCustomer}
+                      className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-ink py-1"
+                    >
+                      {selected.archivedAt ? <><ArchiveRestore size={15} /> Restore customer</> : <><Archive size={15} /> Archive customer</>}
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete("customer")}
+                      className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-debt py-1"
+                    >
+                      <Trash2 size={15} /> Delete customer
+                    </button>
+                  </div>
                 )}
               </div>
             )}
@@ -2709,7 +2771,7 @@ function DebtTracker() {
                 </button>
                 <div className="min-w-0 flex-1">
                   <h2 className="font-semibold text-lg leading-tight truncate">{selected.name}</h2>
-                  <p className="mono text-[11px] text-ink-soft mt-0.5">{selected.phone}</p>
+                  <p className="mono text-[11px] text-ink-soft mt-0.5">{selected.phone}{selected.archivedAt ? " · Archived" : ""}</p>
                 </div>
                 <button
                   onClick={() => {

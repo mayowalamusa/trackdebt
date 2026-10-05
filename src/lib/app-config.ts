@@ -6,6 +6,14 @@ export const PLUS_COMING_SOON = false;
 
 export type PlanId = "free" | "plus" | "premium";
 
+/** Customer limits per plan. `null` means unlimited. Active = not archived. */
+export const FREE_ACTIVE_CUSTOMER_LIMIT = 20;
+export const PLAN_LIMITS: Record<PlanId, { maxActiveCustomers: number | null }> = {
+  free: { maxActiveCustomers: FREE_ACTIVE_CUSTOMER_LIMIT },
+  plus: { maxActiveCustomers: null },
+  premium: { maxActiveCustomers: null },
+};
+
 export const PRICING = {
   currency: "NGN",
   currencySymbol: "₦",
@@ -14,6 +22,7 @@ export const PRICING = {
 } as const;
 
 export const PLUS_BENEFITS = [
+  { icon: "users", title: "Unlimited Customers", detail: "No cap on active customers." },
   { icon: "ban", title: "No Ads", detail: "A clean, distraction-free ledger." },
   {
     icon: "sparkles",
@@ -21,20 +30,56 @@ export const PLUS_BENEFITS = [
     detail: "AI-generated reminders and professional templates.",
   },
   { icon: "mic", title: "Voice Entry", detail: "Record debts and customers with your voice." },
-  { icon: "file-text", title: "PDF Receipts", detail: "Generate professional receipts for your customers." },
-  { icon: "message-circle", title: "WhatsApp Tools", detail: "Integrated WhatsApp reminder functionality." },
-  { icon: "shield-check", title: "Priority Support", detail: "Faster response times for your business." },
+  {
+    icon: "file-text",
+    title: "PDF Receipts",
+    detail: "Generate professional receipts for your customers.",
+  },
+  {
+    icon: "message-circle",
+    title: "WhatsApp Tools",
+    detail: "Integrated WhatsApp reminder functionality.",
+  },
+  {
+    icon: "shield-check",
+    title: "Priority Support",
+    detail: "Faster response times for your business.",
+  },
 ] as const;
 
 export const PREMIUM_BENEFITS = [
   { icon: "zap", title: "Everything in Plus", detail: "All Plus features included." },
-  { icon: "message-square", title: "WhatsApp Receipts", detail: "Send receipts directly via WhatsApp API." },
-  { icon: "clock", title: "Automated Reminders", detail: "Smart scheduling and automated follow-ups." },
+  {
+    icon: "message-square",
+    title: "WhatsApp Receipts",
+    detail: "Send receipts directly via WhatsApp API.",
+  },
+  {
+    icon: "clock",
+    title: "Automated Reminders",
+    detail: "Smart scheduling and automated follow-ups.",
+  },
   { icon: "users", title: "Bulk Messaging", detail: "Message multiple debtors at once." },
-  { icon: "bar-chart", title: "Advanced Analytics", detail: "Deep business intelligence and reports." },
+  {
+    icon: "bar-chart",
+    title: "Advanced Analytics",
+    detail: "Deep business intelligence and reports.",
+  },
 ] as const;
 
-export const COMPARISON: { feature: string; free: boolean; plus: boolean; premium: boolean }[] = [
+export type ComparisonValue = boolean | string;
+export const COMPARISON: {
+  feature: string;
+  free: ComparisonValue;
+  plus: ComparisonValue;
+  premium: ComparisonValue;
+}[] = [
+  {
+    feature: "Active customers",
+    free: `Up to ${FREE_ACTIVE_CUSTOMER_LIMIT}`,
+    plus: "Unlimited",
+    premium: "Unlimited",
+  },
   { feature: "Customer management", free: true, plus: true, premium: true },
   { feature: "Debt tracking", free: true, plus: true, premium: true },
   { feature: "Due-date notifications", free: true, plus: true, premium: true },

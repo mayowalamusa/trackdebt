@@ -22,9 +22,20 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { APP_NAME } from "@/lib/ledger";
-import { COMPARISON, PLUS_BENEFITS, PREMIUM_BENEFITS, PLUS_COMING_SOON } from "@/lib/app-config";
+import {
+  COMPARISON,
+  FREE_ACTIVE_CUSTOMER_LIMIT,
+  PLUS_BENEFITS,
+  PREMIUM_BENEFITS,
+  PLUS_COMING_SOON,
+} from "@/lib/app-config";
 import { planLabel } from "@/lib/subscription";
-import { cancelPlusSubscription, currentSession, deleteAccount, startPlusCheckout } from "@/lib/subscription-api";
+import {
+  cancelPlusSubscription,
+  currentSession,
+  deleteAccount,
+  startPlusCheckout,
+} from "@/lib/subscription-api";
 import { supabase } from "@/lib/supabase";
 import { useEntitlements } from "@/lib/use-ledger-storage";
 import { track } from "@/lib/analytics";
@@ -41,6 +52,16 @@ export const Route = createFileRoute("/upgrade")({
   }),
   component: UpgradePage,
 });
+
+function ComparisonCell({ value }: { value: boolean | string }) {
+  if (typeof value === "string")
+    return <span className="text-[10px] font-semibold text-center leading-tight">{value}</span>;
+  return value ? (
+    <Check size={12} className="text-paid" />
+  ) : (
+    <Minus size={12} className="text-ink-soft/30" />
+  );
+}
 
 const BENEFIT_ICONS: Record<string, any> = {
   ban: Ban,
@@ -84,7 +105,9 @@ function UpgradePage() {
     setMessage(null);
     try {
       if (authMode === "recovery") {
-        const result = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/upgrade` });
+        const result = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: `${window.location.origin}/upgrade`,
+        });
         if (result.error) throw result.error;
         setMessage("Check your email for a password recovery link.");
       } else if (authMode === "sign-in") {
@@ -94,7 +117,9 @@ function UpgradePage() {
       } else {
         const result = await supabase.auth.signUp({ email: email.trim(), password });
         if (result.error) throw result.error;
-        setMessage(result.data.session ? "Signed in." : "Check your email to confirm your account.");
+        setMessage(
+          result.data.session ? "Signed in." : "Check your email to confirm your account.",
+        );
       }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not authenticate.");
@@ -134,12 +159,19 @@ function UpgradePage() {
   };
 
   const removeAccount = async () => {
-    if (!window.confirm("Start the 30-day account deletion period? Your account can be restored during that period.")) return;
+    if (
+      !window.confirm(
+        "Start the 30-day account deletion period? Your account can be restored during that period.",
+      )
+    )
+      return;
     setBusy(true);
     try {
       await deleteAccount();
       await supabase?.auth.signOut();
-      setMessage("Account deletion started. Contact support within 30 days to request restoration.");
+      setMessage(
+        "Account deletion started. Contact support within 30 days to request restoration.",
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not start account deletion.");
     } finally {
@@ -147,7 +179,10 @@ function UpgradePage() {
     }
   };
 
-  const dateLabel = (value: string | null) => value ? new Date(value).toLocaleDateString("en-NG", { dateStyle: "medium" }) : "Not available yet";
+  const dateLabel = (value: string | null) =>
+    value
+      ? new Date(value).toLocaleDateString("en-NG", { dateStyle: "medium" })
+      : "Not available yet";
 
   return (
     <main className="min-h-screen bg-background flex justify-center">
@@ -174,7 +209,9 @@ function UpgradePage() {
               </p>
               <p className="text-[11px] text-ink-soft mt-1">Status: {subscription.status}</p>
               {subscription.cancelledAt ? (
-                <p className="text-[11px] text-debt mt-1">Cancellation requested; no further renewal is expected.</p>
+                <p className="text-[11px] text-debt mt-1">
+                  Cancellation requested; no further renewal is expected.
+                </p>
               ) : null}
             </div>
           )}
@@ -186,52 +223,111 @@ function UpgradePage() {
             </p>
           </div>
 
-          {message && <p className="mb-5 rounded-lg border border-line bg-paper-raised px-3 py-2 text-xs text-ink-soft">{message}</p>}
+          {message && (
+            <p className="mb-5 rounded-lg border border-line bg-paper-raised px-3 py-2 text-xs text-ink-soft">
+              {message}
+            </p>
+          )}
 
           {!userEmail ? (
             PLUS_COMING_SOON ? (
               <div className="mb-8 rounded-xl border border-line bg-paper-raised p-4 text-center">
                 <p className="text-sm font-semibold mb-1">Track Debt Plus — Coming Soon</p>
                 <p className="text-xs text-ink-soft leading-relaxed">
-                  Plus checkout is not active yet. Create or manage your account from the Track Debt dashboard.
+                  Plus checkout is not active yet. Create or manage your account from the Track Debt
+                  dashboard.
                 </p>
               </div>
             ) : (
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                void authenticate();
-              }}
-              className="mb-8 rounded-xl border border-line bg-paper-raised p-4"
-            >
-              <div className="flex items-center gap-2 mb-3">
-                <LogIn size={16} />
-                <h3 className="font-semibold">Sign in to Track Debt</h3>
-              </div>
-              <p className="text-xs text-ink-soft mb-4">Sign in to access your account and manage your plan across devices.</p>
-              <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" required autoComplete="email" aria-describedby="upgrade-email-help" placeholder="Email address" className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm mb-1" />
-              <p id="upgrade-email-help" className="text-[11px] text-ink-soft mb-2">Enter a valid email address, such as name@example.com.</p>
-              {authMode === "sign-in" && (
-                <>
-                  <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" required minLength={6} autoComplete="current-password" placeholder="Password (at least 6 characters)" aria-describedby="upgrade-password-help" className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm" />
-                  <p id="upgrade-password-help" className="text-[11px] text-ink-soft mt-1">Enter the password for your account.</p>
-                </>
-              )}
-              <button type="submit" disabled={busy || !isValidEmail(email) || (authMode === "sign-in" && password.length < 6)} className="w-full mt-3 rounded-lg bg-ink py-3 text-sm font-semibold text-paper disabled:opacity-50">
-                {busy ? "Please wait…" : authMode === "recovery" ? "Send recovery link" : "Sign in"}
-              </button>
-              <button type="button" onClick={() => setAuthMode(authMode === "recovery" ? "sign-in" : "recovery")} className="w-full py-2 text-xs text-ink-soft">
-                {authMode === "recovery" ? "Back to sign in" : "Forgot password?"}
-              </button>
-            </form>
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void authenticate();
+                }}
+                className="mb-8 rounded-xl border border-line bg-paper-raised p-4"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <LogIn size={16} />
+                  <h3 className="font-semibold">Sign in to Track Debt</h3>
+                </div>
+                <p className="text-xs text-ink-soft mb-4">
+                  Sign in to access your account and manage your plan across devices.
+                </p>
+                <input
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  type="email"
+                  required
+                  autoComplete="email"
+                  aria-describedby="upgrade-email-help"
+                  placeholder="Email address"
+                  className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm mb-1"
+                />
+                <p id="upgrade-email-help" className="text-[11px] text-ink-soft mb-2">
+                  Enter a valid email address, such as name@example.com.
+                </p>
+                {authMode === "sign-in" && (
+                  <>
+                    <input
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      type="password"
+                      required
+                      minLength={6}
+                      autoComplete="current-password"
+                      placeholder="Password (at least 6 characters)"
+                      aria-describedby="upgrade-password-help"
+                      className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm"
+                    />
+                    <p id="upgrade-password-help" className="text-[11px] text-ink-soft mt-1">
+                      Enter the password for your account.
+                    </p>
+                  </>
+                )}
+                <button
+                  type="submit"
+                  disabled={
+                    busy || !isValidEmail(email) || (authMode === "sign-in" && password.length < 6)
+                  }
+                  className="w-full mt-3 rounded-lg bg-ink py-3 text-sm font-semibold text-paper disabled:opacity-50"
+                >
+                  {busy
+                    ? "Please wait…"
+                    : authMode === "recovery"
+                      ? "Send recovery link"
+                      : "Sign in"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAuthMode(authMode === "recovery" ? "sign-in" : "recovery")}
+                  className="w-full py-2 text-xs text-ink-soft"
+                >
+                  {authMode === "recovery" ? "Back to sign in" : "Forgot password?"}
+                </button>
+              </form>
             )
           ) : (
             <div className="mb-8 flex items-center justify-between rounded-lg border border-line bg-paper-raised px-3 py-2 text-xs">
               <span className="truncate">Signed in as {userEmail}</span>
-              <button type="button" onClick={() => void signOut()} className="ml-3 inline-flex shrink-0 items-center gap-1 text-ink-soft"><LogOut size={13} /> Sign out</button>
+              <button
+                type="button"
+                onClick={() => void signOut()}
+                className="ml-3 inline-flex shrink-0 items-center gap-1 text-ink-soft"
+              >
+                <LogOut size={13} /> Sign out
+              </button>
             </div>
           )}
-          {userEmail && <button type="button" onClick={() => void removeAccount()} disabled={busy} className="mb-6 w-full text-xs text-debt disabled:opacity-50">Delete account</button>}
+          {userEmail && (
+            <button
+              type="button"
+              onClick={() => void removeAccount()}
+              disabled={busy}
+              className="mb-6 w-full text-xs text-debt disabled:opacity-50"
+            >
+              Delete account
+            </button>
+          )}
 
           <div className="space-y-4 mb-8">
             <div
@@ -249,7 +345,10 @@ function UpgradePage() {
                 <p className="text-xl font-bold mono">Free</p>
               </div>
               <p className="text-xs text-ink-soft mb-4">
-                Customer management, debt tracking, due-date notifications and WhatsApp sharing.
+                <strong className="text-ink">
+                  Up to {FREE_ACTIVE_CUSTOMER_LIMIT} active customers.
+                </strong>{" "}
+                Debt tracking, due-date notifications and WhatsApp sharing.
               </p>
               {entitlements.plan === "free" && (
                 <div className="text-center py-2 px-4 rounded-lg bg-ink/5 text-ink text-[11px] font-bold">
@@ -258,7 +357,9 @@ function UpgradePage() {
               )}
             </div>
 
-            <div className={`rounded-xl border p-4 bg-paper-raised ${entitlements.plan === "plus" ? "border-paid ring-1 ring-paid" : "border-line"}`}>
+            <div
+              className={`rounded-xl border p-4 bg-paper-raised ${entitlements.plan === "plus" ? "border-paid ring-1 ring-paid" : "border-line"}`}
+            >
               <div className="flex justify-between items-start mb-2">
                 <div>
                   <h3 className="font-bold text-lg">PLUS</h3>
@@ -269,15 +370,38 @@ function UpgradePage() {
                 <p className="text-sm font-bold mono text-paid">₦1,000</p>
               </div>
               <p className="text-xs text-ink-soft mb-4">
-                AI reminders, premium templates, voice entry, PDF receipts and additional business tools.
+                <strong className="text-ink">Unlimited customers.</strong> AI reminders, voice
+                entry, PDF receipts and no ads.
               </p>
               {PLUS_COMING_SOON ? (
-                <div className="text-center py-2 px-4 rounded-lg border border-line text-ink-soft text-[11px] font-bold">COMING SOON</div>
+                <div className="text-center py-2 px-4 rounded-lg border border-line text-ink-soft text-[11px] font-bold">
+                  COMING SOON
+                </div>
               ) : (
                 <>
-                  {userEmail && entitlements.plan === "free" && <button onClick={() => void upgrade()} disabled={busy} className="w-full rounded-lg bg-ink py-3 text-[11px] font-bold text-paper disabled:opacity-50">START PLUS CHECKOUT</button>}
-                  {!userEmail && <div className="text-center py-2 px-4 rounded-lg border border-line text-ink-soft text-[11px] font-bold">SIGN IN TO START</div>}
-                  {entitlements.plan === "plus" && <button onClick={() => void cancel()} disabled={busy || !!subscription.cancelledAt} className="w-full rounded-lg border border-line py-3 text-[11px] font-bold text-ink-soft disabled:opacity-50">{subscription.cancelledAt ? "CANCELLATION REQUESTED" : "CANCEL RENEWAL"}</button>}
+                  {userEmail && entitlements.plan === "free" && (
+                    <button
+                      onClick={() => void upgrade()}
+                      disabled={busy}
+                      className="w-full rounded-lg bg-ink py-3 text-[11px] font-bold text-paper disabled:opacity-50"
+                    >
+                      START PLUS CHECKOUT
+                    </button>
+                  )}
+                  {!userEmail && (
+                    <div className="text-center py-2 px-4 rounded-lg border border-line text-ink-soft text-[11px] font-bold">
+                      SIGN IN TO START
+                    </div>
+                  )}
+                  {entitlements.plan === "plus" && (
+                    <button
+                      onClick={() => void cancel()}
+                      disabled={busy || !!subscription.cancelledAt}
+                      className="w-full rounded-lg border border-line py-3 text-[11px] font-bold text-ink-soft disabled:opacity-50"
+                    >
+                      {subscription.cancelledAt ? "CANCELLATION REQUESTED" : "CANCEL RENEWAL"}
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -293,7 +417,8 @@ function UpgradePage() {
                 <p className="text-sm font-bold mono text-debt">Coming Soon</p>
               </div>
               <p className="text-xs text-ink-soft mb-4">
-                Full automation, bulk messaging and advanced analytics are planned for a future release.
+                Full automation, bulk messaging and advanced analytics are planned for a future
+                release.
               </p>
               <div className="text-center py-2 px-4 rounded-lg border border-line text-ink-soft text-[11px] font-bold">
                 NOT YET AVAILABLE
@@ -322,7 +447,9 @@ function UpgradePage() {
           </div>
 
           <div className="mb-8">
-            <h4 className="mono text-[11px] tracking-widest text-ink-soft mb-4">PREMIUM COMING SOON</h4>
+            <h4 className="mono text-[11px] tracking-widest text-ink-soft mb-4">
+              PREMIUM COMING SOON
+            </h4>
             <div className="grid grid-cols-1 gap-4">
               {PREMIUM_BENEFITS.map((b) => {
                 const Icon = BENEFIT_ICONS[b.icon] ?? Sparkles;
@@ -341,9 +468,11 @@ function UpgradePage() {
             </div>
           </div>
 
-          <p className="mono text-[11px] tracking-widest text-ink-soft mb-2 uppercase">Feature Comparison</p>
+          <p className="mono text-[11px] tracking-widest text-ink-soft mb-2 uppercase">
+            Feature Comparison
+          </p>
           <div className="rounded-lg border border-line overflow-hidden mb-6">
-            <div className="grid grid-cols-[1fr,45px,45px,45px] bg-paper-raised text-[9px] font-bold text-ink-soft px-3 py-2 uppercase tracking-tighter">
+            <div className="grid grid-cols-[1fr,56px,56px,56px] bg-paper-raised text-[9px] font-bold text-ink-soft px-3 py-2 uppercase tracking-tighter">
               <span>Feature</span>
               <span className="text-center">Free</span>
               <span className="text-center">Plus</span>
@@ -352,19 +481,19 @@ function UpgradePage() {
             {COMPARISON.map((row, i) => (
               <div
                 key={row.feature}
-                className={`grid grid-cols-[1fr,45px,45px,45px] items-center px-3 py-2.5 text-[11px] ${
+                className={`grid grid-cols-[1fr,56px,56px,56px] items-center px-3 py-2.5 text-[11px] ${
                   i % 2 === 1 ? "bg-paper-raised/50" : ""
                 }`}
               >
                 <span className="pr-2 font-medium">{row.feature}</span>
                 <span className="flex justify-center">
-                  {row.free ? <Check size={12} className="text-paid" /> : <Minus size={12} className="text-ink-soft/30" />}
+                  <ComparisonCell value={row.free} />
                 </span>
                 <span className="flex justify-center">
-                  {row.plus ? <Check size={12} className="text-paid" /> : <Minus size={12} className="text-ink-soft/30" />}
+                  <ComparisonCell value={row.plus} />
                 </span>
                 <span className="flex justify-center">
-                  {row.premium ? <Check size={12} className="text-paid" /> : <Minus size={12} className="text-ink-soft/30" />}
+                  <ComparisonCell value={row.premium} />
                 </span>
               </div>
             ))}
@@ -372,10 +501,19 @@ function UpgradePage() {
 
           <div className="space-y-3">
             <p className="text-[10px] text-ink-soft text-center leading-relaxed px-4">
-              Payment is processed by Paystack. Plus renews monthly until cancelled. Access begins only after Track Debt confirms the Paystack webhook.
+              Payment is processed by Paystack. Plus renews monthly until cancelled. Access begins
+              only after Track Debt confirms the Paystack webhook.
             </p>
-            <p className="text-[10px] text-ink-soft text-center">Next payment: {dateLabel(subscription.nextPaymentAt)}</p>
-            <button type="button" onClick={() => window.location.reload()} className="mx-auto flex items-center gap-1 text-[11px] text-ink-soft"><RefreshCw size={12} /> Refresh subscription status</button>
+            <p className="text-[10px] text-ink-soft text-center">
+              Next payment: {dateLabel(subscription.nextPaymentAt)}
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mx-auto flex items-center gap-1 text-[11px] text-ink-soft"
+            >
+              <RefreshCw size={12} /> Refresh subscription status
+            </button>
           </div>
         </div>
       </div>

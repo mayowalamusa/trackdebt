@@ -44,8 +44,23 @@ export type Customer = {
   phone: string;
   notes: string;
   createdAt: string;
+  /** ISO timestamp when archived. Archived customers keep their history but do not count toward plan limits. */
+  archivedAt?: string;
   txns: Txn[];
 };
+
+/* ---------------- active-customer limits ---------------- */
+
+export const isActiveCustomer = (c: Pick<Customer, "archivedAt">) => !c.archivedAt;
+
+export const countActiveCustomers = (cs: readonly Pick<Customer, "archivedAt">[]) =>
+  cs.reduce((n, c) => (isActiveCustomer(c) ? n + 1 : n), 0);
+
+/** `limit` null = unlimited. Returns whether one more active customer may be added or unarchived. */
+export const canAddActiveCustomer = (
+  cs: readonly Pick<Customer, "archivedAt">[],
+  limit: number | null,
+) => limit == null || countActiveCustomers(cs) < limit;
 
 export type BusinessProfile = {
   name: string;

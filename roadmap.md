@@ -17,4 +17,7 @@
 - [ ] Execute the full database security suite in a local/CI Supabase environment and add live two-account behavioral RLS tests
 
 ## New
-- [ ] Payments: help the owner collect money (scope to confirm — Track Debt Pro subscriptions vs. debt repayments from their own customers)
+- [x] Payments: Plus subscription live on Paystack (₦1,000/mo) + Plus users collect debts via Paystack (bank subaccount + pay links)
+- [x] Free plan limited to 20 active customers (archive/unarchive, upgrade CTA, /upgrade copy, server-side limit for cloud accounts, promo Plus recognised)
+- [x] Cloud sync: explicit cloud delete for customers/transactions so deletions don't reappear on other devices
+- [ ] Live Paystack webhook URL set in Paystack dashboard (owner action)

@@ -1,6 +1,6 @@
 begin;
 
-select plan(31);
+select plan(35);
 
 -- RLS must remain enabled on every client-facing Track Debt data table.
 select ok(
@@ -289,6 +289,22 @@ select ok(
       and (qual::text like '%auth.uid()%' or with_check::text like '%auth.uid()%')
   ),
   'receipt sequence policy is bound to auth.uid()'
+);
+
+
+-- Free active-customer limit is enforced server-side.
+select has_column('public', 'customers', 'archived_at', 'customers has archived_at');
+select ok(
+  exists (select 1 from pg_trigger where tgrelid = 'public.customers'::regclass and tgname = 'trackdebt_customer_limit' and not tgisinternal),
+  'customer limit trigger is installed'
+);
+select ok(
+  not has_function_privilege('authenticated', 'private.trackdebt_has_unlimited_customers(uuid)', 'execute'),
+  'authenticated cannot call the unlimited-customer helper directly'
+);
+select ok(
+  (select relrowsecurity from pg_class where oid = 'public.customers'::regclass),
+  'customers RLS still enabled after limit migration'
 );
 
 select * from finish();

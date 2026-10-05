@@ -1,4 +1,4 @@
-import type { PlanId } from "./app-config";
+import { PLAN_LIMITS, type PlanId } from "./app-config";
 
 export type SubscriptionState =
   | "free"
@@ -33,14 +33,21 @@ export type PromoEntitlement = {
 export const freeSubscription: Subscription = { state: "free" };
 
 /** Resolve the effective plan, taking base subscription and promo entitlements into account. */
-export function resolvePlan(sub: Subscription | null | undefined, promo?: PromoEntitlement | null): PlanId {
+export function resolvePlan(
+  sub: Subscription | null | undefined,
+  promo?: PromoEntitlement | null,
+): PlanId {
   const now = Date.now();
   const normalized = normalize(sub);
 
   // Check promo first as it might be higher tier
   if (promo && promo.expiresAt && new Date(promo.expiresAt).getTime() > now) {
     // If base is premium and active, promo plus doesn't downgrade it.
-    if (normalized.state === "premium_active" && normalized.expiresAt && new Date(normalized.expiresAt).getTime() > now) {
+    if (
+      normalized.state === "premium_active" &&
+      normalized.expiresAt &&
+      new Date(normalized.expiresAt).getTime() > now
+    ) {
       return "premium";
     }
     return promo.plan;
@@ -54,7 +61,6 @@ export function resolvePlan(sub: Subscription | null | undefined, promo?: PromoE
 
   return "free";
 }
-
 
 export function normalize(sub: Subscription | null | undefined): Subscription {
   const now = new Date();
@@ -76,25 +82,34 @@ export function normalize(sub: Subscription | null | undefined): Subscription {
   return normalized;
 }
 
-
 export const planLabel = (plan: PlanId) => {
   switch (plan) {
-    case "premium": return "Track Debt Premium";
-    case "plus": return "Track Debt Plus";
-    default: return "Track Debt Free";
+    case "premium":
+      return "Track Debt Premium";
+    case "plus":
+      return "Track Debt Plus";
+    default:
+      return "Track Debt Free";
   }
 };
 
 export const stateLabel = (sub: Subscription | null | undefined) => {
   const normalized = normalize(sub);
   switch (normalized.state) {
-    case "premium_active": return "Track Debt Premium";
-    case "premium_expired": return "Track Debt Premium (expired)";
-    case "plus_active": return "Track Debt Plus";
-    case "plus_expired": return "Track Debt Plus (expired)";
-    case "payment_pending": return "Payment pending";
-    case "payment_failed": return "Payment failed";
-    default: return "Track Debt Free";
+    case "premium_active":
+      return "Track Debt Premium";
+    case "premium_expired":
+      return "Track Debt Premium (expired)";
+    case "plus_active":
+      return "Track Debt Plus";
+    case "plus_expired":
+      return "Track Debt Plus (expired)";
+    case "payment_pending":
+      return "Payment pending";
+    case "payment_failed":
+      return "Payment failed";
+    default:
+      return "Track Debt Free";
   }
 };
 
@@ -102,7 +117,6 @@ export const isPro = (sub: Subscription | null | undefined) => {
   const normalized = normalize(sub);
   return normalized.state === "plus_active" || normalized.state === "premium_active";
 };
-
 
 export const showAds = (sub: Subscription) => !isPro(sub);
 
@@ -116,6 +130,8 @@ export interface Entitlements {
   whatsappTools: boolean;
   premiumTemplates: boolean;
   automation: boolean; // Premium only
+  /** null = unlimited. */
+  maxActiveCustomers: number | null;
 }
 
 export function getEntitlements(plan: PlanId): Entitlements {
@@ -128,6 +144,7 @@ export function getEntitlements(plan: PlanId): Entitlements {
     whatsappTools: plan !== "free",
     premiumTemplates: plan !== "free",
     automation: plan === "premium",
+    maxActiveCustomers: PLAN_LIMITS[plan].maxActiveCustomers,
   };
 }
 

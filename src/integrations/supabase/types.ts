@@ -193,6 +193,7 @@ export type Database = {
       }
       customers: {
         Row: {
+          archived_at: string | null
           created_at: string
           deleted_at: string | null
           id: string
@@ -204,6 +205,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          archived_at?: string | null
           created_at?: string
           deleted_at?: string | null
           id?: string
@@ -215,6 +217,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          archived_at?: string | null
           created_at?: string
           deleted_at?: string | null
           id?: string
@@ -560,6 +563,7 @@ export type Database = {
           promo_code_id: string | null
           redeemed_at: string
           token_ref: string
+          user_id: string | null
         }
         Insert: {
           expires_at?: string | null
@@ -568,6 +572,7 @@ export type Database = {
           promo_code_id?: string | null
           redeemed_at?: string
           token_ref: string
+          user_id?: string | null
         }
         Update: {
           expires_at?: string | null
@@ -576,6 +581,7 @@ export type Database = {
           promo_code_id?: string | null
           redeemed_at?: string
           token_ref?: string
+          user_id?: string | null
         }
         Relationships: [
           {

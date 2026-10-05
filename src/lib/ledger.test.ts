@@ -108,3 +108,41 @@ describe("openSales (FIFO allocation)", () => {
     expect(openSales(c)).toEqual([]);
   });
 });
+
+import { canAddActiveCustomer, countActiveCustomers, isActiveCustomer } from "./ledger";
+import { FREE_ACTIVE_CUSTOMER_LIMIT, PLAN_LIMITS, COMPARISON } from "./app-config";
+import { getEntitlements } from "./subscription";
+
+describe("active customer limit", () => {
+  const make = (n: number, archived = 0) => [
+    ...Array.from({ length: n }, () => ({})),
+    ...Array.from({ length: archived }, () => ({ archivedAt: "2026-10-01T00:00:00Z" })),
+  ];
+  it("treats archived customers as inactive", () => {
+    expect(isActiveCustomer({})).toBe(true);
+    expect(isActiveCustomer({ archivedAt: "2026-10-01" })).toBe(false);
+    expect(countActiveCustomers(make(3, 5))).toBe(3);
+  });
+  it("allows the 20th but blocks the 21st on Free", () => {
+    expect(canAddActiveCustomer(make(19), 20)).toBe(true);
+    expect(canAddActiveCustomer(make(20), 20)).toBe(false);
+    expect(canAddActiveCustomer(make(25), 20)).toBe(false);
+  });
+  it("does not count archived customers toward the limit", () => {
+    expect(canAddActiveCustomer(make(19, 30), 20)).toBe(true);
+  });
+  it("is unlimited when the limit is null", () => {
+    expect(canAddActiveCustomer(make(500), null)).toBe(true);
+  });
+  it("plan config: Free 20, Plus and Premium unlimited", () => {
+    expect(FREE_ACTIVE_CUSTOMER_LIMIT).toBe(20);
+    expect(PLAN_LIMITS.free.maxActiveCustomers).toBe(20);
+    expect(getEntitlements("free").maxActiveCustomers).toBe(20);
+    expect(getEntitlements("plus").maxActiveCustomers).toBeNull();
+    expect(getEntitlements("premium").maxActiveCustomers).toBeNull();
+  });
+  it("shows the limit in the comparison table", () => {
+    const row = COMPARISON.find((r) => r.feature === "Active customers");
+    expect(row).toMatchObject({ free: "Up to 20", plus: "Unlimited", premium: "Unlimited" });
+  });
+});
