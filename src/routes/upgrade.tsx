@@ -63,7 +63,7 @@ function ComparisonCell({ value }: { value: boolean | string }) {
   );
 }
 
-const BENEFIT_ICONS: Record<string, any> = {
+const BENEFIT_ICONS: Record<string, import("lucide-react").LucideIcon> = {
   ban: Ban,
   sparkles: Sparkles,
   mic: Mic,
