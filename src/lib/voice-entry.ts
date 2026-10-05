@@ -273,7 +273,7 @@ function extractAmount(transcript: string): { amount: number; segment: string } 
   const numericPrefix = amountSegment.match(
     /^(?:the\s+|sum of\s+|amount of\s+)?(\d[\d,]*(?:\.\d+)?)/i,
   );
-  if (numericPrefix) {
+  if (numericPrefix?.[1]) {
     const amount = Number(numericPrefix[1].replace(/,/g, ""));
     return Number.isFinite(amount) && amount > 0
       ? { amount, segment: numericPrefix[1] }
