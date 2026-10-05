@@ -6,6 +6,14 @@ export const PLUS_COMING_SOON = false;
 
 export type PlanId = "free" | "plus" | "premium";
 
+/** Customer limits per plan. `null` means unlimited. Active = not archived. */
+export const FREE_ACTIVE_CUSTOMER_LIMIT = 20;
+export const PLAN_LIMITS: Record<PlanId, { maxActiveCustomers: number | null }> = {
+  free: { maxActiveCustomers: FREE_ACTIVE_CUSTOMER_LIMIT },
+  plus: { maxActiveCustomers: null },
+  premium: { maxActiveCustomers: null },
+};
+
 export const PRICING = {
   currency: "NGN",
   currencySymbol: "₦",
@@ -14,6 +22,7 @@ export const PRICING = {
 } as const;
 
 export const PLUS_BENEFITS = [
+  { icon: "users", title: "Unlimited Customers", detail: "No cap on active customers." },
   { icon: "ban", title: "No Ads", detail: "A clean, distraction-free ledger." },
   {
     icon: "sparkles",
@@ -34,7 +43,9 @@ export const PREMIUM_BENEFITS = [
   { icon: "bar-chart", title: "Advanced Analytics", detail: "Deep business intelligence and reports." },
 ] as const;
 
-export const COMPARISON: { feature: string; free: boolean; plus: boolean; premium: boolean }[] = [
+export type ComparisonValue = boolean | string;
+export const COMPARISON: { feature: string; free: ComparisonValue; plus: ComparisonValue; premium: ComparisonValue }[] = [
+  { feature: "Active customers", free: `Up to ${FREE_ACTIVE_CUSTOMER_LIMIT}`, plus: "Unlimited", premium: "Unlimited" },
   { feature: "Customer management", free: true, plus: true, premium: true },
   { feature: "Debt tracking", free: true, plus: true, premium: true },
   { feature: "Due-date notifications", free: true, plus: true, premium: true },
