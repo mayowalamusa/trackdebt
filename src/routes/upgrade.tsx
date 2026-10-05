@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { APP_NAME } from "@/lib/ledger";
-import { COMPARISON, PLUS_BENEFITS, PREMIUM_BENEFITS, PLUS_COMING_SOON } from "@/lib/app-config";
+import { COMPARISON, FREE_ACTIVE_CUSTOMER_LIMIT, PLUS_BENEFITS, PREMIUM_BENEFITS, PLUS_COMING_SOON } from "@/lib/app-config";
 import { planLabel } from "@/lib/subscription";
 import { cancelPlusSubscription, currentSession, deleteAccount, startPlusCheckout } from "@/lib/subscription-api";
 import { supabase } from "@/lib/supabase";
@@ -41,6 +41,11 @@ export const Route = createFileRoute("/upgrade")({
   }),
   component: UpgradePage,
 });
+
+function ComparisonCell({ value }: { value: boolean | string }) {
+  if (typeof value === "string") return <span className="text-[10px] font-semibold text-center leading-tight">{value}</span>;
+  return value ? <Check size={12} className="text-paid" /> : <Minus size={12} className="text-ink-soft/30" />;
+}
 
 const BENEFIT_ICONS: Record<string, any> = {
   ban: Ban,
@@ -249,7 +254,7 @@ function UpgradePage() {
                 <p className="text-xl font-bold mono">Free</p>
               </div>
               <p className="text-xs text-ink-soft mb-4">
-                Customer management, debt tracking, due-date notifications and WhatsApp sharing.
+                <strong className="text-ink">Up to {FREE_ACTIVE_CUSTOMER_LIMIT} active customers.</strong> Debt tracking, due-date notifications and WhatsApp sharing.
               </p>
               {entitlements.plan === "free" && (
                 <div className="text-center py-2 px-4 rounded-lg bg-ink/5 text-ink text-[11px] font-bold">
@@ -269,7 +274,7 @@ function UpgradePage() {
                 <p className="text-sm font-bold mono text-paid">₦1,000</p>
               </div>
               <p className="text-xs text-ink-soft mb-4">
-                AI reminders, premium templates, voice entry, PDF receipts and additional business tools.
+                <strong className="text-ink">Unlimited customers.</strong> AI reminders, voice entry, PDF receipts and no ads.
               </p>
               {PLUS_COMING_SOON ? (
                 <div className="text-center py-2 px-4 rounded-lg border border-line text-ink-soft text-[11px] font-bold">COMING SOON</div>
@@ -343,7 +348,7 @@ function UpgradePage() {
 
           <p className="mono text-[11px] tracking-widest text-ink-soft mb-2 uppercase">Feature Comparison</p>
           <div className="rounded-lg border border-line overflow-hidden mb-6">
-            <div className="grid grid-cols-[1fr,45px,45px,45px] bg-paper-raised text-[9px] font-bold text-ink-soft px-3 py-2 uppercase tracking-tighter">
+            <div className="grid grid-cols-[1fr,56px,56px,56px] bg-paper-raised text-[9px] font-bold text-ink-soft px-3 py-2 uppercase tracking-tighter">
               <span>Feature</span>
               <span className="text-center">Free</span>
               <span className="text-center">Plus</span>
@@ -352,19 +357,19 @@ function UpgradePage() {
             {COMPARISON.map((row, i) => (
               <div
                 key={row.feature}
-                className={`grid grid-cols-[1fr,45px,45px,45px] items-center px-3 py-2.5 text-[11px] ${
+                className={`grid grid-cols-[1fr,56px,56px,56px] items-center px-3 py-2.5 text-[11px] ${
                   i % 2 === 1 ? "bg-paper-raised/50" : ""
                 }`}
               >
                 <span className="pr-2 font-medium">{row.feature}</span>
                 <span className="flex justify-center">
-                  {row.free ? <Check size={12} className="text-paid" /> : <Minus size={12} className="text-ink-soft/30" />}
+                  <ComparisonCell value={row.free} />
                 </span>
                 <span className="flex justify-center">
-                  {row.plus ? <Check size={12} className="text-paid" /> : <Minus size={12} className="text-ink-soft/30" />}
+                  <ComparisonCell value={row.plus} />
                 </span>
                 <span className="flex justify-center">
-                  {row.premium ? <Check size={12} className="text-paid" /> : <Minus size={12} className="text-ink-soft/30" />}
+                  <ComparisonCell value={row.premium} />
                 </span>
               </div>
             ))}
