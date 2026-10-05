@@ -2158,7 +2158,7 @@ function DebtTracker() {
                   ? `${planLabel(promo.plan)} (Promo · until ${new Date(promo.expiresAt).toLocaleDateString()})`
                   : entitlements.plan !== "free"
                     ? planLabel(entitlements.plan)
-                    : stateLabel(sub)
+                    : stateLabel(subscription)
               }
               tone={entitlements.plan !== "free" ? "paid" : undefined}
               onClick={() => {}}
