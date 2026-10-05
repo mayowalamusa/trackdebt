@@ -285,6 +285,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     () =>
       session && entitlementLoaded && accountStatus === "active" ? hasLocalBusinessData() : false,
     // migrationReady flips after migrate/wipe, which changes the answer.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [session, entitlementLoaded, accountStatus, migrationReady],
   );
 
