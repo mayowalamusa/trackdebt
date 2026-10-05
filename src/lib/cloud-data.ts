@@ -227,7 +227,7 @@ export async function syncCloudCustomers(customers: Customer[]) {
     original_currency: txn.originalCurrency ?? txn.currency ?? emptyProfile.currency,
   }))).filter((row) => row.customer_id);
   if (transactionRows.length) {
-    const { error } = await supabase.from("transactions").upsert(transactionRows as never, { onConflict: "user_id,legacy_id" });
+    const { error } = await supabase.from("transactions").upsert(transactionRows, { onConflict: "user_id,legacy_id" });
     if (error) console.error("Transaction sync failed", error.message);
   }
 }
