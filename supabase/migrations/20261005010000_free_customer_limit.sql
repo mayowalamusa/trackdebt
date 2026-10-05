@@ -11,13 +11,13 @@ alter table public.promo_redemptions
 create index if not exists promo_redemptions_user_expires_idx
   on public.promo_redemptions (user_id, expires_at);
 
-create or replace function public.trackdebt_has_unlimited_customers(target_user uuid)
+create or replace function private.trackdebt_has_unlimited_customers(target_user uuid)
 returns boolean
 language sql
 stable
 security definer
-set search_path = public
-as $$
+set search_path = public, private
+as $
   select exists (
     select 1
     from public.subscriptions s
@@ -37,12 +37,12 @@ as $$
   );
 $$;
 
-create or replace function public.trackdebt_enforce_customer_limit()
+create or replace function private.trackdebt_enforce_customer_limit()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
-as $$
+set search_path = public, private
+as $
 declare
   active_count integer;
 begin
@@ -52,7 +52,7 @@ begin
     return new;
   end if;
 
-  if public.trackdebt_has_unlimited_customers(new.user_id) then
+  if private.trackdebt_has_unlimited_customers(new.user_id) then
     return new;
   end if;
 
@@ -80,14 +80,14 @@ begin
 end;
 $$;
 
-drop trigger if exists enforce_trackdebt_customer_limit on public.customers;
+drop trigger if exists trackdebt_customer_limit on public.customers;
 
-create trigger enforce_trackdebt_customer_limit
+create trigger trackdebt_customer_limit
 before insert or update of archived_at on public.customers
 for each row
 execute function public.trackdebt_enforce_customer_limit();
 
-revoke all on function public.trackdebt_has_unlimited_customers(uuid) from public, anon, authenticated;
-revoke all on function public.trackdebt_enforce_customer_limit() from public, anon, authenticated;
+revoke all on function private.trackdebt_has_unlimited_customers(uuid) from public, anon, authenticated;
+revoke all on function private.trackdebt_enforce_customer_limit() from public, anon, authenticated;
 
 -- The trigger executes these functions internally; no direct client execution is needed.
