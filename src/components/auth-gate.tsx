@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { activateCloudOnlyStorage, clearLocalTrackDebtData, hasLocalBusinessData, migrateLocalData, wipeLocalDataAndActivateCloud } from "@/lib/local-migration";
 import { deactivateCloudStorage } from "@/lib/storage-mode";
 import { ensureCloudProfile } from "@/lib/cloud-data";
-import { fetchAccountStatus, fetchServerEntitlement, restoreAccount } from "@/lib/subscription-api";
+import { claimStoredPromoEntitlement, fetchAccountStatus, fetchServerEntitlement, restoreAccount } from "@/lib/subscription-api";
 
 function RestoreAccountPrompt({ deadline }: { deadline: string | null }) {
   const [busy, setBusy] = useState(false);
@@ -185,6 +185,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     if (!everLoaded.current) {
       setEntitlementLoaded(false);
     }
+    void claimStoredPromoEntitlement();
     void Promise.all([ensureCloudProfile(), fetchAccountStatus(), fetchServerEntitlement()]).then(([, account, entitlement]) => {
       setAccountStatus(account.status);
       setRestorableUntil(account.restorableUntil);
@@ -219,6 +220,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     }
   }, [session, entitlementLoaded, accountStatus]);
 
+  // Read local storage once per relevant state change instead of on every render.
+  const localDataPresent = useMemo(
+    () => (session && entitlementLoaded && accountStatus === "active" ? hasLocalBusinessData() : false),
+    // migrationReady flips after migrate/wipe, which changes the answer.
+    [session, entitlementLoaded, accountStatus, migrationReady],
+  );
+
   if (!supabase) return <>{children}</>;
   // Only block rendering on the very first cold load.
   if (!loaded || (!entitlementLoaded && !everLoaded.current)) return (
@@ -240,10 +248,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (accountStatus === "suspended") return <main className="min-h-screen bg-background flex items-center justify-center p-6"><div className="max-w-sm text-center"><h1 className="text-xl font-bold">Account suspended</h1><p className="mt-2 text-sm text-ink-soft">Your Track Debt account has been suspended. Contact support if you believe this was a mistake.</p></div></main>;
   if (accountStatus === "deletion_pending") return <RestoreAccountPrompt deadline={restorableUntil} />;
   if (accountStatus === "deleted") return <main className="min-h-screen bg-background flex items-center justify-center p-6"><p className="max-w-sm text-center text-sm text-ink-soft">This account is no longer available.</p></main>;
-  if (session && entitlementLoaded && accountStatus === "active" && hasLocalBusinessData()) {
+  if (session && entitlementLoaded && accountStatus === "active" && localDataPresent) {
     return <CloudMigrationPrompt userId={session.user.id} onComplete={() => setMigrationReady(true)} />;
   }
-  if (session && accountStatus === "active" && !migrationReady && !hasLocalBusinessData()) {
+  if (session && accountStatus === "active" && !migrationReady && !localDataPresent) {
     return <main className="min-h-screen bg-background flex items-center justify-center"><p className="text-sm text-ink-soft">Preparing your account…</p></main>;
   }
   // Remount app state when the active account changes or the user signs out,
