@@ -7,6 +7,7 @@ import {
   termDueDate,
   todayISO,
   type BusinessProfile,
+  canAddActiveCustomer,
   type Customer,
   type TermKey,
   type Txn,
