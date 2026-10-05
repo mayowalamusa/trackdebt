@@ -344,11 +344,12 @@ function UpgradePage() {
                 </div>
                 <p className="text-xl font-bold mono">Free</p>
               </div>
-              <p className="text-xs text-ink-soft mb-4">
+              <p className="text-xs text-ink-soft mb-4 leading-relaxed">
                 <strong className="text-ink">
                   Up to {FREE_ACTIVE_CUSTOMER_LIMIT} active customers.
                 </strong>{" "}
-                Debt tracking, due-date notifications and WhatsApp sharing.
+                Track credit sales, payments and due dates. When you reach the limit, archive a
+                customer or upgrade to Plus for unlimited customers.
               </p>
               {entitlements.plan === "free" && (
                 <div className="text-center py-2 px-4 rounded-lg bg-ink/5 text-ink text-[11px] font-bold">
@@ -369,9 +370,9 @@ function UpgradePage() {
                 </div>
                 <p className="text-sm font-bold mono text-paid">₦1,000</p>
               </div>
-              <p className="text-xs text-ink-soft mb-4">
+              <p className="text-xs text-ink-soft mb-4 leading-relaxed">
                 <strong className="text-ink">Unlimited customers.</strong> AI reminders, voice
-                entry, PDF receipts and no ads.
+                entry, PDF receipts and no ads — all for ₦1,000/month.
               </p>
               {PLUS_COMING_SOON ? (
                 <div className="text-center py-2 px-4 rounded-lg border border-line text-ink-soft text-[11px] font-bold">
