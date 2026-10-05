@@ -78,6 +78,7 @@ export async function loadCloudSnapshot(): Promise<CloudSnapshot | null> {
     phone: String(row["phone"]),
     notes: String(row["notes"] ?? ""),
     createdAt: String(row["created_at"]).slice(0, 10),
+    ...(row["archived_at"] ? { archivedAt: String(row["archived_at"]) } : {}),
     txns: transactionsByCustomer.get(String(row["id"])) ?? [],
   }));
 
@@ -161,11 +162,51 @@ export async function syncCloudProfile(profile: BusinessProfile, onboarding?: { 
   }, { onConflict: "id" });
 }
 
+export const CUSTOMER_LIMIT_ERROR = "customer_limit_reached";
+
+export function isCustomerLimitError(error: unknown): boolean {
+  const message = typeof error === "object" && error && "message" in error ? String((error as { message: unknown }).message) : String(error ?? "");
+  return message.includes(CUSTOMER_LIMIT_ERROR);
+}
+
+let limitNoticeShown = false;
+async function notifyLimitOnce() {
+  if (limitNoticeShown) return;
+  limitNoticeShown = true;
+  try {
+    const { toast } = await import("sonner");
+    toast.error("Your Free plan allows 20 active customers in the cloud. Extra customers were saved as archived. Upgrade to Plus for unlimited customers.");
+  } catch { /* non-browser */ }
+}
+
+/**
+ * Upserts customers + transactions. Never deletes rows — deletions are explicit
+ * via deleteCloudCustomer/deleteCloudTransaction so a partial or stale local
+ * list (e.g. during migration) can never wipe cloud records.
+ * If the server rejects new active customers for being over the Free limit,
+ * those rows are stored archived instead so no data is lost.
+ */
 export async function syncCloudCustomers(customers: Customer[]) {
   const id = await userId();
   if (!supabase || !id) return;
-  const customerRows = customers.map((customer) => ({ user_id: id, legacy_id: customer.id, name: customer.name, phone: customer.phone, notes: customer.notes, created_at: `${customer.createdAt}T00:00:00Z` }));
-  if (customerRows.length) await supabase.from("customers").upsert(customerRows, { onConflict: "user_id,legacy_id" });
+  const toRow = (customer: Customer, archivedAt?: string | null) => ({ user_id: id, legacy_id: customer.id, name: customer.name, phone: customer.phone, notes: customer.notes, created_at: `${customer.createdAt}T00:00:00Z`, archived_at: archivedAt === undefined ? (customer.archivedAt ?? null) : archivedAt });
+  if (customers.length) {
+    const { error } = await supabase.from("customers").upsert(customers.map((c) => toRow(c)), { onConflict: "user_id,legacy_id" });
+    if (error && isCustomerLimitError(error)) {
+      // Retry row by row: existing and archived rows succeed; over-limit new/unarchived rows fall back to archived.
+      for (const customer of customers) {
+        const { error: rowError } = await supabase.from("customers").upsert(toRow(customer), { onConflict: "user_id,legacy_id" });
+        if (rowError && isCustomerLimitError(rowError)) {
+          const { data: existing } = await supabase.from("customers").select("id").eq("user_id", id).eq("legacy_id", customer.id).maybeSingle();
+          if (!existing) await supabase.from("customers").insert(toRow(customer, new Date().toISOString()));
+          void notifyLimitOnce();
+        }
+      }
+    } else if (error) {
+      console.error("Customer sync failed", error.message);
+      return;
+    }
+  }
   const { data: rows } = await supabase.from("customers").select("id,legacy_id").eq("user_id", id);
   const ids = new Map((rows ?? []).map((row) => [String(row.legacy_id), String(row.id)]));
   const transactionRows = customers.flatMap((customer) => (customer.txns ?? []).map((txn) => ({
@@ -185,7 +226,26 @@ export async function syncCloudCustomers(customers: Customer[]) {
     original_amount: txn.originalAmount ?? txn.amount,
     original_currency: txn.originalCurrency ?? txn.currency ?? emptyProfile.currency,
   }))).filter((row) => row.customer_id);
-  if (transactionRows.length) await supabase.from("transactions").upsert(transactionRows, { onConflict: "user_id,legacy_id" });
+  if (transactionRows.length) {
+    const { error } = await supabase.from("transactions").upsert(transactionRows as never, { onConflict: "user_id,legacy_id" });
+    if (error) console.error("Transaction sync failed", error.message);
+  }
+}
+
+/** Explicit, single-row cloud deletion for a customer the user deleted. Transactions cascade. */
+export async function deleteCloudCustomer(legacyId: string) {
+  const id = await userId();
+  if (!supabase || !id || !legacyId) return;
+  const { error } = await supabase.from("customers").delete().eq("user_id", id).eq("legacy_id", legacyId);
+  if (error) console.error("Cloud customer delete failed", error.message);
+}
+
+/** Explicit, single-row cloud deletion for a transaction the user deleted. */
+export async function deleteCloudTransaction(legacyId: string) {
+  const id = await userId();
+  if (!supabase || !id || !legacyId) return;
+  const { error } = await supabase.from("transactions").delete().eq("user_id", id).eq("legacy_id", legacyId);
+  if (error) console.error("Cloud transaction delete failed", error.message);
 }
 
 export async function syncCloudReminders(reminders: ReminderRecord[]) {
