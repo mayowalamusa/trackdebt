@@ -94,8 +94,8 @@ import { generateReceiptPdf, receiptSummary } from "@/lib/receipts";
 import { downloadFile } from "@/lib/download";
 import { isProbablyValidPhone, normalizeForStorage } from "@/lib/phone";
 import { isValidEmail, isValidPromoCode, isValidSignupPassword, isValidPositiveAmount, normalizeDecimalInput, normalizePromoCode } from "@/lib/input-validation";
-import { paymentService, stateLabel, planLabel } from "@/lib/subscription";
-import { currentSession } from "@/lib/subscription-api";
+import { stateLabel, planLabel } from "@/lib/subscription";
+import { currentSession, fetchServerEntitlement } from "@/lib/subscription-api";
 import { deleteCloudCustomer, deleteCloudTransaction } from "@/lib/cloud-data";
 import { claimStoredPromoEntitlement } from "@/lib/subscription-api";
 import { PaystackBankSetup, createPayLink, useCollectedPaymentsSync } from "@/components/paystack-collect";
@@ -110,7 +110,6 @@ import {
   issueReceiptReference,
   useOnboardingState,
   useReminderHistory,
-  useSubscription,
   usePersistentCustomers,
   usePersistentProfile,
   useNotificationSettings,
@@ -571,7 +570,6 @@ function DebtTracker() {
   const [termKey, setTermKey] = useState<TermKey>("none");
   const [customDueDate, setCustomDueDate] = useState("");
 
-  const [sub, setSub] = useSubscription();
   const [onboarding, setOnboarding, onboardingLoaded] = useOnboardingState();
   const [notifSettings, setNotifSettings] = useNotificationSettings();
   const [inAppNotifs, setInAppNotifs] = useInAppNotifications();
@@ -1147,18 +1145,19 @@ function DebtTracker() {
 
   /* ---------- settings ---------- */
   const [restoring, setRestoring] = useState(false);
-  const restorePurchase = async () => {
+  const refreshPlanStatus = async () => {
     setRestoring(true);
     try {
-      const restored = await paymentService.restore();
-      setSub(restored);
-      if (restored.state === "plus_active" || restored.state === "premium_active") {
-        toast.success("Track Debt Pro restored.");
+      const entitlement = await fetchServerEntitlement();
+      if (entitlement.plan === "plus" || entitlement.plan === "premium") {
+        toast.success(
+          `Your Track Debt ${entitlement.plan === "premium" ? "Premium" : "Plus"} access is active.`,
+        );
       } else {
-        toast("No active purchase found on this device.");
+        toast("No active paid plan was found for this account.");
       }
     } catch {
-      toast.error("Could not restore purchase. Please try again.");
+      toast.error("Could not refresh your plan status. Please try again.");
     } finally {
       setRestoring(false);
     }
@@ -2180,8 +2179,8 @@ function DebtTracker() {
             )}
             <SettingsRow
               icon={<RotateCcw size={17} />}
-              label={restoring ? "Restoring…" : "Restore Purchase"}
-              onClick={restorePurchase}
+              label={restoring ? "Checking…" : "Refresh plan status"}
+              onClick={refreshPlanStatus}
             />
 
             <p className="mono text-[10px] tracking-widest text-ink-soft px-5 pb-2 pt-5">
