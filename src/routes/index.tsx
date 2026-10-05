@@ -97,6 +97,7 @@ import { isValidEmail, isValidPromoCode, isValidSignupPassword, isValidPositiveA
 import { paymentService, stateLabel, planLabel } from "@/lib/subscription";
 import { currentSession } from "@/lib/subscription-api";
 import { deleteCloudCustomer, deleteCloudTransaction } from "@/lib/cloud-data";
+import { claimStoredPromoEntitlement } from "@/lib/subscription-api";
 import { PaystackBankSetup, createPayLink, useCollectedPaymentsSync } from "@/components/paystack-collect";
 import { supabase } from "@/lib/supabase";
 import { DEVELOPER, SUPPORT_EMAIL, WEBSITE_URL } from "@/lib/app-config";
@@ -1229,6 +1230,8 @@ function DebtTracker() {
 
     if (res.ok) {
       setPromo({ plan: res.plan, expiresAt: res.expiresAt, code: res.code, token: res.token });
+      // Link the signed promo to a signed-in account once it is persisted locally.
+      window.setTimeout(() => void claimStoredPromoEntitlement(), 500);
       toast.success(
         `Congratulations! You've unlocked Track Debt ${res.plan === "plus" ? "Plus" : "Premium"}.`,
       );
