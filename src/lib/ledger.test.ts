@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { balanceOf, todayISO, type Customer, type Txn } from "@/lib/ledger";
+import {
+  balanceOf,
+  canAddActiveCustomer,
+  countActiveCustomers,
+  isActiveCustomer,
+  todayISO,
+  type Customer,
+  type Txn,
+} from "@/lib/ledger";
 import { openSales } from "@/lib/due-dates";
+import { COMPARISON, FREE_ACTIVE_CUSTOMER_LIMIT, PLAN_LIMITS } from "./app-config";
+import { getEntitlements } from "./subscription";
 
 const customer = (txns: Txn[]): Customer => ({
   id: "c1",
@@ -109,9 +119,6 @@ describe("openSales (FIFO allocation)", () => {
   });
 });
 
-import { canAddActiveCustomer, countActiveCustomers, isActiveCustomer } from "./ledger";
-import { FREE_ACTIVE_CUSTOMER_LIMIT, PLAN_LIMITS, COMPARISON } from "./app-config";
-import { getEntitlements } from "./subscription";
 
 describe("active customer limit", () => {
   const make = (n: number, archived = 0) => [

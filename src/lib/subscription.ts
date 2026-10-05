@@ -68,7 +68,7 @@ export function normalize(sub: Subscription | null | undefined): Subscription {
   let normalized = { ...sub };
 
   // Legacy migration from Phase 3 "pro_active"
-  const rawState = (normalized as any).state;
+  const rawState = (normalized as { state?: unknown }).state;
   if (rawState === "pro_active") {
     normalized.state = "plus_active";
   } else if (rawState === "pro_expired") {
