@@ -1,4 +1,4 @@
-import type { PlanId } from "./app-config";
+import { PLAN_LIMITS, type PlanId } from "./app-config";
 
 export type SubscriptionState =
   | "free"
@@ -116,6 +116,8 @@ export interface Entitlements {
   whatsappTools: boolean;
   premiumTemplates: boolean;
   automation: boolean; // Premium only
+  /** null = unlimited. */
+  maxActiveCustomers: number | null;
 }
 
 export function getEntitlements(plan: PlanId): Entitlements {
@@ -128,6 +130,7 @@ export function getEntitlements(plan: PlanId): Entitlements {
     whatsappTools: plan !== "free",
     premiumTemplates: plan !== "free",
     automation: plan === "premium",
+    maxActiveCustomers: PLAN_LIMITS[plan].maxActiveCustomers,
   };
 }
 
