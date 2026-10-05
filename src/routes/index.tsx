@@ -96,6 +96,7 @@ import { isProbablyValidPhone, normalizeForStorage } from "@/lib/phone";
 import { isValidEmail, isValidPromoCode, isValidSignupPassword, isValidPositiveAmount, normalizeDecimalInput, normalizePromoCode } from "@/lib/input-validation";
 import { paymentService, stateLabel, planLabel } from "@/lib/subscription";
 import { currentSession } from "@/lib/subscription-api";
+import { deleteCloudCustomer, deleteCloudTransaction } from "@/lib/cloud-data";
 import { PaystackBankSetup, createPayLink, useCollectedPaymentsSync } from "@/components/paystack-collect";
 import { supabase } from "@/lib/supabase";
 import { DEVELOPER, SUPPORT_EMAIL, WEBSITE_URL } from "@/lib/app-config";

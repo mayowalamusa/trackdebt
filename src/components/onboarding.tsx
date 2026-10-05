@@ -69,11 +69,14 @@ export function Onboarding({
   profile,
   setProfile,
   setCustomers,
+  customerLimit = null,
   onDone,
 }: {
   profile: BusinessProfile;
   setProfile: Dispatch<SetStateAction<BusinessProfile>>;
   setCustomers: Dispatch<SetStateAction<Customer[]>>;
+  /** Active-customer limit for the current plan; null = unlimited. */
+  customerLimit?: number | null;
   onDone: () => void;
 }) {
   const [step, setStep] = useState<Step>("welcome");
@@ -109,7 +112,7 @@ export function Onboarding({
   const continueCustomer = () => {
     if (!custName.trim() || !isProbablyValidPhone(custPhone)) return;
     const id = "c" + Date.now();
-    setCustomers((cs) => [
+    setCustomers((cs) => canAddActiveCustomer(cs, customerLimit) ? [
       ...cs,
       {
         id,
@@ -119,7 +122,7 @@ export function Onboarding({
         createdAt: todayISO(),
         txns: [],
       },
-    ]);
+    ] : cs);
     setNewCustomerId(id);
     setStep("sale");
   };
