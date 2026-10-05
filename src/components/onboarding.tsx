@@ -105,7 +105,12 @@ export function Onboarding({
   };
 
   const continueBusiness = () => {
-    if (!biz.name.trim() || (biz.phone.trim() && !isProbablyValidPhone(biz.phone)) || (biz.email.trim() && !isValidEmail(biz.email))) return;
+    if (
+      !biz.name.trim() ||
+      (biz.phone.trim() && !isProbablyValidPhone(biz.phone)) ||
+      (biz.email.trim() && !isValidEmail(biz.email))
+    )
+      return;
     setProfile((p) => ({ ...p, ...biz, name: biz.name.trim() }));
     setStep("customer");
   };
@@ -113,17 +118,21 @@ export function Onboarding({
   const continueCustomer = () => {
     if (!custName.trim() || !isProbablyValidPhone(custPhone)) return;
     const id = "c" + Date.now();
-    setCustomers((cs) => canAddActiveCustomer(cs, customerLimit) ? [
-      ...cs,
-      {
-        id,
-        name: custName.trim(),
-        phone: custPhone.trim(),
-        notes: custNotes.trim(),
-        createdAt: todayISO(),
-        txns: [],
-      },
-    ] : cs);
+    setCustomers((cs) =>
+      canAddActiveCustomer(cs, customerLimit)
+        ? [
+            ...cs,
+            {
+              id,
+              name: custName.trim(),
+              phone: custPhone.trim(),
+              notes: custNotes.trim(),
+              createdAt: todayISO(),
+              txns: [],
+            },
+          ]
+        : cs,
+    );
     setNewCustomerId(id);
     setStep("sale");
   };
@@ -270,8 +279,15 @@ export function Onboarding({
                       autoComplete="tel"
                       className="input-field w-full rounded px-3 py-2.5 text-sm"
                     />
-                    <p className="mt-1.5 text-[11px] text-ink-soft">Optional. If entered, use 7–15 digits; country codes, spaces and hyphens are okay.</p>
-                    {biz.phone.trim() && !isProbablyValidPhone(biz.phone) && <p className="mt-1 text-[11px] text-debt">Enter a valid phone number with 7–15 digits.</p>}
+                    <p className="mt-1.5 text-[11px] text-ink-soft">
+                      Optional. If entered, use 7–15 digits; country codes, spaces and hyphens are
+                      okay.
+                    </p>
+                    {biz.phone.trim() && !isProbablyValidPhone(biz.phone) && (
+                      <p className="mt-1 text-[11px] text-debt">
+                        Enter a valid phone number with 7–15 digits.
+                      </p>
+                    )}
                   </Field>
                   <Field label="BUSINESS CATEGORY">
                     <div className="flex flex-wrap gap-1.5">
@@ -309,8 +325,12 @@ export function Onboarding({
                       autoComplete="email"
                       className="input-field w-full rounded px-3 py-2.5 text-sm"
                     />
-                    <p className="mt-1.5 text-[11px] text-ink-soft">Optional. Enter a valid email address such as name@example.com.</p>
-                    {biz.email.trim() && !isValidEmail(biz.email) && <p className="mt-1 text-[11px] text-debt">Check the email address format.</p>}
+                    <p className="mt-1.5 text-[11px] text-ink-soft">
+                      Optional. Enter a valid email address such as name@example.com.
+                    </p>
+                    {biz.email.trim() && !isValidEmail(biz.email) && (
+                      <p className="mt-1 text-[11px] text-debt">Check the email address format.</p>
+                    )}
                   </Field>
                 </>
               )}
@@ -336,7 +356,12 @@ export function Onboarding({
                       autoComplete="tel"
                       className="input-field w-full rounded px-3 py-2.5 text-sm"
                     />
-                    <p className={`mt-1.5 text-[11px] ${custPhone.trim() && !isProbablyValidPhone(custPhone) ? "text-debt" : "text-ink-soft"}`}>Enter a phone number with 7–15 digits. Country codes, spaces and hyphens are okay.</p>
+                    <p
+                      className={`mt-1.5 text-[11px] ${custPhone.trim() && !isProbablyValidPhone(custPhone) ? "text-debt" : "text-ink-soft"}`}
+                    >
+                      Enter a phone number with 7–15 digits. Country codes, spaces and hyphens are
+                      okay.
+                    </p>
                   </Field>
                   <Field label="CUSTOMER NOTES (OPTIONAL)">
                     <LocalInput
@@ -365,7 +390,9 @@ export function Onboarding({
                       aria-describedby="onboarding-amount-help"
                       className="input-field w-full rounded px-3 py-2.5 text-sm mono"
                     />
-                    <p id="onboarding-amount-help" className="mt-1.5 text-[11px] text-ink-soft">Enter a positive amount using numbers only. Decimals are allowed.</p>
+                    <p id="onboarding-amount-help" className="mt-1.5 text-[11px] text-ink-soft">
+                      Enter a positive amount using numbers only. Decimals are allowed.
+                    </p>
                   </Field>
                   <Field label="DESCRIPTION (OPTIONAL)">
                     <LocalInput
@@ -434,9 +461,13 @@ export function Onboarding({
                       : finishSetup
                 }
                 disabled={
-                  (step === "business" && (!biz.name.trim() || (biz.phone.trim() && !isProbablyValidPhone(biz.phone)) || (biz.email.trim() && !isValidEmail(biz.email)))) ||
+                  (step === "business" &&
+                    (!biz.name.trim() ||
+                      (biz.phone.trim() && !isProbablyValidPhone(biz.phone)) ||
+                      (biz.email.trim() && !isValidEmail(biz.email)))) ||
                   (step === "customer" && (!custName.trim() || !isProbablyValidPhone(custPhone))) ||
-                  (step === "sale" && (!isValidPositiveAmount(amount) || (termKey === "custom" && !customDueDate)))
+                  (step === "sale" &&
+                    (!isValidPositiveAmount(amount) || (termKey === "custom" && !customDueDate)))
                 }
                 className="btn-primary flex-1 min-h-12 rounded text-sm font-semibold disabled:opacity-40 transition-transform active:scale-[0.99]"
               >
