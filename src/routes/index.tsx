@@ -94,10 +94,9 @@ import { generateReceiptPdf, receiptSummary } from "@/lib/receipts";
 import { downloadFile } from "@/lib/download";
 import { isProbablyValidPhone, normalizeForStorage } from "@/lib/phone";
 import { isValidEmail, isValidPromoCode, isValidSignupPassword, isValidPositiveAmount, normalizeDecimalInput, normalizePromoCode } from "@/lib/input-validation";
-import { paymentService, stateLabel, planLabel } from "@/lib/subscription";
-import { currentSession } from "@/lib/subscription-api";
+import { stateLabel, planLabel } from "@/lib/subscription";
+import { claimStoredPromoEntitlement, currentSession, fetchServerEntitlement } from "@/lib/subscription-api";
 import { deleteCloudCustomer, deleteCloudTransaction } from "@/lib/cloud-data";
-import { claimStoredPromoEntitlement } from "@/lib/subscription-api";
 import { PaystackBankSetup, createPayLink, useCollectedPaymentsSync } from "@/components/paystack-collect";
 import { supabase } from "@/lib/supabase";
 import { DEVELOPER, SUPPORT_EMAIL, WEBSITE_URL } from "@/lib/app-config";
@@ -1150,15 +1149,20 @@ function DebtTracker() {
   const restorePurchase = async () => {
     setRestoring(true);
     try {
-      const restored = await paymentService.restore();
-      setSub(restored);
-      if (restored.state === "plus_active" || restored.state === "premium_active") {
-        toast.success("Track Debt Pro restored.");
+      await claimStoredPromoEntitlement();
+      const entitlement = await fetchServerEntitlement();
+      if (entitlement.plan === "plus" && entitlement.currentPeriodEnd) {
+        setSub({
+          state: "plus_active",
+          expiresAt: entitlement.currentPeriodEnd,
+          provider: "paystack",
+        });
+        toast.success("Track Debt Plus access refreshed.");
       } else {
-        toast("No active purchase found on this device.");
+        toast("No active paid Plus subscription was found.");
       }
     } catch {
-      toast.error("Could not restore purchase. Please try again.");
+      toast.error("Could not refresh your plan. Please try again.");
     } finally {
       setRestoring(false);
     }
