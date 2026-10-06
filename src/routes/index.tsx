@@ -94,7 +94,7 @@ import { generateReceiptPdf, receiptSummary } from "@/lib/receipts";
 import { downloadFile } from "@/lib/download";
 import { isProbablyValidPhone, normalizeForStorage } from "@/lib/phone";
 import { isValidEmail, isValidPromoCode, isValidSignupPassword, isValidPositiveAmount, normalizeDecimalInput, normalizePromoCode } from "@/lib/input-validation";
-import { stateLabel, planLabel } from "@/lib/subscription";
+import { planLabel } from "@/lib/subscription";
 import { currentSession, fetchServerEntitlement } from "@/lib/subscription-api";
 import { deleteCloudCustomer, deleteCloudTransaction } from "@/lib/cloud-data";
 import { claimStoredPromoEntitlement } from "@/lib/subscription-api";
@@ -1149,10 +1149,8 @@ function DebtTracker() {
     setRestoring(true);
     try {
       const entitlement = await fetchServerEntitlement();
-      if (entitlement.plan === "plus" || entitlement.plan === "premium") {
-        toast.success(
-          `Your Track Debt ${entitlement.plan === "premium" ? "Premium" : "Plus"} access is active.`,
-        );
+      if (entitlement.plan === "plus") {
+        toast.success("Your Track Debt Plus access is active.");
       } else {
         toast("No active paid plan was found for this account.");
       }
@@ -2158,7 +2156,7 @@ function DebtTracker() {
                   ? `${planLabel(promo.plan)} (Promo · until ${new Date(promo.expiresAt).toLocaleDateString()})`
                   : entitlements.plan !== "free"
                     ? planLabel(entitlements.plan)
-                    : stateLabel(subscription)
+                    : planLabel("free")
               }
               tone={entitlements.plan !== "free" ? "paid" : undefined}
               onClick={() => {}}
