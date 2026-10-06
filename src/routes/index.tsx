@@ -94,7 +94,7 @@ import { generateReceiptPdf, receiptSummary } from "@/lib/receipts";
 import { downloadFile } from "@/lib/download";
 import { isProbablyValidPhone, normalizeForStorage } from "@/lib/phone";
 import { isValidEmail, isValidPromoCode, isValidSignupPassword, isValidPositiveAmount, normalizeDecimalInput, normalizePromoCode } from "@/lib/input-validation";
-import { stateLabel, planLabel } from "@/lib/subscription";
+import { planLabel } from "@/lib/subscription";
 import { currentSession, fetchServerEntitlement } from "@/lib/subscription-api";
 import { deleteCloudCustomer, deleteCloudTransaction } from "@/lib/cloud-data";
 import { claimStoredPromoEntitlement } from "@/lib/subscription-api";
