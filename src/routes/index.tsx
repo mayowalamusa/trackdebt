@@ -1149,10 +1149,8 @@ function DebtTracker() {
     setRestoring(true);
     try {
       const entitlement = await fetchServerEntitlement();
-      if (entitlement.plan === "plus" || entitlement.plan === "premium") {
-        toast.success(
-          `Your Track Debt ${entitlement.plan === "premium" ? "Premium" : "Plus"} access is active.`,
-        );
+      if (entitlement.plan === "plus") {
+        toast.success("Your Track Debt Plus access is active.");
       } else {
         toast("No active paid plan was found for this account.");
       }
