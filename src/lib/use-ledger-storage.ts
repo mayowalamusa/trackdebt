@@ -24,6 +24,8 @@ function useCloudBacked<T>(
   const [cloudActive, setCloudActive] = useState(false);
   const [loaded, setLoaded] = useState(!supabase);
   const initialValue = useRef(initial);
+  const valueRef = useRef(value);
+  useEffect(() => { valueRef.current = value; }, [value]);
 
   useEffect(() => {
     if (!supabase) return;
@@ -47,7 +49,7 @@ function useCloudBacked<T>(
         if (!active) return;
 
         const cloudValue = select(snapshot);
-        const currentIsInitial = JSON.stringify(value) === JSON.stringify(initialValue.current);
+        const currentIsInitial = JSON.stringify(valueRef.current) === JSON.stringify(initialValue.current);
         const cloudIsInitial = JSON.stringify(cloudValue) === JSON.stringify(initialValue.current);
 
         // A signed-in user is cloud-backed. If they created data during this
