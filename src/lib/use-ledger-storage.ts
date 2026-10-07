@@ -179,19 +179,25 @@ export function useEntitlements(promoOverride?: PromoEntitlement | null) {
 
   useEffect(() => {
     let cancelled = false;
+    let seq = 0;
     const load = async () => {
+      const mine = ++seq;
       try {
         const entitlement = await fetchServerEntitlement();
-        if (!cancelled) setServerEntitlement(entitlement);
+        // Ignore stale responses so an older "free" reply can't overwrite a newer one.
+        if (!cancelled && mine === seq) setServerEntitlement(entitlement);
       } catch {
-        if (!cancelled) setServerEntitlement(freeEntitlement);
+        // Transient failure: keep the last known plan instead of downgrading.
       } finally {
-        if (!cancelled) setServerLoaded(true);
+        if (!cancelled && mine === seq) setServerLoaded(true);
       }
     };
     void load();
-    const subscription = supabase?.auth.onAuthStateChange(() => {
-      setServerLoaded(false);
+    const subscription = supabase?.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        setServerEntitlement(freeEntitlement);
+        return;
+      }
       void load();
     });
     return () => {
