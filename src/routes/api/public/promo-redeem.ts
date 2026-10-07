@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { findPromo } from "@/lib/promo.server";
 import { issueEntitlementToken } from "@/lib/entitlement.server";
-import { createSupabaseAdmin } from "@/lib/supabase.server";
+import { createSupabaseAdmin, userFromRequest } from "@/lib/supabase.server";
 
 const InputSchema = z.object({ code: z.string().trim().min(1).max(64).regex(/^[A-Za-z0-9_-]+$/) });
 
@@ -97,10 +97,12 @@ export const Route = createFileRoute("/api/public/promo-redeem")({
         }
 
         if (admin) {
+          const user = await userFromRequest(request);
           const { error: logError } = await admin.from("promo_redemptions").insert({
             promo_code_id: dbPromo?.id ?? null,
             token_ref: tokenRef,
             expires_at: expiresAt,
+            ...(user ? { user_id: user.id } : {}),
             metadata: { code, plan, days, source: dbPromo ? "database" : "fallback" },
           });
           if (logError) console.error("promo redemption log failed", logError.message);
