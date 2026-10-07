@@ -91,7 +91,12 @@ export const Route = createFileRoute("/api/paystack/webhook")({
           if (!resolvedUserId) return Response.json({ ok: true, ignored: "unknown_user" });
 
           const paidAt = data.paid_at ?? data.transaction_date ?? new Date().toISOString();
-          const periodEnd = nextPaymentDate(data);
+          // Paystack's charge.success often omits next_payment_date. Without a
+          // period end the account reads as Free, so default to one monthly cycle.
+          const paidMs = Date.parse(paidAt);
+          const periodEnd =
+            nextPaymentDate(data) ??
+            new Date((Number.isFinite(paidMs) ? paidMs : Date.now()) + 31 * 86_400_000).toISOString();
           await admin.from("subscriptions").upsert(
             {
               user_id: resolvedUserId,
