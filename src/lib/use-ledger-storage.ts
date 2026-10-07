@@ -1,141 +1,100 @@
 import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
 import type { BusinessProfile, Customer, Txn } from "./ledger";
 import { emptyProfile } from "./ledger";
 import type { ReminderRecord } from "./reminders";
 import { defaultNotificationSettings, type InAppNotification, type NotificationSettings } from "./notifications";
-import { isPlainObject, readJSON, writeJSON } from "./storage";
-import { freeSubscription, normalize, resolvePlan, getEntitlements, type Subscription, type PromoEntitlement } from "./subscription";
-import { claimStoredPromoEntitlement, fetchServerEntitlement, freeEntitlement, type ServerEntitlement } from "./subscription-api";
+import { getEntitlements, type PromoEntitlement } from "./subscription";
+import { fetchServerEntitlement, freeEntitlement, type ServerEntitlement } from "./subscription-api";
 import { supabase } from "./supabase";
-import { loadCloudSnapshot, loadCloudNotifications, syncCloudCustomers, syncCloudNotifications, syncCloudOnboarding, syncCloudPreferences, syncCloudProfile, syncCloudReminders } from "./cloud-data";
-import { hasCompletedMigration } from "./local-migration";
+import { loadCloudSnapshot, syncCloudCustomers, syncCloudNotifications, syncCloudOnboarding, syncCloudPreferences, syncCloudProfile, syncCloudReminders } from "./cloud-data";
 import { setActiveCurrency } from "./currency/formatter";
 
-type PersistOptions<T> = {
-  migrate?: (raw: T) => T;
-  validate?: (parsed: unknown) => boolean;
-  /** Shown once if the stored value could not be read. */
-  corruptMessage?: string;
-};
-
-function usePersisted<T>(key: string, initial: T, options: PersistOptions<T> = {}) {
-  const [value, setValue] = useState<T>(initial);
-  const [loaded, setLoaded] = useState(false);
-  const warnedQuota = useRef(false);
-
-  useEffect(() => {
-    const read = readJSON<T>(key, initial, {
-      ...(options.migrate ? { migrate: options.migrate } : {}),
-      ...(options.validate ? { validate: options.validate } : {}),
-    });
-    setValue(read.value);
-    if (read.corrupt && options.corruptMessage) {
-      toast.error(options.corruptMessage);
-    }
-    setLoaded(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
-
-  useEffect(() => {
-    if (!loaded) return;
-    const res = writeJSON(key, value);
-    if (!res.ok && !warnedQuota.current) {
-      warnedQuota.current = true;
-      toast.error(
-        res.reason === "quota"
-          ? "This device is out of storage space. Recent changes may not be saved — export a backup."
-          : "Changes could not be saved on this device.",
-      );
-    }
-  }, [key, value, loaded]);
-
-  return [value, setValue, loaded] as const;
+function useMemoryState<T>(initial: T) {
+  return useState<T>(initial);
 }
 
 function useCloudBacked<T>(
-  local: readonly [T, React.Dispatch<React.SetStateAction<T>>, boolean],
+  initial: T,
+  local: readonly [T, React.Dispatch<React.SetStateAction<T>>],
   select: (snapshot: Awaited<ReturnType<typeof loadCloudSnapshot>>) => T,
   sync: (value: T) => Promise<void>,
 ) {
-  const [value, setValue, localLoaded] = local;
-  const [cloudMode, setCloudMode] = useState(false);
-  const [cloudLoaded, setCloudLoaded] = useState(!supabase);
-  const readyToSync = useRef(false);
+  const [value, setValue] = local;
+  const [cloudActive, setCloudActive] = useState(false);
+  const [loaded, setLoaded] = useState(!supabase);
+  const initialValue = useRef(initial);
+  const valueRef = useRef(value);
+  useEffect(() => { valueRef.current = value; }, [value]);
 
   useEffect(() => {
     if (!supabase) return;
     const client = supabase;
     let active = true;
+
     const load = async () => {
-      const { data } = await client.auth.getSession();
-      if (!data.session) {
-        if (active) setCloudLoaded(true);
-        return;
-      }
-      // Registered Free users and Plus users both use cloud storage.
-      // Migration is the gate: once a signed-in user's local data has been
-      // migrated, their account remains cloud-backed regardless of plan.
-      if (!hasCompletedMigration(data.session.user.id)) {
-        if (active) setCloudLoaded(true);
-        return;
-      }
+      setLoaded(false);
       try {
-        const snapshot = await loadCloudSnapshot();
-        if (active && snapshot) {
-          setValue(select(snapshot));
-          setCloudMode(true);
-          readyToSync.current = true;
+        const { data } = await client.auth.getSession();
+        if (!data.session) {
+          if (active) {
+            setCloudActive(false);
+            setValue(initialValue.current);
+            setLoaded(true);
+          }
+          return;
         }
-      } finally {
-        if (active) setCloudLoaded(true);
+
+        const snapshot = await loadCloudSnapshot();
+        if (!active) return;
+
+        const cloudValue = select(snapshot);
+        const currentIsInitial = JSON.stringify(valueRef.current) === JSON.stringify(initialValue.current);
+        const cloudIsInitial = JSON.stringify(cloudValue) === JSON.stringify(initialValue.current);
+
+        // A signed-in user is cloud-backed. If they created data during this
+        // anonymous session and the account is still empty, keep that in-memory
+        // data and upload it; otherwise the server is authoritative.
+        if (!cloudIsInitial || currentIsInitial) {
+          setValue(cloudValue);
+        }
+        setCloudActive(true);
+        setLoaded(true);
+      } catch {
+        if (active) {
+          setCloudActive(false);
+          setLoaded(true);
+        }
       }
     };
+
     void load();
-    const listener = supabase.auth.onAuthStateChange(() => {
-      readyToSync.current = false;
-      setCloudLoaded(false);
+    const listener = client.auth.onAuthStateChange(() => {
       void load();
     });
-    return () => { active = false; listener.data.subscription.unsubscribe(); };
-  // The caller supplies stable imported sync functions; snapshot selection is
-  // intentionally performed once per auth-session transition.
+    return () => {
+      active = false;
+      listener.data.subscription.unsubscribe();
+    };
+  // Auth transitions are the only events that should reload cloud state.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (localLoaded && cloudLoaded && cloudMode && readyToSync.current) void sync(value);
-  }, [cloudLoaded, cloudMode, localLoaded, sync, value]);
+    if (loaded && cloudActive) void sync(value);
+  }, [cloudActive, loaded, sync, value]);
 
-  return [value, setValue, localLoaded && cloudLoaded] as const;
+  return [value, setValue, loaded] as const;
 }
 
-/** Phase 1 migration: give older transactions the new payment-term shape
- *  without discarding anything the user already recorded. */
-const migrateCustomers = (cs: Customer[]): Customer[] =>
-  (Array.isArray(cs) ? cs : []).map((c) => ({
-    ...c,
-    notes: c.notes ?? "",
-    txns: (c.txns ?? []).map((t): Txn => (t.term ? t : { ...t })),
-  }));
-
 export function usePersistentCustomers() {
-  const local = usePersisted<Customer[]>("debtbook.v2.customers", [], {
-    migrate: migrateCustomers,
-    validate: Array.isArray,
-    corruptMessage:
-      "Saved customer data on this device could not be read. A copy was kept so nothing was deleted.",
-  });
-  return useCloudBacked(local, (snapshot) => snapshot?.customers ?? [], syncCloudCustomers);
+  const local = useMemoryState<Customer[]>([]);
+  return useCloudBacked([], local, (snapshot) => snapshot?.customers ?? [], syncCloudCustomers);
 }
 
 export function usePersistentProfile() {
-  const local = usePersisted<BusinessProfile>("debtbook.v2.profile", emptyProfile, {
-    migrate: (p) => ({ ...emptyProfile, ...p }),
-    validate: isPlainObject,
-    corruptMessage: "Your saved business profile could not be read and was reset on this device.",
-  });
+  const local = useMemoryState<BusinessProfile>(emptyProfile);
   const [profile, setProfile, loaded] = useCloudBacked(
+    emptyProfile,
     local,
     (snapshot) => snapshot?.profile ?? emptyProfile,
     syncCloudProfile,
@@ -147,64 +106,64 @@ export function usePersistentProfile() {
 }
 
 export function useReminderHistory() {
-  const local = usePersisted<ReminderRecord[]>("trackdebt.v3.reminders", [], {
-    validate: Array.isArray,
-  });
-  return useCloudBacked(local, (snapshot) => snapshot?.reminders ?? [], syncCloudReminders);
-}
-
-export function useSubscription() {
-  const [sub, setSub, loaded] = usePersisted<Subscription>(
-    "trackdebt.v3.subscription",
-    freeSubscription,
-    { migrate: normalize, validate: isPlainObject },
-  );
-  return [sub, setSub, loaded] as const;
+  const local = useMemoryState<ReminderRecord[]>([]);
+  return useCloudBacked([], local, (snapshot) => snapshot?.reminders ?? [], syncCloudReminders);
 }
 
 export function usePromoEntitlements() {
-  const [promo, setPromo, loaded] = usePersisted<PromoEntitlement | null>(
-    "trackdebt.v3.promo",
-    null,
-    { validate: (p) => p === null || isPlainObject(p) }
-  );
-  return [promo, setPromo, loaded] as const;
+  return useMemoryState<PromoEntitlement | null>(null);
 }
 
 export function useEntitlements(promoOverride?: PromoEntitlement | null) {
   const [serverEntitlement, setServerEntitlement] = useState<ServerEntitlement>(freeEntitlement);
   const [serverLoaded, setServerLoaded] = useState(false);
-  const [storedPromo, , promoLoaded] = usePromoEntitlements();
-  const promo = promoOverride === undefined ? storedPromo : promoOverride;
+  const promo = promoOverride ?? null;
 
   useEffect(() => {
+    if (!supabase) {
+      setServerLoaded(true);
+      return;
+    }
+    const client = supabase;
     let cancelled = false;
-    let seq = 0;
+    let sequence = 0;
+
     const load = async () => {
-      const mine = ++seq;
+      const mine = ++sequence;
       try {
-        // Link any locally redeemed promo to the account so the server remembers it.
-        await claimStoredPromoEntitlement();
+        const { data } = await client.auth.getSession();
+        if (!data.session) {
+          if (!cancelled && mine === sequence) {
+            setServerEntitlement(freeEntitlement);
+            setServerLoaded(true);
+          }
+          return;
+        }
+
         const entitlement = await fetchServerEntitlement();
-        // Ignore stale responses so an older "free" reply can't overwrite a newer one.
-        if (!cancelled && mine === seq) setServerEntitlement(entitlement);
+        if (!cancelled && mine === sequence) {
+          setServerEntitlement(entitlement);
+          setServerLoaded(true);
+        }
       } catch {
-        // Transient failure: keep the last known plan instead of downgrading.
-      } finally {
-        if (!cancelled && mine === seq) setServerLoaded(true);
+        // Never downgrade a known paid/promo state because of a transient
+        // network or auth race. The next auth event/refresh retries the load.
+        if (!cancelled && mine === sequence) setServerLoaded(true);
       }
     };
+
     void load();
-    const subscription = supabase?.auth.onAuthStateChange((event) => {
+    const listener = client.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_OUT") {
         setServerEntitlement(freeEntitlement);
+        setServerLoaded(true);
         return;
       }
       void load();
     });
     return () => {
       cancelled = true;
-      subscription?.data.subscription.unsubscribe();
+      listener.data.subscription.unsubscribe();
     };
   }, []);
 
@@ -219,65 +178,31 @@ export function useEntitlements(promoOverride?: PromoEntitlement | null) {
   return {
     entitlements: getEntitlements(effectivePlan),
     subscription: serverEntitlement,
-    loaded: serverLoaded && promoLoaded,
+    loaded: serverLoaded,
   };
 }
 
-
 export function useNotificationSettings() {
-  const local = usePersisted<NotificationSettings>(
-    "trackdebt.v3.notification_settings",
+  const local = useMemoryState<NotificationSettings>(defaultNotificationSettings);
+  return useCloudBacked(
     defaultNotificationSettings,
-    { validate: isPlainObject }
+    local,
+    (snapshot) => snapshot?.notificationSettings ?? defaultNotificationSettings,
+    syncCloudPreferences,
   );
-  return useCloudBacked(local, (snapshot) => snapshot?.notificationSettings ?? defaultNotificationSettings, syncCloudPreferences);
 }
 
 export function useInAppNotifications() {
-  const local = usePersisted<InAppNotification[]>("trackdebt.v3.in_app_notifications", [], { validate: Array.isArray });
-  const [notifications, setNotifications, localLoaded] = local;
-  const [cloudLoaded, setCloudLoaded] = useState(!supabase);
-  const signedIn = useRef(false);
-  const loadingCloud = useRef(false);
-  useEffect(() => {
-    if (!supabase) return;
-    const client = supabase;
-    let active = true;
-    const load = async () => {
-      const { data } = await client.auth.getSession();
-      signedIn.current = !!data.session;
-      if (!data.session) { if (active) setCloudLoaded(true); return; }
-      loadingCloud.current = true;
-      try { const cloud = await loadCloudNotifications(); if (active && cloud.length) setNotifications(cloud); }
-      catch { /* keep local notifications usable */ }
-      finally { loadingCloud.current = false; if (active) setCloudLoaded(true); }
-    };
-    void load();
-    const listener = client.auth.onAuthStateChange(() => { setCloudLoaded(false); void load(); });
-    // Pick up new admin broadcasts while the app is open.
-    const refresh = async () => {
-      if (!signedIn.current || loadingCloud.current) return;
-      try {
-        const cloud = await loadCloudNotifications();
-        if (!active || !cloud.length) return;
-        setNotifications((prev) => {
-          const known = new Set(prev.map((n) => n.id));
-          const fresh = cloud.filter((n) => !known.has(n.id));
-          return fresh.length ? [...fresh, ...prev] : prev;
-        });
-      } catch { /* offline — try again later */ }
-    };
-    const timer = setInterval(() => void refresh(), 120_000);
-    const onVisible = () => { if (document.visibilityState === "visible") void refresh(); };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => { active = false; clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); listener.data.subscription.unsubscribe(); };
-  }, []);
-  useEffect(() => {
-    if (!localLoaded || !cloudLoaded || loadingCloud.current || !signedIn.current) return;
-    void syncCloudNotifications(notifications);
-  }, [cloudLoaded, localLoaded, notifications]);
-  return [notifications, setNotifications, localLoaded && cloudLoaded] as const;
+  const local = useMemoryState<InAppNotification[]>([]);
+  const [notifications, setNotifications, loaded] = useCloudBacked(
+    [],
+    local,
+    (snapshot) => snapshot?.notifications ?? [],
+    syncCloudNotifications,
+  );
+  return [notifications, setNotifications, loaded] as const;
 }
+
 export type OnboardingTips = {
   addCustomer: boolean;
   openCustomer: boolean;
@@ -295,18 +220,13 @@ export const defaultOnboarding: OnboardingState = {
 };
 
 export function useOnboardingState() {
-  const local = usePersisted<OnboardingState>("trackdebt.v3.onboarding", defaultOnboarding, {
-    validate: isPlainObject,
-    migrate: (o) => ({
-      completed: !!o?.completed,
-      tips: {
-        addCustomer: !!o?.tips?.addCustomer,
-        openCustomer: !!o?.tips?.openCustomer,
-        reminder: !!o?.tips?.reminder,
-      },
-    }),
-  });
-  return useCloudBacked(local, (snapshot) => snapshot?.onboarding ?? defaultOnboarding, syncCloudOnboarding);
+  const local = useMemoryState<OnboardingState>(defaultOnboarding);
+  return useCloudBacked(
+    defaultOnboarding,
+    local,
+    (snapshot) => snapshot?.onboarding ?? defaultOnboarding,
+    syncCloudOnboarding,
+  );
 }
 
 /** Receipt numbering lives in its own module; re-exported here so existing

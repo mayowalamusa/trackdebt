@@ -95,9 +95,8 @@ import { downloadFile } from "@/lib/download";
 import { isProbablyValidPhone, normalizeForStorage } from "@/lib/phone";
 import { isValidEmail, isValidPromoCode, isValidSignupPassword, isValidPositiveAmount, normalizeDecimalInput, normalizePromoCode } from "@/lib/input-validation";
 import { planLabel } from "@/lib/subscription";
-import { currentSession, fetchServerEntitlement } from "@/lib/subscription-api";
+import { claimPromoEntitlement, currentSession, fetchServerEntitlement } from "@/lib/subscription-api";
 import { deleteCloudCustomer, deleteCloudTransaction } from "@/lib/cloud-data";
-import { claimStoredPromoEntitlement } from "@/lib/subscription-api";
 import { PaystackBankSetup, createPayLink, useCollectedPaymentsSync } from "@/components/paystack-collect";
 import { supabase } from "@/lib/supabase";
 import { DEVELOPER, SUPPORT_EMAIL, WEBSITE_URL } from "@/lib/app-config";
@@ -1227,8 +1226,14 @@ function DebtTracker() {
 
     if (res.ok) {
       setPromo({ plan: res.plan, expiresAt: res.expiresAt, code: res.code, token: res.token });
-      // Link the signed promo to a signed-in account once it is persisted locally.
-      window.setTimeout(() => void claimStoredPromoEntitlement(), 500);
+      const session = await currentSession();
+      if (session) {
+        try {
+          await claimPromoEntitlement(res.token);
+        } catch {
+          // The promo remains active for this page session; retrying is possible after sign-in refresh.
+        }
+      }
       toast.success(
         `Congratulations! You've unlocked Track Debt ${res.plan === "plus" ? "Plus" : "Premium"}.`,
       );

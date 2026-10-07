@@ -35,7 +35,6 @@ async function authorizedFetch(path: string, init?: RequestInit): Promise<Respon
 export async function fetchServerEntitlement(): Promise<ServerEntitlement> {
   if (!supabase) return freeEntitlement;
   const response = await authorizedFetch("/api/paystack/status");
-  if (response.status === 401 || response.status === 503) return freeEntitlement;
   if (!response.ok) throw new Error("Could not load subscription status.");
   const result = (await response.json()) as { ok?: boolean; entitlement?: ServerEntitlement };
   return result.ok && result.entitlement ? result.entitlement : freeEntitlement;
@@ -87,25 +86,12 @@ export async function restoreAccount(): Promise<void> {
   const result = (await response.json()) as { ok?: boolean; error?: string };
   if (!response.ok || !result.ok) throw new Error(result.error ?? "Could not restore the account.");
 }
-/** Links a locally stored, server-signed promo token to the signed-in account (best effort). */
-export async function claimStoredPromoEntitlement(): Promise<void> {
-  if (!supabase) return;
-  let token: unknown;
-  try {
-    const raw = window.localStorage.getItem("trackdebt.v3.promo");
-    const promo = raw ? (JSON.parse(raw) as { token?: unknown; expiresAt?: string } | null) : null;
-    if (!promo?.token || !promo.expiresAt || Date.parse(promo.expiresAt) <= Date.now()) return;
-    token = promo.token;
-  } catch {
-    return;
-  }
-  try {
-    await authorizedFetch("/api/promo/claim", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
-    });
-  } catch {
-    /* non-fatal: retried on next sign-in */
-  }
+/** Links a server-signed promo entitlement to the current account. */
+export async function claimPromoEntitlement(token: string): Promise<void> {
+  if (!supabase || !token) return;
+  await authorizedFetch("/api/promo/claim", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
 }
