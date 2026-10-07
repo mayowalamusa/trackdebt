@@ -6,7 +6,7 @@ import type { ReminderRecord } from "./reminders";
 import { defaultNotificationSettings, type InAppNotification, type NotificationSettings } from "./notifications";
 import { isPlainObject, readJSON, writeJSON } from "./storage";
 import { freeSubscription, normalize, resolvePlan, getEntitlements, type Subscription, type PromoEntitlement } from "./subscription";
-import { fetchServerEntitlement, freeEntitlement, type ServerEntitlement } from "./subscription-api";
+import { claimStoredPromoEntitlement, fetchServerEntitlement, freeEntitlement, type ServerEntitlement } from "./subscription-api";
 import { supabase } from "./supabase";
 import { loadCloudSnapshot, loadCloudNotifications, syncCloudCustomers, syncCloudNotifications, syncCloudOnboarding, syncCloudPreferences, syncCloudProfile, syncCloudReminders } from "./cloud-data";
 import { hasCompletedMigration } from "./local-migration";
@@ -183,6 +183,8 @@ export function useEntitlements(promoOverride?: PromoEntitlement | null) {
     const load = async () => {
       const mine = ++seq;
       try {
+        // Link any locally redeemed promo to the account so the server remembers it.
+        await claimStoredPromoEntitlement();
         const entitlement = await fetchServerEntitlement();
         // Ignore stale responses so an older "free" reply can't overwrite a newer one.
         if (!cancelled && mine === seq) setServerEntitlement(entitlement);
