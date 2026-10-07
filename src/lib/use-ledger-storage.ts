@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
 import type { BusinessProfile, Customer, Txn } from "./ledger";
 import { emptyProfile } from "./ledger";
 import type { ReminderRecord } from "./reminders";
@@ -7,7 +6,7 @@ import { defaultNotificationSettings, type InAppNotification, type NotificationS
 import { getEntitlements, type PromoEntitlement } from "./subscription";
 import { fetchServerEntitlement, freeEntitlement, type ServerEntitlement } from "./subscription-api";
 import { supabase } from "./supabase";
-import { loadCloudSnapshot, loadCloudNotifications, syncCloudCustomers, syncCloudNotifications, syncCloudOnboarding, syncCloudPreferences, syncCloudProfile, syncCloudReminders } from "./cloud-data";
+import { loadCloudSnapshot, syncCloudCustomers, syncCloudNotifications, syncCloudOnboarding, syncCloudPreferences, syncCloudProfile, syncCloudReminders } from "./cloud-data";
 import { setActiveCurrency } from "./currency/formatter";
 
 function useMemoryState<T>(initial: T) {
