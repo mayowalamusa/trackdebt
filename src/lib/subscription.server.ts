@@ -59,7 +59,22 @@ export async function getSubscription(admin: SupabaseClient, userId: string): Pr
 }
 
 export async function getEntitlement(admin: SupabaseClient, userId: string): Promise<Entitlement> {
-  return entitlementFromSubscription(await getSubscription(admin, userId));
+  const paid = entitlementFromSubscription(await getSubscription(admin, userId));
+  if (paid.plan === "plus") return paid;
+  // A promo code claimed by this account also grants Plus until it expires,
+  // so promo users keep their plan after a refresh or on another device.
+  const { data: promo } = await admin
+    .from("promo_redemptions")
+    .select("expires_at")
+    .eq("user_id", userId)
+    .gt("expires_at", new Date().toISOString())
+    .order("expires_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (promo?.expires_at) {
+    return { ...paid, plan: "plus", status: "active", currentPeriodEnd: promo.expires_at, nextPaymentAt: null };
+  }
+  return paid;
 }
 
 export function webhookEventKey(event: string, data: { id?: number; reference?: string; subscription_code?: string; subscription?: { subscription_code?: string } | null }): string | null {
