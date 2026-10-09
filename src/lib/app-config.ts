@@ -41,16 +41,6 @@ export const PLUS_BENEFITS = [
     detail: "Integrated WhatsApp reminder functionality.",
   },
   {
-    icon: "message-square",
-    title: "SMS Reminders — Coming Soon",
-    detail: "Send payment reminders by SMS once messaging delivery is launched.",
-  },
-  {
-    icon: "message-square",
-    title: "Email Reminders — Coming Soon",
-    detail: "Send payment reminders by email once messaging delivery is launched.",
-  },
-  {
     icon: "shield-check",
     title: "Priority Support",
     detail: "Faster response times for your business.",
@@ -70,6 +60,16 @@ export const PREMIUM_BENEFITS = [
     detail: "Smart scheduling and automated follow-ups.",
   },
   { icon: "users", title: "Bulk Messaging", detail: "Message multiple debtors at once." },
+  {
+    icon: "message-square",
+    title: "SMS Reminders — Coming Soon",
+    detail: "Send payment reminders by SMS after delivery, consent and unsubscribe support launch.",
+  },
+  {
+    icon: "message-square",
+    title: "Email Reminders — Coming Soon",
+    detail: "Send payment reminders by email after delivery, consent and unsubscribe support launch.",
+  },
   {
     icon: "bar-chart",
     title: "Advanced Analytics",
@@ -95,8 +95,8 @@ export const COMPARISON: {
   { feature: "Due-date notifications", free: true, plus: true, premium: true },
   { feature: "Promo code redemption", free: true, plus: true, premium: true },
   { feature: "WhatsApp sharing", free: true, plus: true, premium: true },
-  { feature: "SMS reminders (coming soon)", free: false, plus: "Coming soon", premium: "Coming soon" },
-  { feature: "Email reminders (coming soon)", free: false, plus: "Coming soon", premium: "Coming soon" },
+  { feature: "SMS reminders (coming soon)", free: false, plus: false, premium: "Coming soon" },
+  { feature: "Email reminders (coming soon)", free: false, plus: false, premium: "Coming soon" },
   { feature: "AI reminder generation", free: false, plus: true, premium: true },
   { feature: "Premium templates", free: false, plus: true, premium: true },
   { feature: "Voice entry", free: false, plus: true, premium: true },
