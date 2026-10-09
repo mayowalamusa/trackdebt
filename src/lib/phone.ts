@@ -86,3 +86,18 @@ export function normalizeForUniqueness(raw: string): string {
   if (/^234\d{10}$/.test(digits)) return "0" + digits.slice(3);
   return digits;
 }
+
+
+/** Finds a matching customer, including archived records. Pass the current
+ * customer id when editing to allow that record to retain its own number. */
+export function findCustomerByPhone<T extends { id: string; phone: string }>(
+  customers: readonly T[],
+  phone: string,
+  excludeId?: string,
+): T | null {
+  const key = normalizeForUniqueness(phone);
+  if (!key) return null;
+  return customers.find((customer) =>
+    customer.id !== excludeId && normalizeForUniqueness(customer.phone) === key
+  ) ?? null;
+}
