@@ -61,6 +61,16 @@ export const PREMIUM_BENEFITS = [
   },
   { icon: "users", title: "Bulk Messaging", detail: "Message multiple debtors at once." },
   {
+    icon: "message-square",
+    title: "SMS Reminders — Coming Soon",
+    detail: "Send payment reminders by SMS after delivery, consent and unsubscribe support launch.",
+  },
+  {
+    icon: "message-square",
+    title: "Email Reminders — Coming Soon",
+    detail: "Send payment reminders by email after delivery, consent and unsubscribe support launch.",
+  },
+  {
     icon: "bar-chart",
     title: "Advanced Analytics",
     detail: "Deep business intelligence and reports.",
@@ -85,6 +95,8 @@ export const COMPARISON: {
   { feature: "Due-date notifications", free: true, plus: true, premium: true },
   { feature: "Promo code redemption", free: true, plus: true, premium: true },
   { feature: "WhatsApp sharing", free: true, plus: true, premium: true },
+  { feature: "SMS reminders (coming soon)", free: false, plus: false, premium: "Coming soon" },
+  { feature: "Email reminders (coming soon)", free: false, plus: false, premium: "Coming soon" },
   { feature: "AI reminder generation", free: false, plus: true, premium: true },
   { feature: "Premium templates", free: false, plus: true, premium: true },
   { feature: "Voice entry", free: false, plus: true, premium: true },

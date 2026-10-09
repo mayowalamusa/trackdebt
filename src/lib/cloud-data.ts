@@ -4,6 +4,7 @@ import type { InAppNotification, NotificationSettings } from "./notifications";
 import { emptyProfile, normalizeCurrency } from "./ledger";
 import { defaultNotificationSettings } from "./notifications";
 import { supabase } from "./supabase";
+import { normalizeForUniqueness } from "./phone";
 
 export type CloudSnapshot = {
   profile: BusinessProfile;
@@ -295,7 +296,29 @@ export async function syncCloudCustomers(customers: Customer[]) {
         }
       }
     } else if (error) {
-      console.error("Customer sync failed", error.message);
+      if (error.code === "23505" && (error.message.includes("customers_user_phone_key_unique") || error.message.toLowerCase().includes("phone_key"))) {
+        for (const customer of customers) {
+          const phoneKey = normalizeForUniqueness(customer.phone);
+          if (!phoneKey) continue;
+          const { data: existing } = await supabase
+            .from("customers")
+            .select("legacy_id,name")
+            .eq("user_id", id)
+            .eq("phone_key", phoneKey)
+            .eq("phone_conflict", false)
+            .neq("legacy_id", customer.id)
+            .maybeSingle();
+          if (existing) {
+            try {
+              const { toast } = await import("sonner");
+              toast.error(`This phone number already belongs to ${String(existing.name)}. Open that customer and use its existing record.`);
+            } catch { /* non-browser */ }
+            break;
+          }
+        }
+      } else {
+        console.error("Customer sync failed", error.message);
+      }
       return;
     }
   }

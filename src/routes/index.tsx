@@ -92,7 +92,7 @@ import { generateReminder } from "@/lib/reminders.functions";
 import { redeemPromoCode } from "@/lib/promo-redeem";
 import { generateReceiptPdf, receiptSummary } from "@/lib/receipts";
 import { downloadFile } from "@/lib/download";
-import { isProbablyValidPhone, normalizeForStorage } from "@/lib/phone";
+import { isProbablyValidPhone, normalizeForStorage, findCustomerByPhone } from "@/lib/phone";
 import { isValidEmail, isValidPromoCode, isValidSignupPassword, isValidPositiveAmount, normalizeDecimalInput, normalizePromoCode } from "@/lib/input-validation";
 import { planLabel } from "@/lib/subscription";
 import { claimPromoEntitlement, currentSession, fetchServerEntitlement } from "@/lib/subscription-api";
@@ -757,13 +757,35 @@ function DebtTracker() {
   };
 
   /* ---------- mutations ---------- */
+  const findDuplicatePhone = (phone: string, excludeId?: string) => {
+    return findCustomerByPhone(customers, phone, excludeId);
+  };
+
+  const showDuplicateCustomer = (customer: Customer) => {
+    toast.error(`This phone number already belongs to ${customer.name}.`, {
+      action: {
+        label: "Open customer",
+        onClick: () => {
+          setSelectedId(customer.id);
+          go("detail");
+        },
+      },
+      duration: 8000,
+    });
+  };
+
   const addCustomer = () => {
     if (!form.name.trim() || !form.phone.trim()) return;
-    if (blockedByCustomerLimit()) return;
     if (!isProbablyValidPhone(form.phone)) {
       toast.error("That phone number doesn't look right. Please check it and try again.");
       return;
     }
+    const duplicate = findDuplicatePhone(form.phone);
+    if (duplicate) {
+      showDuplicateCustomer(duplicate);
+      return;
+    }
+    if (blockedByCustomerLimit()) return;
     setCustomers((cs) => [
       ...cs,
       {
@@ -785,6 +807,11 @@ function DebtTracker() {
     if (!selectedId || !form.name.trim() || !form.phone.trim()) return;
     if (!isProbablyValidPhone(form.phone)) {
       toast.error("That phone number doesn't look right. Please check it and try again.");
+      return;
+    }
+    const duplicate = findDuplicatePhone(form.phone, selectedId);
+    if (duplicate) {
+      showDuplicateCustomer(duplicate);
       return;
     }
     setCustomers((cs) =>

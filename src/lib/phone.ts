@@ -72,3 +72,32 @@ export function isProbablyValidPhone(raw: string): boolean {
   if (/^(\d)\1+$/.test(digits)) return false; // e.g. "0000000000"
   return true;
 }
+
+
+/**
+ * Canonical comparison key for customer identity. Formatting punctuation is
+ * ignored, and common Nigerian local/international representations converge.
+ * Invalid/ambiguous lengths return an empty key and are not used for matching.
+ */
+export function normalizeForUniqueness(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length < 7 || digits.length > 15) return "";
+  if (/^00234\d{10}$/.test(digits)) return "0" + digits.slice(5);
+  if (/^234\d{10}$/.test(digits)) return "0" + digits.slice(3);
+  return digits;
+}
+
+
+/** Finds a matching customer, including archived records. Pass the current
+ * customer id when editing to allow that record to retain its own number. */
+export function findCustomerByPhone<T extends { id: string; phone: string }>(
+  customers: readonly T[],
+  phone: string,
+  excludeId?: string,
+): T | null {
+  const key = normalizeForUniqueness(phone);
+  if (!key) return null;
+  return customers.find((customer) =>
+    customer.id !== excludeId && normalizeForUniqueness(customer.phone) === key
+  ) ?? null;
+}
