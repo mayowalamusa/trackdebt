@@ -92,7 +92,7 @@ import { generateReminder } from "@/lib/reminders.functions";
 import { redeemPromoCode } from "@/lib/promo-redeem";
 import { generateReceiptPdf, receiptSummary } from "@/lib/receipts";
 import { downloadFile } from "@/lib/download";
-import { isProbablyValidPhone, normalizeForStorage, normalizeForUniqueness } from "@/lib/phone";
+import { isProbablyValidPhone, normalizeForStorage, normalizeForUniqueness, findCustomerByPhone } from "@/lib/phone";
 import { isValidEmail, isValidPromoCode, isValidSignupPassword, isValidPositiveAmount, normalizeDecimalInput, normalizePromoCode } from "@/lib/input-validation";
 import { planLabel } from "@/lib/subscription";
 import { claimPromoEntitlement, currentSession, fetchServerEntitlement } from "@/lib/subscription-api";
@@ -758,11 +758,7 @@ function DebtTracker() {
 
   /* ---------- mutations ---------- */
   const findDuplicatePhone = (phone: string, excludeId?: string) => {
-    const key = normalizeForUniqueness(phone);
-    if (!key) return null;
-    return customers.find((customer) =>
-      customer.id !== excludeId && normalizeForUniqueness(customer.phone) === key
-    ) ?? null;
+    return findCustomerByPhone(customers, phone, excludeId);
   };
 
   const showDuplicateCustomer = (customer: Customer) => {
