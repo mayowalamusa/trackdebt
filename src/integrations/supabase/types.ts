@@ -201,6 +201,8 @@ export type Database = {
           name: string
           notes: string
           phone: string
+          phone_conflict: boolean
+          phone_key: string | null
           updated_at: string
           user_id: string
         }
@@ -213,6 +215,8 @@ export type Database = {
           name: string
           notes?: string
           phone?: string
+          phone_conflict?: boolean
+          phone_key?: string | null
           updated_at?: string
           user_id: string
         }
@@ -225,6 +229,8 @@ export type Database = {
           name?: string
           notes?: string
           phone?: string
+          phone_conflict?: boolean
+          phone_key?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -904,6 +910,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      customer_phone_key: { Args: { _phone: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

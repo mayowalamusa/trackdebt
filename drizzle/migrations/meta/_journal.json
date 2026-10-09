@@ -29,6 +29,13 @@
       "when": 1791353395325,
       "tag": "0003_backfill_plus_period_end",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791536423629,
+      "tag": "0004_customer_phone_uniqueness",
+      "breakpoints": true
     }
   ]
 }
