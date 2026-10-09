@@ -776,7 +776,6 @@ function DebtTracker() {
 
   const addCustomer = () => {
     if (!form.name.trim() || !form.phone.trim()) return;
-    if (blockedByCustomerLimit()) return;
     if (!isProbablyValidPhone(form.phone)) {
       toast.error("That phone number doesn't look right. Please check it and try again.");
       return;
@@ -786,6 +785,7 @@ function DebtTracker() {
       showDuplicateCustomer(duplicate);
       return;
     }
+    if (blockedByCustomerLimit()) return;
     setCustomers((cs) => [
       ...cs,
       {
