@@ -92,7 +92,7 @@ import { generateReminder } from "@/lib/reminders.functions";
 import { redeemPromoCode } from "@/lib/promo-redeem";
 import { generateReceiptPdf, receiptSummary } from "@/lib/receipts";
 import { downloadFile } from "@/lib/download";
-import { isProbablyValidPhone, normalizeForStorage, normalizeForUniqueness, findCustomerByPhone } from "@/lib/phone";
+import { isProbablyValidPhone, normalizeForStorage, findCustomerByPhone } from "@/lib/phone";
 import { isValidEmail, isValidPromoCode, isValidSignupPassword, isValidPositiveAmount, normalizeDecimalInput, normalizePromoCode } from "@/lib/input-validation";
 import { planLabel } from "@/lib/subscription";
 import { claimPromoEntitlement, currentSession, fetchServerEntitlement } from "@/lib/subscription-api";
