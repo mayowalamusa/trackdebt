@@ -44,7 +44,7 @@ jobs:
         run: npm ci
 
       - name: Test input validation
-        run: npm test -- src/lib/input-validation.test.ts
+        run: npm test -- src/lib/input-validation.test.ts src/lib/phone.test.ts
 
       - name: Build
         run: npm run build
