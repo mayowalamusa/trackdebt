@@ -40,4 +40,8 @@ describe("findCustomerByPhone", () => {
   it("does not match the same phone against a different customer id", () => {
     expect(findCustomerByPhone(customers, "08031234567", "b")?.id).toBe("a");
   });
+
+  it("does not match unrelated international numbers to a Nigerian number", () => {
+    expect(findCustomerByPhone(customers, "+1 202 555 0100")).toBeNull();
+  });
 });
