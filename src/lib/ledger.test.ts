@@ -130,26 +130,26 @@ describe("active customer limit", () => {
     expect(isActiveCustomer({ archivedAt: "2026-10-01" })).toBe(false);
     expect(countActiveCustomers(make(3, 5))).toBe(3);
   });
-  it("allows the 20th but blocks the 21st on Free", () => {
-    expect(canAddActiveCustomer(make(19), 20)).toBe(true);
-    expect(canAddActiveCustomer(make(20), 20)).toBe(false);
-    expect(canAddActiveCustomer(make(25), 20)).toBe(false);
+  it("allows the 10th but blocks the 11th on Free", () => {
+    expect(canAddActiveCustomer(make(9), 10)).toBe(true);
+    expect(canAddActiveCustomer(make(10), 10)).toBe(false);
+    expect(canAddActiveCustomer(make(25), 10)).toBe(false);
   });
   it("does not count archived customers toward the limit", () => {
-    expect(canAddActiveCustomer(make(19, 30), 20)).toBe(true);
+    expect(canAddActiveCustomer(make(9, 30), 10)).toBe(true);
   });
   it("is unlimited when the limit is null", () => {
     expect(canAddActiveCustomer(make(500), null)).toBe(true);
   });
-  it("plan config: Free 20, Plus and Premium unlimited", () => {
-    expect(FREE_ACTIVE_CUSTOMER_LIMIT).toBe(20);
-    expect(PLAN_LIMITS.free.maxActiveCustomers).toBe(20);
-    expect(getEntitlements("free").maxActiveCustomers).toBe(20);
+  it("plan config: Free 10, Plus and Premium unlimited", () => {
+    expect(FREE_ACTIVE_CUSTOMER_LIMIT).toBe(10);
+    expect(PLAN_LIMITS.free.maxActiveCustomers).toBe(10);
+    expect(getEntitlements("free").maxActiveCustomers).toBe(10);
     expect(getEntitlements("plus").maxActiveCustomers).toBeNull();
     expect(getEntitlements("premium").maxActiveCustomers).toBeNull();
   });
   it("shows the limit in the comparison table", () => {
     const row = COMPARISON.find((r) => r.feature === "Active customers");
-    expect(row).toMatchObject({ free: "Up to 20", plus: "Unlimited", premium: "Unlimited" });
+    expect(row).toMatchObject({ free: "Up to 10", plus: "Unlimited", premium: "Unlimited" });
   });
 });
