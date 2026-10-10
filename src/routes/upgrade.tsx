@@ -348,9 +348,14 @@ function UpgradePage() {
                 <strong className="text-ink">
                   Up to {FREE_ACTIVE_CUSTOMER_LIMIT} active customers.
                 </strong>{" "}
-                Track credit sales, payments and due dates. When you reach the limit, archive a
-                customer or upgrade to Plus for unlimited customers.
+                Track credit sales, payments and due dates. Archive customers you no longer need
+                active, or upgrade to Plus for unlimited customers.
               </p>
+              {entitlements.plan === "free" && (
+                <p className="rounded-lg bg-paid/5 border border-paid/20 px-3 py-2 text-xs font-medium text-ink leading-relaxed">
+                  Your business is growing! Upgrade to Plus for unlimited customers at ₦1,000/month.
+                </p>
+              )}
               {entitlements.plan === "free" && (
                 <div className="text-center py-2 px-4 rounded-lg bg-ink/5 text-ink text-[11px] font-bold">
                   YOUR CURRENT PLAN
