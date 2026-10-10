@@ -7,7 +7,7 @@ export const PLUS_COMING_SOON = false;
 export type PlanId = "free" | "plus" | "premium";
 
 /** Customer limits per plan. `null` means unlimited. Active = not archived. */
-export const FREE_ACTIVE_CUSTOMER_LIMIT = 20;
+export const FREE_ACTIVE_CUSTOMER_LIMIT = 10;
 export const PLAN_LIMITS: Record<PlanId, { maxActiveCustomers: number | null }> = {
   free: { maxActiveCustomers: FREE_ACTIVE_CUSTOMER_LIMIT },
   plus: { maxActiveCustomers: null },
