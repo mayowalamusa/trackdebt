@@ -744,7 +744,7 @@ function DebtTracker() {
   /** Returns true (and shows an upgrade prompt) when the plan limit blocks a new active customer. */
   const blockedByCustomerLimit = () => {
     if (!atCustomerLimit) return false;
-    toast.error(`Free plan allows up to ${customerLimit} active customers. Archive a customer or upgrade to Plus for unlimited customers.`, {
+    toast.error(`Your business is growing! Your Free plan allows up to ${customerLimit} active customers. Archive a customer or upgrade to Plus for unlimited customers at ₦1,000/month.`, {
       action: { label: "Upgrade", onClick: () => { window.location.assign("/upgrade"); } },
     });
     return true;
