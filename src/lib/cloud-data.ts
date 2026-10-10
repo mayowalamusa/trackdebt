@@ -246,7 +246,7 @@ async function notifyLimitOnce() {
   try {
     const { toast } = await import("sonner");
     toast.error(
-      "Your Free plan allows 20 active customers in the cloud. Extra customers were saved as archived. Upgrade to Plus for unlimited customers.",
+      "Your business is growing! Your Free plan allows 10 active customers in the cloud. Extra customers were saved as archived. Upgrade to Plus for unlimited customers at ₦1,000/month.",
     );
   } catch {
     /* non-browser */
