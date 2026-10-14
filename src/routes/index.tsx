@@ -968,11 +968,62 @@ function DebtTracker() {
     go("editTxn");
   };
 
-  const onLogo = (file: File | undefined) => {
+  const onLogo = async (file: File | undefined) => {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setProfile((p) => ({ ...p, logo: String(reader.result) }));
-    reader.readAsDataURL(file);
+
+    // Treat uploads as hostile input: allow only raster formats, verify file
+    // signatures (not just the user-controlled MIME type), cap bytes/pixels,
+    // and re-encode the decoded image to strip metadata and embedded payloads.
+    const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+    const signatures: Record<string, (bytes: Uint8Array) => boolean> = {
+      "image/jpeg": (b) => b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
+      "image/png": (b) => b.length >= 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 && b[4] === 0x0d && b[5] === 0x0a && b[6] === 0x1a && b[7] === 0x0a,
+      "image/webp": (b) => b.length >= 12 && String.fromCharCode(...b.slice(0, 4)) === "RIFF" && String.fromCharCode(...b.slice(8, 12)) === "WEBP",
+    };
+
+    if (!allowedTypes.has(file.type) || file.size > 5 * 1024 * 1024 || file.size === 0) {
+      toast.error("Choose a JPG, PNG, or WebP logo smaller than 5 MB.");
+      return;
+    }
+
+    try {
+      const bytes = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+      if (!signatures[file.type]?.(bytes)) {
+        toast.error("This file does not appear to be a valid image. Choose a JPG, PNG, or WebP.");
+        return;
+      }
+
+      const bitmap = await createImageBitmap(file);
+      if (bitmap.width < 1 || bitmap.height < 1 || bitmap.width > 4096 || bitmap.height > 4096 || bitmap.width * bitmap.height > 16_000_000) {
+        bitmap.close();
+        toast.error("Image dimensions are too large. Use an image up to 4096 × 4096 pixels.");
+        return;
+      }
+
+      const scale = Math.min(1, 1024 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const context = canvas.getContext("2d");
+      if (!context) {
+        bitmap.close();
+        toast.error("This image could not be processed. Please try another file.");
+        return;
+      }
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close();
+
+      // Persist only a newly encoded PNG, never the original uploaded bytes.
+      const safeLogo = canvas.toDataURL("image/png");
+      if (safeLogo.length > 2 * 1024 * 1024) {
+        toast.error("This logo is still too large after processing. Choose a simpler image.");
+        return;
+      }
+      setProfile((p) => ({ ...p, logo: safeLogo }));
+      toast.success("Business logo updated securely.");
+    } catch {
+      toast.error("We could not safely process this image. Please choose another JPG, PNG, or WebP.");
+    }
   };
 
   const setP = (patch: Partial<BusinessProfile>) => {
