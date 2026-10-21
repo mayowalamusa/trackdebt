@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import { Camera, Check } from "lucide-react";
+import { toast } from "sonner";
 import {
   APP_NAME,
   BUSINESS_CATEGORIES,
@@ -16,6 +17,7 @@ import { issueReceiptReference } from "@/lib/use-ledger-storage";
 import { Field } from "@/components/ui-kit";
 import { isValidEmail, isValidPositiveAmount, normalizeDecimalInput } from "@/lib/input-validation";
 import { isProbablyValidPhone } from "@/lib/phone";
+import { sanitizeLogoFile } from "@/lib/secure-image";
 
 function LocalInput({
   initialValue,
@@ -93,11 +95,14 @@ export function Onboarding({
   const [termKey, setTermKey] = useState<TermKey>("none");
   const [customDueDate, setCustomDueDate] = useState("");
 
-  const onLogo = (file: File | undefined) => {
+  const onLogo = async (file: File | undefined) => {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setBiz((b) => ({ ...b, logo: String(reader.result) }));
-    reader.readAsDataURL(file);
+    try {
+      const safeLogo = await sanitizeLogoFile(file);
+      setBiz((b) => ({ ...b, logo: safeLogo }));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "This image could not be safely processed.");
+    }
   };
 
   const skipAll = () => {
@@ -254,7 +259,7 @@ export function Onboarding({
                     <input
                       id="ob-logo-input"
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp"
                       className="hidden"
                       onChange={(e) => onLogo(e.target.files?.[0])}
                     />
