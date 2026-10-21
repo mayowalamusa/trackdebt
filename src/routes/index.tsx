@@ -99,6 +99,7 @@ import { claimPromoEntitlement, currentSession, fetchServerEntitlement } from "@
 import { deleteCloudCustomer, deleteCloudTransaction } from "@/lib/cloud-data";
 import { PaystackBankSetup, createPayLink, useCollectedPaymentsSync } from "@/components/paystack-collect";
 import { supabase } from "@/lib/supabase";
+import { sanitizeLogoFile } from "@/lib/secure-image";
 import { DEVELOPER, SUPPORT_EMAIL, WEBSITE_URL } from "@/lib/app-config";
 import { SUPPORTED_CURRENCIES, getCurrency } from "@/lib/currency/currencies";
 import { getExchangeRate } from "@/lib/currency/rates";
@@ -968,11 +969,14 @@ function DebtTracker() {
     go("editTxn");
   };
 
-  const onLogo = (file: File | undefined) => {
+  const onLogo = async (file: File | undefined) => {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setProfile((p) => ({ ...p, logo: String(reader.result) }));
-    reader.readAsDataURL(file);
+    try {
+      const safeLogo = await sanitizeLogoFile(file);
+      setProfile((p) => ({ ...p, logo: safeLogo }));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "This image could not be safely processed.");
+    }
   };
 
   const setP = (patch: Partial<BusinessProfile>) => {
@@ -1747,7 +1751,7 @@ function DebtTracker() {
               <input
                 ref={logoInput}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 className="hidden"
                 onChange={(e) => onLogo(e.target.files?.[0])}
               />
