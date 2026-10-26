@@ -211,7 +211,28 @@ export async function syncCloudProfile(
 ) {
   const id = await userId();
   if (!supabase || !id) return;
-  await supabase.from("profiles").upsert(
+  const profileHasData = Boolean(
+    profile.name || profile.phone || profile.address || profile.email || profile.category ||
+    profile.logo || profile.bankName || profile.accountNumber || profile.accountName ||
+    profile.currency !== emptyProfile.currency
+  );
+  if (!profileHasData && !onboarding) {
+    const { data: existing, error: readError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", id)
+      .maybeSingle();
+    if (readError) {
+      console.error("Business profile check failed", readError.message);
+      throw readError;
+    }
+    if (existing) {
+      console.warn("Skipped empty profile sync to protect saved business details.");
+      return;
+    }
+  }
+
+  const { error } = await supabase.from("profiles").upsert(
     {
       id,
       business_name: profile.name,
@@ -230,6 +251,10 @@ export async function syncCloudProfile(
     },
     { onConflict: "id" },
   );
+  if (error) {
+    console.error("Business profile save failed", error.message);
+    throw error;
+  }
 }
 
 export const CUSTOMER_LIMIT_ERROR = "customer_limit_reached";
