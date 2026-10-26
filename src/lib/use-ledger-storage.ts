@@ -22,7 +22,7 @@ function useCloudBacked<T>(
   const [value, setValue] = local;
   const [cloudActive, setCloudActive] = useState(false);
   const [loaded, setLoaded] = useState(!supabase);
-  const initialValue = useRef(initial);
+  const initialValue = useRef(value);
   const valueRef = useRef(value);
   useEffect(() => { valueRef.current = value; }, [value]);
 
