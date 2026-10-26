@@ -22,7 +22,7 @@ function useCloudBacked<T>(
   const [value, setValue] = local;
   const [cloudActive, setCloudActive] = useState(false);
   const [loaded, setLoaded] = useState(!supabase);
-  const initialValue = useRef(initial);
+  const initialValue = useRef(value);
   const valueRef = useRef(value);
   useEffect(() => { valueRef.current = value; }, [value]);
 
@@ -84,15 +84,47 @@ function useCloudBacked<T>(
     if (loaded && cloudActive) void sync(value);
   }, [cloudActive, loaded, sync, value]);
 
-  return [value, setValue, loaded] as const;
+  return [value, setValue, loaded, cloudActive] as const;
+}
+
+const VISITOR_CUSTOMERS_CACHE_KEY = "trackdebt.visitor-customers.v1";
+
+function readVisitorCustomers(): Customer[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(VISITOR_CUSTOMERS_CACHE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed as Customer[] : [];
+  } catch {
+    return [];
+  }
 }
 
 export function usePersistentCustomers() {
-  const local = useMemoryState<Customer[]>([]);
-  return useCloudBacked([], local, (snapshot) => snapshot?.customers ?? [], syncCloudCustomers);
+  // Visitors have no cloud identity, so persist their ledger on this device only.
+  // Signed-in customer data remains cloud-backed and is never written to the shared guest cache.
+  const local = useState<Customer[]>(() => readVisitorCustomers());
+  const [customers, setCustomers, loaded, cloudActive] = useCloudBacked(
+    [],
+    local,
+    (snapshot) => snapshot?.customers ?? [],
+    syncCloudCustomers,
+  );
+  useEffect(() => {
+    if (!loaded || cloudActive || typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(VISITOR_CUSTOMERS_CACHE_KEY, JSON.stringify(customers));
+    } catch {
+      // Keep the app usable if browser storage is unavailable or full.
+    }
+  }, [customers, loaded, cloudActive]);
+  return [customers, setCustomers, loaded] as const;
 }
 
 export function usePersistentProfile() {
+  // Signed-in business details are loaded from and saved to the account's cloud profile.
+  // Do not use a shared local profile cache: it can leak one account's details into another.
   const local = useMemoryState<BusinessProfile>(emptyProfile);
   const [profile, setProfile, loaded] = useCloudBacked(
     emptyProfile,
