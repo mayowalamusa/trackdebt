@@ -213,7 +213,8 @@ export async function syncCloudProfile(
   if (!supabase || !id) return;
   const profileHasData = Boolean(
     profile.name || profile.phone || profile.address || profile.email || profile.category ||
-    profile.logo || profile.bankName || profile.accountNumber || profile.accountName
+    profile.logo || profile.bankName || profile.accountNumber || profile.accountName ||
+    profile.currency !== emptyProfile.currency
   );
   if (!profileHasData && !onboarding) {
     const { data: existing, error: readError } = await supabase
