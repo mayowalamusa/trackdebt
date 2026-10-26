@@ -211,6 +211,26 @@ export async function syncCloudProfile(
 ) {
   const id = await userId();
   if (!supabase || !id) return;
+  const profileHasData = Boolean(
+    profile.name || profile.phone || profile.address || profile.email || profile.category ||
+    profile.logo || profile.bankName || profile.accountNumber || profile.accountName
+  );
+  if (!profileHasData && !onboarding) {
+    const { data: existing, error: readError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", id)
+      .maybeSingle();
+    if (readError) {
+      console.error("Business profile check failed", readError.message);
+      throw readError;
+    }
+    if (existing) {
+      console.warn("Skipped empty profile sync to protect saved business details.");
+      return;
+    }
+  }
+
   const { error } = await supabase.from("profiles").upsert(
     {
       id,
