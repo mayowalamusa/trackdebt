@@ -211,7 +211,7 @@ export async function syncCloudProfile(
 ) {
   const id = await userId();
   if (!supabase || !id) return;
-  await supabase.from("profiles").upsert(
+  const { error } = await supabase.from("profiles").upsert(
     {
       id,
       business_name: profile.name,
@@ -230,6 +230,10 @@ export async function syncCloudProfile(
     },
     { onConflict: "id" },
   );
+  if (error) {
+    console.error("Business profile save failed", error.message);
+    throw error;
+  }
 }
 
 export const CUSTOMER_LIMIT_ERROR = "customer_limit_reached";
