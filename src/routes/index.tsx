@@ -495,9 +495,28 @@ function AccountScreen({ onClose }: { onClose: () => void }) {
               disabled={busy || !isValidEmail(email) || (mode === "sign-up" ? !registrationEnabled || !isValidSignupPassword(password) : !password.length)}
               className="btn-primary w-full rounded-lg py-3 text-sm font-semibold mt-3 disabled:opacity-50"
             >
-              {busy ? "Please wait…" : mode === "sign-up" ? "Create free account" : "Sign in"}
+              {busy ? (
+                <span className="inline-flex items-center justify-center gap-2">
+                  <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" />
+                  {mode === "sign-up" ? "Creating account…" : "Signing in…"}
+                </span>
+              ) : mode === "sign-up" ? "Create free account" : "Sign in"}
             </button>
-            {message && <p className="mt-3 text-xs text-ink-soft">{message}</p>}
+            {message && (
+              <div
+                role="alert"
+                aria-live="polite"
+                className={`mt-4 rounded-lg border px-3.5 py-3 text-sm font-medium leading-relaxed ${
+                  /confirm your account|confirm your email|already exists|closed|not configured|must be|could not|invalid|error|failed|unable/i.test(message)
+                    ? "border-red-300 bg-red-50 text-red-800"
+                    : /check your email/i.test(message)
+                      ? "border-red-400 bg-red-50 text-red-800 ring-1 ring-red-200"
+                      : "border-emerald-300 bg-emerald-50 text-emerald-800"
+                }`}
+              >
+                {message}
+              </div>
+            )}
           </div>
           <button
             type="button"
