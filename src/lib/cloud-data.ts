@@ -202,7 +202,7 @@ export async function ensureCloudProfile(profile?: Partial<BusinessProfile>) {
   );
 }
 
-export async function syncCloudProfile(
+async function writeCloudProfile(
   profile: BusinessProfile,
   onboarding?: {
     completed: boolean;
@@ -255,6 +255,23 @@ export async function syncCloudProfile(
     console.error("Business profile save failed", error.message);
     throw error;
   }
+}
+
+// Profile edits can trigger multiple cloud syncs in quick succession. Serialize writes so an
+// older, slower request cannot finish last and overwrite the user's latest profile values.
+let profileSyncQueue: Promise<void> = Promise.resolve();
+
+export function syncCloudProfile(
+  profile: BusinessProfile,
+  onboarding?: {
+    completed: boolean;
+    tips: { addCustomer: boolean; openCustomer: boolean; reminder: boolean };
+  },
+): Promise<void> {
+  const next = profileSyncQueue.then(() => writeCloudProfile(profile, onboarding));
+  // Keep the queue usable after a failed save while still returning that failure to the caller.
+  profileSyncQueue = next.catch(() => undefined);
+  return next;
 }
 
 export const CUSTOMER_LIMIT_ERROR = "customer_limit_reached";
