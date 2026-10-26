@@ -139,7 +139,7 @@ export function usePersistentProfile() {
     syncCloudProfile,
   );
   useEffect(() => {
-    if (typeof window !== "undefined" && profileHasDetails(profile)) {
+    if (typeof window !== "undefined") {
       try {
         window.localStorage.setItem(BUSINESS_PROFILE_CACHE_KEY, JSON.stringify(profile));
       } catch {
