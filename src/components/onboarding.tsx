@@ -105,6 +105,34 @@ export function Onboarding({
     }
   };
 
+  const pickCustomerFromContacts = async () => {
+    type ContactPickerApi = {
+      select: (
+        properties: string[],
+        options?: { multiple?: boolean },
+      ) => Promise<Array<{ name?: string[]; tel?: string[] }>>;
+    };
+    const picker = (navigator as Navigator & { contacts?: ContactPickerApi }).contacts;
+    if (!picker) {
+      toast.error("Contact selection is not supported by this browser. Please enter the details manually, or try Chrome on Android.");
+      return;
+    }
+    try {
+      const selected = await picker.select(["name", "tel"], { multiple: false });
+      const contact = selected[0];
+      if (!contact) return;
+      const name = contact.name?.find((value) => value.trim()) ?? "";
+      const phone = contact.tel?.find((value) => value.trim()) ?? "";
+      if (name) setCustName(name.trim());
+      if (phone) setCustPhone(phone.trim());
+      if (name || phone) toast.success("Contact details added. Please review them before continuing.");
+      else toast.error("The selected contact has no name or phone number available.");
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") return;
+      toast.error("Could not read that contact. You can enter the details manually.");
+    }
+  };
+
   const skipAll = () => {
     onDone();
   };
@@ -342,6 +370,13 @@ export function Onboarding({
 
               {step === "customer" && (
                 <>
+                  <button
+                    type="button"
+                    onClick={() => void pickCustomerFromContacts()}
+                    className="w-full rounded-lg border border-line bg-paper-raised py-3 text-sm font-semibold text-ink mb-4"
+                  >
+                    Choose from phone contacts
+                  </button>
                   <Field label="CUSTOMER NAME">
                     <LocalInput
                       initialValue={custName}
