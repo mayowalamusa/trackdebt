@@ -32,7 +32,8 @@ function useCloudBacked<T>(
     let active = true;
 
     const load = async () => {
-      setLoaded(false);
+      // Keep the current UI mounted during auth refreshes (e.g. when the app resumes).
+      // Initial loading is already represented by the hook's initial loaded=false state.
       try {
         const { data } = await client.auth.getSession();
         if (!data.session) {
