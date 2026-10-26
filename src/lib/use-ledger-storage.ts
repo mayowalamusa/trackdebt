@@ -84,69 +84,54 @@ function useCloudBacked<T>(
     if (loaded && cloudActive) void sync(value);
   }, [cloudActive, loaded, sync, value]);
 
-  return [value, setValue, loaded] as const;
+  return [value, setValue, loaded, cloudActive] as const;
 }
 
-export function usePersistentCustomers() {
-  const local = useMemoryState<Customer[]>([]);
-  return useCloudBacked([], local, (snapshot) => snapshot?.customers ?? [], syncCloudCustomers);
-}
+const VISITOR_CUSTOMERS_CACHE_KEY = "trackdebt.visitor-customers.v1";
 
-const BUSINESS_PROFILE_CACHE_KEY = "trackdebt.business-profile.v1";
-
-function readCachedBusinessProfile(): BusinessProfile {
-  if (typeof window === "undefined") return emptyProfile;
+function readVisitorCustomers(): Customer[] {
+  if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(BUSINESS_PROFILE_CACHE_KEY);
-    if (!raw) return emptyProfile;
-    const parsed = JSON.parse(raw) as Partial<BusinessProfile>;
-    return {
-      ...emptyProfile,
-      ...parsed,
-      // Never trust persisted values for the currency outside the supported app model.
-      currency: typeof parsed.currency === "string" ? parsed.currency : emptyProfile.currency,
-    };
+    const raw = window.localStorage.getItem(VISITOR_CUSTOMERS_CACHE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed as Customer[] : [];
   } catch {
-    return emptyProfile;
+    return [];
   }
 }
 
-function profileHasDetails(profile: BusinessProfile): boolean {
-  return Boolean(
-    profile.name || profile.phone || profile.address || profile.email || profile.category ||
-    profile.logo || profile.bankName || profile.accountNumber || profile.accountName ||
-    profile.currency !== emptyProfile.currency
+export function usePersistentCustomers() {
+  // Visitors have no cloud identity, so persist their ledger on this device only.
+  // Signed-in customer data remains cloud-backed and is never written to the shared guest cache.
+  const local = useState<Customer[]>(() => readVisitorCustomers());
+  const [customers, setCustomers, loaded, cloudActive] = useCloudBacked(
+    [],
+    local,
+    (snapshot) => snapshot?.customers ?? [],
+    syncCloudCustomers,
   );
+  useEffect(() => {
+    if (!loaded || cloudActive || typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(VISITOR_CUSTOMERS_CACHE_KEY, JSON.stringify(customers));
+    } catch {
+      // Keep the app usable if browser storage is unavailable or full.
+    }
+  }, [customers, loaded, cloudActive]);
+  return [customers, setCustomers, loaded] as const;
 }
 
 export function usePersistentProfile() {
-  // The profile editor previously started from an in-memory empty object on every page
-  // load. If cloud hydration was delayed or a profile row was absent/blank, the empty
-  // state could be shown and synced back. Cache only the business profile as a recovery
-  // source; customer and transaction persistence paths are deliberately unchanged.
-  const local = useState<BusinessProfile>(() => readCachedBusinessProfile());
+  // Signed-in business details are loaded from and saved to the account's cloud profile.
+  // Do not use a shared local profile cache: it can leak one account's details into another.
+  const local = useMemoryState<BusinessProfile>(emptyProfile);
   const [profile, setProfile, loaded] = useCloudBacked(
     emptyProfile,
     local,
-    (snapshot) => {
-      const cloudProfile = snapshot?.profile ?? emptyProfile;
-      const cachedProfile = readCachedBusinessProfile();
-      if (!profileHasDetails(cloudProfile) && profileHasDetails(cachedProfile)) {
-        return cachedProfile;
-      }
-      return cloudProfile;
-    },
+    (snapshot) => snapshot?.profile ?? emptyProfile,
     syncCloudProfile,
   );
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        window.localStorage.setItem(BUSINESS_PROFILE_CACHE_KEY, JSON.stringify(profile));
-      } catch {
-        // Cloud persistence remains the primary store; local cache is best-effort recovery.
-      }
-    }
-  }, [profile]);
   useEffect(() => {
     if (loaded) setActiveCurrency(profile.currency);
   }, [loaded, profile.currency]);
