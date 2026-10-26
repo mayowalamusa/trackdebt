@@ -92,14 +92,61 @@ export function usePersistentCustomers() {
   return useCloudBacked([], local, (snapshot) => snapshot?.customers ?? [], syncCloudCustomers);
 }
 
+const BUSINESS_PROFILE_CACHE_KEY = "trackdebt.business-profile.v1";
+
+function readCachedBusinessProfile(): BusinessProfile {
+  if (typeof window === "undefined") return emptyProfile;
+  try {
+    const raw = window.localStorage.getItem(BUSINESS_PROFILE_CACHE_KEY);
+    if (!raw) return emptyProfile;
+    const parsed = JSON.parse(raw) as Partial<BusinessProfile>;
+    return {
+      ...emptyProfile,
+      ...parsed,
+      // Never trust persisted values for the currency outside the supported app model.
+      currency: typeof parsed.currency === "string" ? parsed.currency : emptyProfile.currency,
+    };
+  } catch {
+    return emptyProfile;
+  }
+}
+
+function profileHasDetails(profile: BusinessProfile): boolean {
+  return Boolean(
+    profile.name || profile.phone || profile.address || profile.email || profile.category ||
+    profile.logo || profile.bankName || profile.accountNumber || profile.accountName ||
+    profile.currency !== emptyProfile.currency
+  );
+}
+
 export function usePersistentProfile() {
-  const local = useMemoryState<BusinessProfile>(emptyProfile);
+  // The profile editor previously started from an in-memory empty object on every page
+  // load. If cloud hydration was delayed or a profile row was absent/blank, the empty
+  // state could be shown and synced back. Cache only the business profile as a recovery
+  // source; customer and transaction persistence paths are deliberately unchanged.
+  const local = useState<BusinessProfile>(() => readCachedBusinessProfile());
   const [profile, setProfile, loaded] = useCloudBacked(
     emptyProfile,
     local,
-    (snapshot) => snapshot?.profile ?? emptyProfile,
+    (snapshot) => {
+      const cloudProfile = snapshot?.profile ?? emptyProfile;
+      const cachedProfile = readCachedBusinessProfile();
+      if (!profileHasDetails(cloudProfile) && profileHasDetails(cachedProfile)) {
+        return cachedProfile;
+      }
+      return cloudProfile;
+    },
     syncCloudProfile,
   );
+  useEffect(() => {
+    if (typeof window !== "undefined" && profileHasDetails(profile)) {
+      try {
+        window.localStorage.setItem(BUSINESS_PROFILE_CACHE_KEY, JSON.stringify(profile));
+      } catch {
+        // Cloud persistence remains the primary store; local cache is best-effort recovery.
+      }
+    }
+  }, [profile]);
   useEffect(() => {
     if (loaded) setActiveCurrency(profile.currency);
   }, [loaded, profile.currency]);
